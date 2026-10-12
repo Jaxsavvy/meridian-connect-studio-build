@@ -1,0 +1,6 @@
+{
+  "serverUrl": "http://127.0.0.1:7871/connect",
+  "apiTimeoutMs": 10000,
+  "reconnectIntervalMs": 5000,
+  "description": "Safe local development defaults. Configure each developer's endpoint outside this repository."
+}
