@@ -1,0 +1,66 @@
+name: Connect source checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: find src -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+      - name: Check source and packaging inputs
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const readJson = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pkg = readJson('package.json');
+          const lock = readJson('package-lock.json');
+          const settings = readJson('config/settings.json');
+          assert.equal(pkg.name, 'meridian-connect');
+          assert.equal(lock.version, pkg.version);
+          assert.deepEqual(pkg.build.files, [
+            'src/**/*',
+            'config/settings.json',
+            'assets/meridian.ico',
+            'package.json',
+          ]);
+          const endpoint = new URL(settings.serverUrl);
+          assert.ok(['127.0.0.1', 'localhost'].includes(endpoint.hostname));
+          assert.equal(endpoint.username, '');
+          assert.equal(endpoint.password, '');
+          for (const path of [
+            'src/main.js', 'src/preload.js', 'src/renderer/index.html',
+            'src/renderer/assets/command-hero.png',
+            'src/renderer/assets/mark.webp',
+            'src/renderer/assets/meridian-256.png',
+            'src/renderer/assets/meridian-valley-banner-v2.png',
+            'src/renderer/assets/meridian.ico',
+            'src/renderer/fonts/inter-latin-400-normal.woff2',
+            'src/renderer/fonts/inter-latin-500-normal.woff2',
+            'src/renderer/fonts/inter-latin-600-normal.woff2',
+            'src/renderer/fonts/source-serif-4-latin-400-normal.woff2',
+            'src/renderer/fonts/source-serif-4-latin-600-normal.woff2',
+            'assets/meridian.ico', 'build/installer.nsh',
+          ]) assert.ok(fs.existsSync(path), `Missing required file: ${path}`);
+          NODE
+      - name: Reject prohibited tracked file types and directories
+        run: |
+          if git ls-files | grep -Eiq '(^|/)(core|overseer|team-hub|node_modules|dist|out|release|logs|backups|uploads|customer-data)(/|$)|(^|/)\.env($|\.)|\.(db|sqlite|sqlite3|pem|p12|pfx|key|exe|msi|asar|zip|7z)$'; then
+            echo 'Prohibited tracked path found.' >&2
+            exit 1
+          fi
