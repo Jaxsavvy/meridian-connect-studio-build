@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DEV-005 synthetic Asset Library</title>
+<link rel="stylesheet" href="../../../../src/renderer/studio-assets/view.css">
+<main id="assets"></main>
+<script src="../../../../src/renderer/studio-assets/model.js"></script>
+<script src="../../../../src/renderer/studio-assets/synthetic-service.js"></script>
+<script src="../../../../src/renderer/studio-assets/controller.js"></script>
+<script src="../../../../src/renderer/studio-assets/view.js"></script>
+<script>
+const projects=[{id:'synthetic-A',name:'Synthetic poster project A'},{id:'synthetic-B',name:'Synthetic project B — long project name for layout checks'}];
+const service=new StudioSyntheticService.SyntheticService({projects:projects.map(p=>p.id)});
+const controller=new StudioAssetController.Controller({service,projects});
+(async()=>{
+await service.import({projectId:'synthetic-A',filename:'synthetic-poster.txt',mediaType:'text/plain',bytes:new TextEncoder().encode('Synthetic poster: blue circle on white.'),idempotencyKey:'demo-seed'});
+StudioAssetView.mount(document.getElementById('assets'),controller);
+})();
+</script>
+</html>
