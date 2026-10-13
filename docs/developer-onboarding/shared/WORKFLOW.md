@@ -6,7 +6,7 @@ The owner creates or approves an issue with a number, Chair, Priority, Module, s
 
 1. Confirm your own GitHub identity, the canonical repository, and your assigned branch with `gh api user --jq .login`, `git remote -v`, and `git status --short --branch`.
 2. Open the [Project](https://github.com/users/Jaxsavvy/projects/1) and your chair view. Find the issue URL and check that its Project item has your Chair. Check the issue's acceptance criteria and latest owner decision. If anything is missing, ask the owner before coding.
-3. Read `AGENTS.md`, [collaboration rules](../../development/COLLABORATION_RULES.md), [architecture](ARCHITECTURE.md), [file boundaries](FILE_BOUNDARIES.md), relevant source files, prior issue comments, and the task-specific handoff if one exists.
+3. Read `AGENTS.md`, the [Studio build map](../../studio/BUILD_MAP.md), [collaboration rules](../../development/COLLABORATION_RULES.md), [architecture](ARCHITECTURE.md), [file boundaries](FILE_BOUNDARIES.md), relevant source files, prior issue comments, and the task-specific handoff if one exists.
 4. Compare your branch with the latest remote main. Do not silently rebase, reset, or merge a shared feature branch; ask Chair 1 for a sync plan if it is behind or conflicts.
 5. State a small plan: files to touch, reason, tests, and any owner gate. Do not implement a broad interface or backend contract from an unapproved sketch.
 6. Record the start in the issue/worklog and attempt the board transition from Ready to Building. Verify the saved value. If the API fails, mark board synchronization pending in the worklog and notify the owner.
@@ -15,7 +15,7 @@ The owner creates or approves an issue with a number, Chair, Priority, Module, s
 
 Keep the approved issue small. Use synthetic data. Explain a command's effect before asking a nontechnical employee to run it. Do not expose customer data, production endpoints, credentials, or owner-only source to the AI. Put assumptions and unresolved backend contracts in the issue rather than disguising them as implemented behavior. If you are blocked, write the blocker and next needed decision, attempt Building to Blocked, then verify the board value. Do not make a fake “done” change merely to close a task.
 
-Tyler must obtain owner approval for one of 2–3 polished design directions **before broad Studio UI implementation**. Cassy must use the approved design system and start with contracts or isolated prototypes; image, version, Librarian, and Upscayl service behavior needs owner-approved boundaries. Chair 1 reviews bridge, auth, packaging, permissions, and cross-chair changes.
+Tyler must obtain owner approval for a polished design direction **before broad Studio UI implementation**. Cassy must use the approved design system; DEV-003 contracts are reference material and DEV-005 requires working Connect code plus isolated Upscayl evidence where prerequisites are approved. Image, version, Librarian, and Upscayl service behavior needs owner-approved boundaries. Chair 1 reviews bridge, auth, packaging, permissions, and cross-chair changes.
 
 ## Test and submit
 
@@ -32,4 +32,4 @@ At the end of each session, update the issue and the task-specific handoff with 
 
 If work is on the wrong branch, unexpected files are staged, a test fails, or a board update is uncertain, **stop the risky action**. Keep the working copy, capture a nonsensitive summary, and ask Chair 1 for the smallest repair. Do not use `git reset --hard`, `git clean -fd`, force-push, delete a branch, or rewrite history as a quick fix. If sensitive material was committed or shared, stop further sharing and notify the owner immediately; the owner leads containment and credential rotation.
 
-Owner approval is required for new task scope, shared-file conflicts, design direction, backend/API or permission contract, new packaged files, paid generation, production access, release, and integration into main. The GitHub Free private-repository review policy is procedural, not enforced protection.
+Owner approval is required for new task scope, shared-file conflicts, design direction, backend/API or permission contract, new packaged files, paid generation, production access, release, and integration into main. Verify actual GitHub branch protection and review settings; written procedures alone do not enforce them.

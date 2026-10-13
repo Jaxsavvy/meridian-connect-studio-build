@@ -1,6 +1,6 @@
 # Safe setup and first day
 
-Use your **own** GitHub account and a fresh development folder on your own computer. The owner must grant access to the private repository and Project and give you an approved issue. An invitation is a prerequisite, not something your AI should create. Never use the owner's credentials.
+Use your **own** GitHub account and a fresh development folder on your own computer. The source repository is public, but the owner must grant collaborator access before you push and Project access before you update the private board. You also need an approved issue. An invitation is not something your AI should create. Never use the owner's credentials or publish private work in this repository.
 
 ## 1. Install and sign in
 
@@ -33,7 +33,7 @@ Replace the last branch with `feature/studio-integration` for Chair 1 or `featur
 
 ## 3. Find your actual task
 
-Open your [Board view](../../../START_HERE.md) and the repository's Issues tab. Your AI should match the current **GitHub issue number and URL** to the Project item, confirm its Chair, Priority, Module, Status, acceptance criteria, and the branch, and read any earlier handoff. If there is no approved issue, stop before editing and ask the owner for the next task. Do not create a duplicate issue or Project item.
+Open your [Board view](../../../START_HERE.md), the [Studio build map](../../studio/BUILD_MAP.md), and the repository's Issues tab. Your AI should match the current **GitHub issue number and URL** to the Project item, confirm its Chair, Priority, Module, Status, acceptance criteria, and the branch, and read any earlier handoff. If there is no approved issue, stop before editing and ask the owner for the next task. Do not create a duplicate issue or Project item.
 
 ## 4. Inspect source, then run safe checks
 
@@ -54,7 +54,7 @@ npm ci --ignore-scripts --no-audit --no-fund
 
 | What you see | Safe next step |
 | --- | --- |
-| Private repository says “not found” or clone fails | Confirm your own GitHub login and accept the owner's invitation. Ask the owner to check access; do not use their token. |
+| Clone or push fails | Check the canonical URL, your own GitHub login, and whether the owner granted collaborator access for pushing. Do not use the owner's token. |
 | Project Board cannot be opened | Repository access and Projects authorization are separate. Check your own account and `project` scope; ask the owner about Project access. |
 | `git status` shows the wrong branch or edits you did not make | Stop. Have your AI inspect the file list and coordinate a safe branch move with the owner. Do not use `reset --hard` or force push. |
 | Node, npm, or `gh` is not recognized | Verify the official install, reopen PowerShell, and ask AI to show the command's location. Do not download unofficial binaries. |

@@ -4,11 +4,13 @@
 
 You own Connect architecture and integration, security boundaries, cross-chair decisions, reviews, and releases. The other two chairs work on their own branches. Read [START_HERE](../../../START_HERE.md), [architecture](../shared/ARCHITECTURE.md), [file boundaries](../shared/FILE_BOUNDARIES.md), [workflow](../shared/WORKFLOW.md), and the existing [collaboration rules](../../development/COLLABORATION_RULES.md).
 
+The [Studio build map](../../studio/BUILD_MAP.md) lists every Studio section and the remaining owner integration work. [DEV-004](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/7) is only the first client foundation; it does not authorize or complete backend contracts, provider jobs, file storage, cross-chair assembly, or release. Create smaller approved owner issues for those stages and keep restricted implementation outside this public repository.
+
 ## First day and first task
 
 Use your own GitHub authentication, follow the [safe setup](../shared/SAFE_SETUP.md), and verify the repository/Project and clean branch. Find the next approved issue and its Project item; if none exists, prepare assignments and acceptance criteria through a separate owner decision, not an invented code task. Check whether feature branches are behind main and decide a safe sync procedure; do not reset or rewrite Tyler's or Cassy's work.
 
-For each issue, identify client files, backend contract owner, project isolation, authentication, permission checks, error states, packaging impact, and required tests. Keep Core and Team Hub backend work in restricted repositories. Review Tyler's 2–3 design directions before Studio UI integration; approve tokens/components Cassy will use. Review code and check output before any main merge. Never treat procedural GitHub Free rules as enforced protection.
+For each issue, identify client files, backend contract owner, project isolation, authentication, permission checks, error states, packaging impact, and required tests. Keep Core and Team Hub backend work in restricted repositories. Review Tyler's design directions before Studio UI integration; approve tokens/components Cassy will use. Review code and check output before any main merge. Verify actual GitHub protection settings; do not treat written rules as an access control.
 
 ## Default scope and approval
 

@@ -1,6 +1,6 @@
 # Meridian Connect collaboration rules
 
-These rules apply to this private GitHub Free repository. They are team procedures. GitHub does not enforce branch protection or required owner review for this private repository on the current plan. Every collaborator with write access must follow them.
+These rules apply to this public repository. Code, issues, PRs and comments can be read by anyone. The rules below are required team procedures; verify the repository's current branch protection and review settings rather than assuming they are enforced. Every collaborator with write access must follow them.
 
 ## Chairs and branches
 
@@ -12,7 +12,7 @@ These rules apply to this private GitHub Free repository. They are team procedur
 
 Confirm the current branch and assigned task before editing. Ask the owner before changing another chair's scope or shared files. Keep changes small and reviewable. Do not use the production Meridian checkout as a development workspace.
 
-Start at `START_HERE.md` for chair-specific file boundaries and prompts. Tyler prepares two or three polished design directions based on the current Connect UI; the owner approves a direction before broad Studio interface implementation. Cassy follows the approved shared design system and begins with contracts or isolated prototypes. Neither chair should implement a backend service, live generation, or external-tool packaging from an unapproved client concept.
+Start at `START_HERE.md` and `docs/studio/BUILD_MAP.md` for chair-specific scope, file boundaries and prompts. Tyler prepares polished design directions based on the current Connect UI; the owner approves a direction before broad Studio interface implementation. Cassy follows the approved shared design system and begins with contracts or isolated prototypes. The approved implementation issues require working Connect-side components after their gates are met. Neither chair should implement a backend service, live generation, or external-tool packaging from an unapproved client concept.
 
 ## Integration procedure
 
@@ -22,7 +22,7 @@ Start at `START_HERE.md` for chair-specific file boundaries and prompts. Tyler p
 4. The owner reviews the exact diff and check results, requests corrections if needed, and explicitly approves before integration. Only the owner merges to `main`.
 5. Treat a green CI result as a narrow source check. It does not establish runtime behavior, security, design quality, or permission correctness.
 
-These are procedural safeguards. A collaborator with write access may still be technically able to bypass them on this GitHub plan.
+Follow these procedures even if a GitHub setting does not enforce them. A collaborator with write access may be technically able to bypass an unprotected rule.
 
 ## Repository boundary
 
