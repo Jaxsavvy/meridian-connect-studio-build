@@ -72,6 +72,22 @@
       }
       return result;
     }
+    async reloadAsset(assetId) {
+      const result = await this.request(async scope => {
+        const list = await this.service.list({ ...scope });
+        if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
+        const records = list.map(a => M.validate(a, scope.projectId));
+        const asset = records.find(a => a.id === assetId);
+        if (!asset) M.fail('NOT_FOUND');
+        return asset;
+      }, true);
+      if (!result) return null;
+      const index = this.state.assets.findIndex(a => a.id === assetId);
+      if (index < 0) this.state.assets.push(result);
+      else if (this.state.assets[index].revision <= result.revision) this.state.assets[index] = result;
+      this.state.selectedId = assetId; this.emit();
+      return M.clone(this.state.assets.find(a => a.id === assetId));
+    }
     download(input) { return this.request(async scope => {
       const asset = this.state.assets.find(a => a.id === input.assetId);
       const version = asset && asset.versions.find(v => v.id === input.versionId);

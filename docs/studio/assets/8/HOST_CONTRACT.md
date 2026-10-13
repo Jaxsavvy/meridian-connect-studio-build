@@ -8,7 +8,7 @@ Construct `ServiceAdapter({request(operation, payload, {signal})})`. The control
 
 | Operation | Payload | Result |
 | --- | --- | --- |
-| `asset.list` | projectId, query, section, reviewState | array of project-scoped records |
+| `asset.list` | projectId, query, section, mediaType, reviewState | array of project-scoped records |
 | `asset.import` | projectId, optional assetId/parentVersionId, filename, mediaType, Uint8Array bytes, operation, idempotencyKey | canonical complete asset record |
 | `asset.metadata` | projectId, assetId, expected revision, name/tags/description/section | canonical record or REVISION_CONFLICT |
 | `asset.download` | projectId, assetId, versionId | filename, mediaType, Uint8Array bytes, sha256 |
@@ -31,6 +31,24 @@ Construct `UpscaleWorker({root,runner,validateImage,register,authorize,manifest,
 `authorize({projectId,assetId,parentVersionId,originalVersionId,signal})` checks current scope and lineage before launch and again before registering. `register(record)` atomically rechecks authority, commits separate derivative bytes, and deduplicates by project/actor/job ID. Record includes job identity, parent/original identity, operation upscale, bytes and input/output/tool/model hashes. Registration outcomes after network uncertainty must be reconciled by job ID; no automatic reinvocation or overwrite. Worker scratch is deleted after settlement; host must securely retain an uncertain result if policy requires recovery.
 
 Worker states: checking, running, validating, registering, succeeded; failure/cancellation terminal. View accepts an optional host `enhance(intent)` function with signal and onState. Until approved host wiring and prerequisites exist, enhancement stays disabled. The host must return only after authoritative registration, respect cancellation, clear jobs on sign-out/switch, and keep all paths/tokens outside renderer scope.
+
+## Metadata, filters and recovery — proposed authoritative semantics
+
+Implemented synthetic filters match mediaType and reviewState on the **same version**. Query matches name, original filename, description and tags; empty filters mean unrestricted within the authorized project. A returned asset may contain other versions so lineage stays complete. No placement or approval permission follows from a match.
+
+Optional `provenance` maps metadata fields to `{source, actor?, at?, rule?}`. Sources accepted by the client are rule/human/file/model; actor and time must originate from the authoritative service in integrated use. Optional `metadataHistory` contains at most 100 `{revision, actor, at, changes}` entries, where changes maps name/tags/description/section to `{before, after}`. The synthetic adapter appends only changed fields, retains name-rule provenance for tags-only saves, and displays the last ten events. These caps are client/mock bounds, **not approved audit retention**; the owner must decide durable audit, pagination and redaction. No model provider is invoked by the filename suggestion.
+
+`reloadAsset(assetId)` is an implemented controller convenience using unfiltered `asset.list`, not a new IPC operation. It validates all returned records against current project, requires the requested asset, preserves a newer local canonical revision, and rejects cancelled/stale responses. The view offers an explicit discard-and-load action after a revision conflict. Draft deletion occurs only after a successful scoped response; offline/error leaves it available for retry. There is no automatic merge, force-save or background metadata retry. This full-list fallback needs replacement with an owner-approved record read if pagination is introduced.
+
+Offline metadata Save retries the existing expected revision; if another writer committed first, the service must reject with REVISION_CONFLICT rather than overwrite. Unknown mutation outcomes require authoritative reconciliation before retry: mock synchronous memory behavior does not prove distributed exactly-once writes. Drafts are memory-only and do not survive app restart. Original bytes, filename and version lineage never change during metadata recovery.
+
+| Owner decision | Required before integration |
+| --- | --- |
+| Revision/read schema | Canonical revision semantics and exact get/list/pagination mapping; safe conflict response |
+| Identity/audit | Server actor/time source, event retention/redaction and provenance trust rules |
+| Retry outcomes | Metadata/review idempotency or reconciliation policy for uncertain commits |
+| Shared hooks | Exact DEV-004 context/sign-out and main/preload operation allowlist |
+| Native/design gates | OS isolation/resource/distribution policy and Tyler's reusable slots/tokens/derivative identity |
 
 ## Requested coordination
 

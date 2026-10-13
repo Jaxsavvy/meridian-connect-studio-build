@@ -2,7 +2,7 @@
   'use strict';
   function mount(host, controller, { enhance = null, allowImport = true, bannerText = null } = {}) {
     let versionId = null; let retryKey = null; let retryFile = null; let jobAbort = null; let jobState = 'idle'; let filters = { query: '', section: '',mediaType:'',reviewState:'' }; let pendingProjectId = null;let preview=null;let renderedProjectId=null;
-    const drafts = new Map();
+    const drafts = new Map(); const conflicts = new Set();
     const element = (tag, text, attrs = {}) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; Object.assign(node, attrs); return node; };
     const button = (label, action, disabled = false) => { const node = element('button',label,{type:'button',disabled}); node.addEventListener('click', action); return node; };
     const errorText = { PROJECT_DENIED: 'Access has changed. Select another project.', OFFLINE: 'Offline. Your changes have not been saved.', REVISION_CONFLICT: 'A newer revision exists. Reload before editing.', STORAGE_FAILED: 'Storage failed. Retry the same import when available.', CANCELLED: 'Cancelled.', CORRUPT_MEDIA: 'This file cannot be accepted as that media type.',PREVIEW_FAILED:'This image could not be previewed. The original is unchanged.' };
@@ -13,8 +13,9 @@
     }
     function render(state) {
       const projectId=state.project?.id || null;
+      if(state.error==='REVISION_CONFLICT' && state.selectedId)conflicts.add(state.selectedId);
       if(projectId!==renderedProjectId || state.error==='PROJECT_DENIED'){
-        if(jobAbort)jobAbort.abort();clearPreview();drafts.clear();pendingProjectId=null;versionId=null;retryKey=null;retryFile=null;jobState='idle';filters={query:'',section:'',mediaType:'',reviewState:''};renderedProjectId=projectId;
+        if(jobAbort)jobAbort.abort();clearPreview();drafts.clear();conflicts.clear();pendingProjectId=null;versionId=null;retryKey=null;retryFile=null;jobState='idle';filters={query:'',section:'',mediaType:'',reviewState:''};renderedProjectId=projectId;
       }
       const oldFocus = document.activeElement && document.activeElement.dataset.focus;
       const busy = ['saving','loading'].includes(state.phase); host.replaceChildren(); host.classList.add('studio-assets');
@@ -64,6 +65,10 @@
       }
       const save=element('button','Save metadata',{type:'submit',disabled:busy});form.append(save);form.onsubmit=async e=>{e.preventDefault();const result=await controller.save('metadata',{assetId:asset.id,revision:draft.revision,name:fields.name.value,tags:fields.tags.value.split(',').map(t=>t.trim()).filter(Boolean),description:fields.description.value,section:fields.section.value});if(result){drafts.delete(asset.id);render(controller.snapshot());}};panel.append(form);
       panel.append(draftNotice);
+      if(conflicts.has(asset.id))panel.append(button('Discard draft and load latest metadata',async()=>{
+        const epoch=controller.generation;const result=await controller.reloadAsset(asset.id);
+        if(result && epoch===controller.generation){drafts.delete(asset.id);conflicts.delete(asset.id);render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}
+      },busy),element('p','Loading the latest metadata discards this local draft only after a successful response. Copy any edits you want to keep first.'));
       const origin=asset.provenance?.name;panel.append(element('p',origin?`Name source: ${origin.source==='rule'?'Librarian naming rule':origin.source==='human'?'Human edit':origin.source}${origin.actor?' · '+origin.actor:''}${origin.at?' · '+origin.at:''}`:'Name source: not supplied'));
       const suggestion=StudioAssetModel.suggestName(asset.originalFilename);panel.append(button(`Use naming suggestion: ${suggestion}`,()=>{draft.name=suggestion;drafts.set(asset.id,draft);render(controller.snapshot());},busy || draft.name===suggestion));
       if(asset.metadataHistory?.length){const history=element('details');history.append(element('summary','Metadata change history'));for(const event of asset.metadataHistory.slice(-10).reverse())history.append(element('p',`Revision ${event.revision} · ${event.actor} · ${event.at} · ${Object.keys(event.changes).join(', ')}`));panel.append(history);}

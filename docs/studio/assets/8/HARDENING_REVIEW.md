@@ -12,7 +12,7 @@
 
 ## Checks performed
 
-- 31 component/worker/native tests pass; source syntax, whitespace, relative links and exact task-path diff reviewed.
+- 34 component/worker/native tests pass; source syntax, whitespace, relative links and exact task-path diff reviewed.
 - Browser Keep editing retains project A/draft/focus; Discard changes clears A details before B loads. Save inputs disable while pending.
 - Existing real Upscayl evidence remains applicable; worker/process code was not changed or re-executed for this UI/controller slice.
 - No shared renderer/bridge/API/backend files, external binaries/models or packaging changed. Prior DEV-003 uncommitted files preserved and excluded.
@@ -46,3 +46,11 @@ These records/filter semantics are implemented in the synthetic memory adapter; 
 Three regression cases cover attribution/history snapshots, same-version filter matching and malformed/legacy records. Browser checks verify decoded 32x32 PNG, rule versus human attribution, history, filters, unsaved suggestion/discard and project-switch preview cleanup. Original filename and saved name remain intact.
 
 [Librarian preview](https://github.com/Jaxsavvy/meridian-connect-studio-build/blob/feature/studio-assets/docs/studio/assets/8/librarian-preview.png). Full Connect build/package, integrated keyboard/visual audit and OS sandbox remain unverified. Current draft PR #15 remains separate from owner-merged PR #13.
+
+## Recovery continuation
+
+A stale metadata save previously left the draft without an explicit way to load the newer record. Controller reloadAsset now validates a scoped unfiltered list and returns the latest requested canonical record, with monotonic revision and late-response protection. The view offers explicit discard-and-load after conflict and retains draft/recovery on failed reload. Fixture-only offline/concurrent-edit controls make these workflows reproducible without a backend.
+
+Three additional tests cover conflict reload/original preservation, foreign/late responses, and offline retry. Browser verified offline failed reload retains the draft, online reload restores canonical metadata and name focus, offline Save retries successfully, and a long accessible name wraps without page overflow at the current 1239px viewport. Tab moves name to tags. [Recovery preview](https://github.com/Jaxsavvy/meridian-connect-studio-build/blob/feature/studio-assets/docs/studio/assets/8/recovery-preview.png). This is a focused desktop check, not a complete responsive/contrast audit.
+
+HOST_CONTRACT now describes implemented filters/history/reload and proposed authoritative audit/retry semantics. No new IPC, shared source, backend or packaging changes. Remaining integration blockers are unchanged; owner review required.

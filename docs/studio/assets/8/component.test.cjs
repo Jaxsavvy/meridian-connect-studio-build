@@ -133,3 +133,21 @@ test('malformed provenance/history is rejected and legacy records without these 
   const bad=structuredClone(a);bad.provenance.name.source='untrusted';assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
   bad.provenance=a.provenance;bad.metadataHistory=[{revision:1,actor:'test',at:'test',changes:null}];assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
 });
+
+test('explicit conflict reload returns latest metadata without changing immutable versions',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');c.selectAsset(a.id);
+ const updated=await s.metadata({projectId:'A',assetId:a.id,revision:a.revision,name:'Other editor',tags:['new'],section:'Files'});
+ assert.equal(await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Stale draft',tags:[],section:'Files'}),null);assert.equal(c.snapshot().error,'REVISION_CONFLICT');
+ s.offline=true;assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().assets[0].name,a.name);
+ s.offline=false;const result=await c.reloadAsset(a.id);assert.equal(result.name,'Other editor');assert.equal(result.revision,updated.revision);assert.deepEqual(result.versions,a.versions);
+});
+test('conflict reload rejects foreign records and late responses after switching project',async()=>{
+ const s=new SyntheticService({projects:['A','B']});const a=await s.import(input());let release;const original=s.list.bind(s);const c=new Controller({service:s,projects:[{id:'A'},{id:'B'}]});await c.selectProject('A');
+ s.list=async()=>[{...a,projectId:'B'}];assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().error,'PROJECT_DENIED');
+ s.list=original;await c.selectProject('A');s.list=async()=>{await new Promise(r=>release=r);return [a];};const late=c.reloadAsset(a.id);s.list=original;await c.selectProject('B');release();assert.equal(await late,null);assert.equal(c.snapshot().project.id,'B');assert.equal(c.snapshot().assets.length,0);
+});
+test('offline metadata retry succeeds once and retains the original version',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');
+ const patch={assetId:a.id,revision:a.revision,name:'Resume after offline',tags:[],section:'Files'};s.offline=true;assert.equal(await c.save('metadata',patch),null);assert.equal(c.snapshot().phase,'offline');assert.equal(c.snapshot().assets[0].revision,a.revision);
+ s.offline=false;const saved=await c.save('metadata',patch);assert.equal(saved.revision,a.revision+1);assert.equal(saved.metadataHistory.length,1);assert.deepEqual(saved.versions,a.versions);
+});
