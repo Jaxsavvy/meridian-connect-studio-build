@@ -19,4 +19,6 @@
 
 This handoff was recorded before the owner-authorized feature-branch publication. Check issue #7 and the branch for the latest commit and PR. No deployment, backend, or provider operation was performed.
 
+Implementation commit `8049f74d971b98b5520ec9e771f35424cc537f63` is on `feature/studio-integration` in [draft PR #14](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/14) to `main`. After merging current main into the feature branch, the combined synthetic suite passed 26 tests, and JavaScript syntax and diff whitespace checks passed. The verified Project item moved Building → Review when the PR was submitted. Chair 1 — Owner, P1 — High, and Studio Foundation were read back unchanged. The owner should review the exact PR and checks before any merge or Testing transition.
+
 Next: review the exact DEV-004 diff and owner design decision before any visible Studio shell work. Runtime login and visual behavior need an authorized Connect development environment, including confirmation that live project IDs use the accepted URL-safe form. The client catalogue is deliberately Planned; backend availability and permissions are unverified. Storyboard requests and existing non-Studio mutation flows are outside this slice's project-switch and write-result audit.

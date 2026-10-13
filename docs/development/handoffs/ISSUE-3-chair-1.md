@@ -29,6 +29,13 @@
 
 The actual GraphQL Status mutation is mock-tested only. GitHub Projects has no compare-and-swap precondition; concurrent board writers remain a risk. No automatic transition to Complete is available in this utility.
 
+## Publication and review handoff
+
+- Implementation commit: `22e85c1d0737014ad9a61d1f4734ffb3ef2aca86` on `feature/studio-integration`; [draft PR #14](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/14) targets `main`.
+- Current main was merged into the feature branch without conflicts. The combined DEV-001A and DEV-004 synthetic suite passed 26 tests after that merge; JavaScript syntax and diff whitespace checks passed.
+- On publication readback, this existing Project item was Ready despite the earlier confirmed Building observation. The owner-requested Ready → Building update was read back, then the documented PR-submitted Building → Review update was read back. Current verified Status: Review. These were manual GitHub CLI Project edits, not a live test of this utility's GraphQL Status mutation.
+- Next: owner reviews the exact PR and its checks. Use a separately approved disposable Project item before claiming the Status mutation is ready for automatic use. No Complete transition or merge occurred.
+
 ## Board synchronization
 
 - Requested start: Ready → Building. GitHub's issue sidebar showed Building after the owner-directed UI update, and a page reload confirmed it remained saved.
