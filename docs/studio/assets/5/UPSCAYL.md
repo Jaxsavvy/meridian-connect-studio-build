@@ -1,0 +1,28 @@
+# Upscayl feasibility — proposed, not verified
+
+Assessment date: 2026-10-12. Conditional feasibility only: a separate local worker may produce a derivative if hardware, executable/model licensing, isolation and registration contracts are approved. No Upscayl install, invocation, model download, benchmark, hardware probe or production access occurred. Integration does not yet work or have runtime evidence.
+
+Upstream evidence: [official Upscayl README](https://github.com/upscayl/upscayl/blob/main/README.md) identifies Vulkan-compatible GPU requirements and AGPLv3 backend licensing. [Official backend README](https://github.com/upscayl/upscayl-ncnn/blob/master/README.md) documents the NCNN backend. These are upstream prerequisites, not evidence for this computer. Pin exact release, executable hash, model hash and supported invocation syntax only in a later approved test.
+
+License/distribution gate: owner/legal reviewer must inspect the exact application, backend, models and dependencies, required notices/source obligations, modification/distribution implications and employee packaging approach. Model licenses need independent review; open source does not authorize every distribution. Proposed initial direction is a separately provisioned approved worker, excluded from Connect packaging. Even separate execution requires review; no legal conclusion is claimed here.
+
+## Proposed process boundary
+
+Renderer sends project/asset/version/job intent through a future narrowly named IPC operation. Main validates intent with authoritative service, then obtains exact input into an isolated per-job directory. It never accepts renderer executable paths, arbitrary arguments, shell strings or output paths. Approved worker uses a pinned allowlisted executable and argument array with shell disabled, low privilege, minimal environment, no service credentials, no network access, and access only to its job files. Kill the process tree on cancel/timeout. Job isolation must use OS controls; a working directory alone is insufficient.
+
+Input is a read-only copy of the chosen immutable version; output is distinct. Validate media, decoded dimensions and expected output bounds before publishing; hash both, verify original unchanged, register output as a new draft version with exact parent, original, job, tool/model hash and parameters. Service rechecks membership and parent immediately before commit; revoked membership must prevent output publication. Logs are bounded and sanitized, not committed. Cleanup only the canonical validated job directory; never recurse through renderer-provided paths.
+
+Proposed pilot limits for owner approval: one job concurrently, input at most 16 megapixels/25 MiB, output at most 64 megapixels, 5-minute wall timeout, 1 GiB scratch quota and bounded diagnostic output. These are safety hypotheses, not supported hardware performance claims. OS memory/GPU limits need platform-specific validation; reject launch if enforceable boundaries are unavailable. Tiling, scale, alpha/color handling and model selection remain experimental. No automatic CPU fallback or cloud fallback is assumed.
+
+Job states: queued -> authorized -> staged -> running -> validating-output -> registering -> succeeded; terminal failed/cancelled/revoked. Store job identity/idempotency in authoritative services, not a new local project database. Crash recovery queries job/version state before re-registering. Nonzero exit, missing executable, unsupported GPU/driver, corrupt input, oversized output, full disk, hung process, cancellation, checksum mismatch and registration failure produce an actionable error without altering originals. Retain only policy-approved recoverable output when registration is uncertain; retry commit by same job key. A fresh process attempt is a new recorded attempt, never a silent duplicate version.
+
+## Synthetic isolated test plan — requires later owner approval
+
+1. Approve disposable environment, approved executable/model hashes and licenses, hardware/driver checks, enforceable limits and mock service permissions. No customer content, production credentials or paid APIs; prevent network egress.
+2. Generate synthetic geometric PNGs: RGB grid, transparency, tiny input, long/unsafe names and corrupt/truncated bytes. Record input hash/dimensions. Use a disposable mock project A and B, with member/reviewer/revoked actors.
+3. Invoke the pinned worker once with approved arguments. Capture exit code, duration, bounded resource observations, output dimensions/media/hash, color/alpha differences and human visual review. Pass requires a decodable distinct output, unchanged original and correctly linked draft derivative; perceived quality is separate from successful execution.
+4. Exercise absent binary/model, unsupported GPU, timeout/tree kill, memory/scratch exhaustion, malformed/oversized media, path traversal/symlink attempts, cancellation and crash/restart. Pass requires containment and no original overwrite or published partial version.
+5. Mock denial for A actor/B version, forged parent, expired grant and revocation before registration. Repeat finalize after lost response. Pass requires denial with no leak, one derivative per successful job, and no duplicate output registration.
+6. Verify cleanup targets only disposable job directories; preserve approved evidence summary outside prohibited logs/fixtures. Review findings with Chair 1/owner before any real service test or integration assignment.
+
+No steps have been executed. A mock validates proposed client behavior only; actual service permission checks, process isolation, distribution compliance and runtime integration require separate evidence and authorization.
