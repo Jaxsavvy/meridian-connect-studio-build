@@ -16,4 +16,4 @@ First owner decisions, in dependency order:
 4. Approve the separate Upscayl process boundary and exact executable/model/license review, then authorize a synthetic isolated test. No installation or invocation is authorized by this package.
 5. Obtain Tyler's selected design and approved shared tokens before integrated UI implementation. This does not block architecture drafting.
 
-Acceptance here means documentation review only. Integration, runtime security, and owner acceptance remain unverified. Board status remains Building; never self-mark Complete.
+Submitted in [PR #6](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/6). Acceptance here means documentation review only. Integration, runtime security, and owner acceptance remain unverified. Board status read back as Review; never self-mark Complete.
