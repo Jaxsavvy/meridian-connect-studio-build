@@ -6,6 +6,9 @@
 <p>Development fixture controls — synthetic memory only.</p>
 <button id="offline" type="button">Go offline</button>
 <button id="conflict" type="button">Simulate another metadata edit</button>
+<button id="host-switch" type="button">Host switch to project B</button>
+<button id="host-signout" type="button">Host sign out</button>
+<button id="host-revoke" type="button">Host session revoked</button>
 <p id="fixture-status" role="status"></p>
 </aside>
 <script src="../../../../src/renderer/studio-assets/model.js"></script>
@@ -24,7 +27,10 @@ catch(error){document.getElementById('fixture-status').textContent='Synthetic ed
 };
 (async()=>{
 await service.import({projectId:'synthetic-A',filename:'synthetic-poster.txt',mediaType:'text/plain',bytes:new TextEncoder().encode('Synthetic poster: blue circle on white.'),idempotencyKey:'demo-seed'});
-StudioAssetView.mount(document.getElementById('assets'),controller);
+const assetView=StudioAssetView.mount(document.getElementById('assets'),controller);
+document.getElementById('host-switch').onclick=async()=>{const allowed=await assetView.setProject('synthetic-B');document.getElementById('fixture-status').textContent=allowed?'Host switch allowed':'Host switch cancelled';};
+document.getElementById('host-signout').onclick=async()=>{const allowed=await assetView.signOut();document.getElementById('fixture-status').textContent=allowed?'Host sign-out allowed':'Host sign-out cancelled';};
+document.getElementById('host-revoke').onclick=()=>{assetView.clearContext();document.getElementById('fixture-status').textContent='Host session revoked; scoped data cleared';};
 })();
 </script>
 </html>

@@ -53,3 +53,17 @@ Offline metadata Save retries the existing expected revision; if another writer 
 ## Requested coordination
 
 Chair 1: confirm the exact minimal files/operations for main/preload and project-context/sign-out hooks; actual schema and permission policies; approved runner/decoder and test environment. Tyler: confirm approved tokens and unsaved/switch/job state designs. No shared-file changes or real Upscayl launch will proceed from these proposed contracts alone.
+
+## Approved owner decisions and host lifecycle API
+
+[Chair 1 decision](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/8#issuecomment-6138985450) approves same-asset immutable derivative version identity and assigns shared hooks to Chair 1, restricted service to DEV-010 #19, OS worker to DEV-018 #27. Service paging <=50, exact asset read, body-bound mutation keys/status reconciliation, authoritative actor/time and append-only durable audit are approved client requirements, not implemented endpoints. Current array list/reload fallback remains synthetic; live wiring requires a versioned adapter. OS gate remains closed and no artifact redistribution is approved.
+
+`const lifecycle = StudioAssetView.mount(host, controller, {hostOwned:true})` hides component project/sign-out controls. The returned value remains a callable disposer for existing callers, with these methods:
+
+- `await lifecycle.prepareLeave()` resolves true if there are no drafts or the user explicitly discards; Keep editing resolves false and restores name focus. Pending calls share one decision. A true result is immediate permission for the requested navigation, not a durable permission token; do not defer it across new edits.
+- `await lifecycle.setProject(projectId)` runs the guard, checks context generation, then clears scoped drafts/previews/retries/jobs and selects the host-supplied project. False means host navigation must remain unchanged. True means the transition began; controller loading/errors still report request outcomes. The host must supply a project from authenticated context.
+- `await lifecycle.signOut()` guards a voluntary sign-out and returns whether it proceeded. Do not sign the surrounding session out before this returns true.
+- `lifecycle.clearContext()` is immediate cleanup after actual session loss/revocation: abort jobs/requests, settle pending leave false, clear drafts/previews and sign controller out. Do not use this to bypass a voluntary navigation guard.
+- `lifecycle()` disposes the view, aborts requests/jobs, revokes preview URLs and cancels pending guard. Call prepareLeave first for voluntary unmount/navigation; disposal itself is final cleanup, not a prompt.
+
+Chair 1 must call the lifecycle before changing shared selected context or destroying the mount. Direct controller.selectProject/signOut or unguarded external context mutation can bypass the guard; no shared wiring is implemented here. Offline/conflict retains drafts while context remains authorized. Actual denial clears them. VM fake-DOM tests exercise host-owned controls, Keep editing, concurrent transitions, discard/sign-out and revocation/disposal; browser checks cover the external switch and sign-out fixture. This does not establish integrated Connect behavior.
