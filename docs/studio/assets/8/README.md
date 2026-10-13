@@ -29,7 +29,7 @@ The demo uses neutral functional styling, not Tyler's selected Studio design. Ne
 
 ## Evidence and limits
 
-28 Node tests pass. Tests cover branches, original preservation, snapshots, idempotency/conflicts, human naming, review isolation, cross-project/revocation, stale responses/sign-out, unsafe names, corrupt/missing media, storage failure, checksum errors, PNG validation/artifact pins and worker approval/pin/timeout/process/output/registration failures. Additional cases protect newer metadata from old retry/list responses, reject wrong-asset responses and self-consistent wrong-version downloads, and preserve Saving while a concurrent write is pending. Separate real CLI scripts pass success, actual launch cancellation, timeout, corrupt/no-output, missing-input and wrong-pin checks. Syntax checks pass for all new JavaScript modules.
+31 Node tests pass. Tests cover branches, original preservation, snapshots, idempotency/conflicts, human naming, review isolation, cross-project/revocation, stale responses/sign-out, unsafe names, corrupt/missing media, storage failure, checksum errors, PNG validation/artifact pins and worker approval/pin/timeout/process/output/registration failures. Additional cases protect newer metadata from old retry/list responses, reject wrong-asset responses and self-consistent wrong-version downloads, and preserve Saving while a concurrent write is pending. Separate real CLI scripts pass success, actual launch cancellation, timeout, corrupt/no-output, missing-input and wrong-pin checks. Syntax checks pass for all new JavaScript modules.
 
 Browser checks: selected A, imported a synthetic text file, corrected title/tags, submitted exact version for review, switched to empty B, and signed out with no prior asset details remaining. Rechecked final view after edits: unsaved naming retained across search, saved successfully, Tab moved from name to tags with visible focus, and downloaded exact synthetic version bytes. [Synthetic preview](synthetic-preview.png) is browser evidence, not an approved Connect build screenshot. Full keyboard, viewport/contrast audit, image decoding, real process-tree termination and build/package checks remain pending.
 
@@ -46,3 +46,7 @@ Continuation browser checks verified immediate Unsaved feedback, project selecto
 5. Packaging currently includes `src/**/*`: owner must review the new runtime modules before distribution. Tests, fixtures and screenshots are under docs outside the packaging allowlist. No installer or dependencies were generated.
 
 These gates prevent a complete Connect/Upscayl flow. This batch is reviewable working code, not task completion.
+
+## Librarian continuation evidence
+
+Synthetic adapter now retains changed-field provenance and last-100 metadata events; tags-only saves preserve rule-based naming. Search includes descriptions, with media/review filters matching the same version. These are proposed authoritative service semantics. The isolated view exposes explicit naming suggestions, last-ten history and controller-verified decoded image previews. URLs and drafts clear on scope changes. Browser checks passed PNG preview, attribution/history, filters, suggestion/discard and scope cleanup; [preview](librarian-preview.png). Three new regression tests pass. Broader image formats, full Connect integration and audit retention remain pending.

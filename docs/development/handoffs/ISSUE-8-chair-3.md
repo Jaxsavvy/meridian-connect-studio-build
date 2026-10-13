@@ -29,3 +29,7 @@ Plan/coordination request and [tested milestone](https://github.com/Jaxsavvy/mer
 ## Resume
 
 Read issue/comments and this handoff, inspect checkout and board, preserve prior uncommitted documentation. Review the exact diff and tests; complete host/design/executable gates before integration. Keep task open and report blocked dependencies explicitly; never merge or self-mark Complete.
+
+## Latest Librarian continuation — PR #15
+
+Added selected-image previews, media/review filters, explicit naming suggestions, changed-field provenance and bounded metadata history in the isolated modules. These service behaviors are synthetic/proposed, not an authoritative backend audit. Tags-only correction preserves rule attribution; originals/version lineage remain unchanged. 31 Node tests pass. Browser verified decoded PNG, filter matching, rule/human history, unsaved suggestion discard and project-switch cleanup; screenshot in docs/studio/assets/8/librarian-preview.png. No native runner or shared integration changes; existing OS gate remains closed. Board remains Blocked for the previously listed integration decisions. DEV-003 local files preserved and excluded. Latest feature head and source-check result are available on draft PR #15.

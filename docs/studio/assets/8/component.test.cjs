@@ -116,3 +116,20 @@ test('read completion does not report ready while a metadata write is pending',a
   const save=c.save('metadata',{assetId:a.id,revision:a.revision,name:'Pending correction',tags:[],section:'Files'});await c.search();assert.equal(c.snapshot().phase,'saving');
   release();await save;assert.equal(c.snapshot().phase,'ready');assert.equal(c.snapshot().assets[0].name,'Pending correction');
 });
+test('tags-only correction preserves rule name provenance and records independent change history',async()=>{
+  const s=new SyntheticService({projects:['A'],clock:()=> '2026-10-13T05:00:00Z'});const a=await s.import(input());
+  const b=await s.metadata({projectId:'A',assetId:a.id,revision:a.revision,name:a.name,tags:['blue'],description:a.description,section:a.section});
+  assert.equal(b.provenance.name.source,'rule');assert.equal(b.provenance.tags.source,'human');assert.deepEqual(Object.keys(b.metadataHistory[0].changes),['tags']);assert.deepEqual(b.metadataHistory[0].changes.tags.before,[]);
+  b.metadataHistory[0].changes.tags.after.push('mutated');const saved=(await s.list({projectId:'A'}))[0];assert.deepEqual(saved.metadataHistory[0].changes.tags.after,['blue']);assert.equal(saved.originalFilename,a.originalFilename);
+});
+test('media and review filters match the same version; description is searchable',async()=>{
+  const s=new SyntheticService({projects:['A']});const a=await s.import(input());await s.review({projectId:'A',assetId:a.id,versionId:a.originalVersionId,revision:a.revision});
+  const jpeg=new Uint8Array([255,216,255,217]);const b=await s.import(input({assetId:a.id,parentVersionId:a.originalVersionId,mediaType:'image/jpeg',bytes:jpeg,operation:'manual-edit',idempotencyKey:'jpeg'}));
+  assert.equal((await s.list({projectId:'A',mediaType:'image/jpeg',reviewState:'submitted'})).length,0);assert.equal((await s.list({projectId:'A',mediaType:'image/jpeg',reviewState:'draft'})).length,1);
+  await s.metadata({projectId:'A',assetId:a.id,revision:b.revision,name:b.name,tags:[],description:'campaign launch',section:'Files'});assert.equal((await s.list({projectId:'A',query:'campaign launch'})).length,1);
+});
+test('malformed provenance/history is rejected and legacy records without these fields remain valid',async()=>{
+  const s=new SyntheticService({projects:['A']});const a=await s.import(input());const legacy=structuredClone(a);delete legacy.provenance;delete legacy.metadataHistory;assert.equal(M.validate(legacy,'A').id,a.id);
+  const bad=structuredClone(a);bad.provenance.name.source='untrusted';assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
+  bad.provenance=a.provenance;bad.metadataHistory=[{revision:1,actor:'test',at:'test',changes:null}];assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
+});

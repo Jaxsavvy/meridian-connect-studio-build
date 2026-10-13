@@ -11,3 +11,4 @@
 .studio-assets label { display:flex; flex-direction:column; flex:1 1 220px; }
 .studio-assets ul { padding-left:20px; }
 .studio-assets li { overflow-wrap:anywhere; margin:10px 0; }
+.studio-assets .sa-image-preview { display:block; max-width:min(100%,360px); max-height:360px; object-fit:contain; margin:16px 5px; border:1px solid #7791b3; }

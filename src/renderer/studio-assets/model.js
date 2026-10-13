@@ -20,6 +20,17 @@
     if (!asset || asset.projectId !== projectId) fail('PROJECT_DENIED');
     text(asset.id); text(asset.name); text(asset.originalFilename);
     if (!Number.isInteger(asset.revision) || asset.revision < 1 || !Array.isArray(asset.tags) || asset.tags.some(t => typeof t !== 'string')) fail('INVALID_METADATA');
+    if(asset.provenance!==undefined){
+      if(!asset.provenance || typeof asset.provenance!=='object' || Array.isArray(asset.provenance))fail('INVALID_METADATA');
+      for(const entry of Object.values(asset.provenance))if(!entry || !['rule','human','file','model'].includes(entry.source) || (entry.actor!==undefined && typeof entry.actor!=='string') || (entry.at!==undefined && typeof entry.at!=='string'))fail('INVALID_METADATA');
+    }
+    if(asset.metadataHistory!==undefined){
+      if(!Array.isArray(asset.metadataHistory) || asset.metadataHistory.length>100)fail('INVALID_METADATA');
+      for(const event of asset.metadataHistory){
+        if(!event || !Number.isInteger(event.revision) || event.revision<1 || event.revision>asset.revision || typeof event.actor!=='string' || typeof event.at!=='string' || !event.changes || typeof event.changes!=='object' || Array.isArray(event.changes))fail('INVALID_METADATA');
+        for(const [field,change]of Object.entries(event.changes))if(!['name','tags','description','section'].includes(field) || !change || !Object.hasOwn(change,'before') || !Object.hasOwn(change,'after'))fail('INVALID_METADATA');
+      }
+    }
     const versions = asset.versions;
     if (!Array.isArray(versions) || !versions.length) fail('INVALID_LINEAGE');
     const map = new Map(); const sequences = new Set();
