@@ -33,4 +33,4 @@
 - [ ] CI result and stated test limits reviewed by owner
 - [ ] Owner explicitly approves integration into `main`
 
-Only the owner completes this section and merges. These checkboxes are procedural; GitHub Free does not enforce owner review for this private repository.
+Only the owner completes this section and merges. These checkboxes are procedural; verify the repository's actual branch protection and review settings before relying on enforcement.
