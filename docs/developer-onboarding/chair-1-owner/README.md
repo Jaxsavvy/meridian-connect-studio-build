@@ -4,7 +4,7 @@
 
 You own Connect architecture and integration, security boundaries, cross-chair decisions, reviews, and releases. The other two chairs work on their own branches. Read [START_HERE](../../../START_HERE.md), [architecture](../shared/ARCHITECTURE.md), [file boundaries](../shared/FILE_BOUNDARIES.md), [workflow](../shared/WORKFLOW.md), and the existing [collaboration rules](../../development/COLLABORATION_RULES.md).
 
-The [Studio build map](../../studio/BUILD_MAP.md) lists every Studio section and the remaining owner integration work. [DEV-004](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/7) is only the first client foundation; it does not authorize or complete backend contracts, provider jobs, file storage, cross-chair assembly, or release. Create smaller approved owner issues for those stages and keep restricted implementation outside this public repository.
+The [Studio build map](../../studio/BUILD_MAP.md) lists every Studio section and the remaining owner integration work. [DEV-004](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/7) is only the first client foundation; it does not authorize or complete backend contracts, provider jobs, file storage, cross-chair assembly, or release. [DEV-007](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/11) tracks the full owner obligation; create smaller approved owner issues for its stages and keep restricted implementation outside this public repository.
 
 ## First day and first task
 
