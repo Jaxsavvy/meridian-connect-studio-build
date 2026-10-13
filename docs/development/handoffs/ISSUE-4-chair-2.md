@@ -6,7 +6,7 @@
 - Project item URL and Chair: [Meridian Development Command #1](https://github.com/users/Jaxsavvy/projects/1); Chair 2 — Tyler
 - Branch, starting commit, and integrated base: `feature/studio-ui`; started at `cd6bf77cd30265e056b72b32b53e49463abf7f40`; incorporated current `origin/main` with merge commit `77e33e1`
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
-- Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback on 2026-10-12)
+- Current Status / Priority / Module: Review / P1 — High / Studio UI/UX (live readback on 2026-10-13)
 - Last owner decision: Tyler selected **Command Workbench B — Operations** and confirmed all three integration choices on 2026-10-12: primary Connect destination with project-scoped working surfaces, campaign/story editor first, and the selected shared state terminology. Runtime comparison remains pending and must not be claimed as verified.
 
 ## Work this session
@@ -39,8 +39,8 @@
 
 ## Board synchronization
 
-- Intended transition and reason: Ready → Building because source-grounded DEV-002 design work began.
-- API/UI attempt and readback: GitHub CLI refreshed with Tyler's own account. Current CLI required Project/field/item IDs rather than the obsolete guide example. Readback confirmed Chair 2 — Tyler, P1 — High, Studio UI/UX, Building.
+- Completed transitions: Ready → Building when source-grounded DEV-002 design work began; Building → Review after PR #12 was submitted and its source check passed.
+- API/UI attempt and readback: GitHub CLI used Tyler's own account. The installed CLI required Project/field/item IDs rather than the obsolete guide example. The 2026-10-13 readback confirmed Chair 2 — Tyler, P1 — High, Studio UI/UX, Review.
 - Owner acceptance for Complete: not approved. Do not mark Complete.
 
 ## Next session
