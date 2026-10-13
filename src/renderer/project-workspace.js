@@ -6,7 +6,7 @@
 'use strict';
 
 (function () {
-  const WS = { pid: null, tab: 'overview', section: 'All', clicked: false, mine: true, show: 'open', wf: 'all', ff: 'recent' };
+  const WS = { pid: null, tab: 'overview', section: 'All', clicked: false, mine: true, show: 'open', wf: 'all', ff: 'recent', renderEpoch: 0, dataEpoch: 0 };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const host = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch (e) { return u; } };
   const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
@@ -264,12 +264,14 @@
   async function open(pid) {
     const all = typeof projects !== 'undefined' ? projects : [];
     if (!WS.clicked && WS.pid && WS.pid !== pid && all.some((p) => p.id === WS.pid)) pid = WS.pid;
+    if (!window.meridianStudioContext.selectProject(pid)) return false;
     if (WS.pid !== pid) { WS.tab = 'overview'; if (window.meridianStoryboard) window.meridianStoryboard.reset(); }
     WS.clicked = false;
     WS.pid = pid;
     document.querySelectorAll('#projectsMasterList .project-item').forEach((el) => el.classList.toggle('active', el.dataset.id === pid));
     if (typeof currentProject !== 'undefined') currentProject = all.find((p) => p.id === pid) || null;
     await render();
+    return true;
   }
 
   /* ------------------------------------------------------------------ measures (same rules as Command; see the spec) */
@@ -312,14 +314,25 @@
 
   /* ------------------------------------------------------------------ shell */
   async function render() {
+    const epoch = ++WS.renderEpoch;
     css();
     const root = mount();
     if (!root || !WS.pid) return;
+    if (window.meridianStudioContext.snapshot().project?.id !== WS.pid) {
+      root.replaceChildren();
+      return;
+    }
     const split = root.closest('.projects-split'); if (split) split.classList.add('pw-full');
     const pid = WS.pid;
+    const tab = WS.tab;
+    const request = window.meridianStudioContext.beginProjectRequest();
     const res = await M().ws('GET', `/api/projects/${pid}`);
-    if (WS.pid !== pid) return;
-    if (!res || !res.success) { root.innerHTML = `<div class="state"><b>This project could not be loaded</b>${esc((res && res.error) || '')}</div>`; return; }
+    if (WS.pid !== pid || WS.tab !== tab || WS.renderEpoch !== epoch ||
+        !window.meridianStudioContext.isCurrentRequest(request)) return;
+    if (!res || !res.success || res.project?.id !== pid) {
+      root.innerHTML = `<div class="state"><b>This project could not be loaded</b>${esc((res && res.error) || '')}</div>`;
+      return;
+    }
     const p = res.project, s = p.summary || {}, big = WS.tab === 'overview', team = p.members || [];
     const mj = mainJob(p);
     const tabs = TABS.map(([k, l, i]) => `<button type="button" role="tab" aria-selected="${WS.tab === k}" class="pw-tab ${WS.tab === k ? 'on' : ''}" data-tab="${k}">${ic(i, 16)}${l}${k === 'tasks' && s.tasks_total ? `<span class="n">${s.tasks_total - (s.tasks_done || 0)}</span>` : ''}</button>`).join('');
@@ -353,7 +366,7 @@
     const dock = document.getElementById('dockProjectName');
     if (dock) dock.textContent = p.name;
     const body = document.getElementById('pw-body');
-    return ({ overview, market, toolkit, deliverables, storyboards, tasks, files, notes, ai })[WS.tab](body, p);
+    return ({ overview, market, toolkit, deliverables, storyboards, tasks, files, notes, ai })[tab](body, p);
   }
   function openSwitcher() {
     const sw = document.getElementById('pw-sw'); if (!sw) return;
@@ -378,8 +391,15 @@
       <circle cx="84" cy="84" r="${r}" fill="none" stroke="#FFFFFF14" stroke-width="13"/>
       <circle cx="84" cy="84" r="${r}" fill="none" stroke="url(#pwrg)" stroke-width="13" stroke-linecap="round" stroke-dasharray="${(c * v / 100).toFixed(1)} ${c.toFixed(1)}"/></svg>`;
   }
+  function liveView(body, p, tab, epoch, dataEpoch, request) {
+    return WS.pid === p.id && WS.tab === tab && WS.renderEpoch === epoch && WS.dataEpoch === dataEpoch &&
+      body.isConnected && window.meridianStudioContext.isCurrentRequest(request);
+  }
   function overview(body, p) {
     const pid = p.id, links = p.links || [], team = p.members || [];
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     const site = links.find((l) => l.kind === 'website') || links.find((l) => l.kind === 'staging');
     const h0 = health(p), m0 = measures(p, null), mj = mainJob(p);
     const pct = m0.jobs != null ? m0.jobs : m0.tTotal ? Math.round(100 * m0.tDone / m0.tTotal) : 0;
@@ -399,7 +419,7 @@
       <section class="pwx a-violet s4" aria-label="Messages"><div class="ph"><span class="gl">${ic('msg', 16)}</span><h3>Messages</h3><span id="pw-unread"></span><div class="end"><button type="button" class="pill" id="pw-opench">Open channel ${ic('arrow', 13)}</button></div></div><div id="pw-msg">${skel(3)}</div></section>
       <section class="pwx a-steel s4" aria-label="Recent activity"><div class="ph"><span class="gl">${ic('act', 16)}</span><h3>Recent Activity</h3><span class="meta">partial history</span></div><div id="pw-a">${skel(3)}</div></section></div>`;
     body.querySelectorAll('[data-goto]').forEach((b) => (b.onclick = () => { WS.tab = b.dataset.goto; render(); }));
-    const live = (el) => WS.pid === pid && WS.tab === 'overview' && el && document.body.contains(el);
+    const live = (el) => el && liveView(body, p, 'overview', epoch, dataEpoch, request) && document.body.contains(el);
     // client & team
     const fillPeople = (tasks) => {
       const el = document.getElementById('pw-p'); if (!el) return;
@@ -503,7 +523,8 @@
     document.getElementById('pw-opench').onclick = () => openConvo('c:' + chId);
     M().ws('GET', '/api/chat-hub/sidebar').then((sb) => {
       const ch = sb && sb.success && (sb.channels || []).find((c) => c.id === chId);
-      const u = document.getElementById('pw-unread'); if (u && ch && ch.unread) u.innerHTML = `<span class="unread">${ch.unread} unread</span>`;
+      const u = document.getElementById('pw-unread'); if (!live(u)) return null;
+      if (ch && ch.unread) u.innerHTML = `<span class="unread">${ch.unread} unread</span>`;
       return M().ws('GET', `/api/chat-hub/thread?c=${encodeURIComponent('c:' + chId)}&after=0`);
     }).then((t) => {
       const box = document.getElementById('pw-msg'); if (!live(box)) return;
@@ -539,9 +560,12 @@
 
   /* ------------------------------------------------------------------ Work */
   async function tasks(body, p) {
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     body.innerHTML = skel(4);
     const r = await M().ws('GET', `/api/projects/${p.id}/tasks`);
-    if (WS.pid !== p.id || WS.tab !== 'tasks') return;
+    if (!liveView(body, p, 'tasks', epoch, dataEpoch, request)) return;
     if (!r || !r.success) { body.innerHTML = `<div class="state err"><span class="sg">!</span><b>Tasks didn't load</b>${esc((r && r.error) || '')}</div>`; return; }
     const list = r.tasks || [], myId = me().id;
     const shown = list.filter((t) => (!WS.mine || t.assignee_id === myId) && (WS.show === 'all' || (WS.show === 'open' ? !t.completed : t.completed)));
@@ -586,9 +610,12 @@
 
   /* ------------------------------------------------------------------ Files (with links) */
   async function files(body, p) {
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     body.innerHTML = skel(4);
     const r = await M().ws('GET', `/api/projects/${p.id}/files`);
-    if (WS.pid !== p.id || WS.tab !== 'files') return;
+    if (!liveView(body, p, 'files', epoch, dataEpoch, request)) return;
     const list = (r && r.files) || [];
     const links = p.links || [];
     const shown = WS.section === 'All' ? list : list.filter((f) => f.section === WS.section);
@@ -623,9 +650,12 @@
   // MARKET ANALYSIS (2026-10-11): the client's market report, produced on home base by Meridian (market_intel).
   // Read-only here; Jax runs it from the Projects page in Meridian. Dollar estimates are owner-only and not sent.
   async function market(body, p) {
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     body.innerHTML = skel(4);
     const r = await M().ws('GET', `/api/projects/${p.id}/market`);
-    if (WS.pid !== p.id || WS.tab !== 'market') return;
+    if (!liveView(body, p, 'market', epoch, dataEpoch, request)) return;
     if (!r || !r.success) { body.innerHTML = `<div class="state err"><span class="sg">!</span><b>The market analysis could not be loaded</b>${esc((r && r.error) || '')}</div>`; return; }
     if (!r.report) { body.innerHTML = '<section class="pnl m-graphite"><div class="state off"><span class="sg">▥</span><b>No market analysis for this project yet</b>Jax runs it from Meridian. It shows search demand, local visibility and competitors for this client\'s area.</div></section>'; return; }
     if (!window.MarketRender) { body.innerHTML = '<div class="state err"><b>The report viewer is missing</b>Update Meridian Connect.</div>'; return; }
@@ -633,8 +663,11 @@
   }
 
   async function notes(body, p, editing) {
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     const r = await M().ws('GET', `/api/projects/${p.id}/notes`);
-    if (WS.pid !== p.id || WS.tab !== 'notes') return;
+    if (!liveView(body, p, 'notes', epoch, dataEpoch, request)) return;
     const list = (r && r.notes) || [];
     const ed = editing ? list.find((n) => n.id === editing) : null;
     body.innerHTML = `<section class="pnl m-ink" aria-label="Write a note"><div class="ph"><span class="glyph">✎</span><h3>${ed ? 'Edit note' : 'New note'}</h3><span class="meta">the whole project team can read notes</span></div>
@@ -760,7 +793,11 @@
   }
 
   async function deliverables(body, p) {
+    const epoch = WS.renderEpoch;
+    const dataEpoch = ++WS.dataEpoch;
+    const request = window.meridianStudioContext.beginProjectRequest();
     const r = await M().ws('GET', `/api/projects/${p.id}/deliverables`);
+    if (!liveView(body, p, 'deliverables', epoch, dataEpoch, request)) return;
     const list = (r && r.deliverables) || [];
     const ed = WS.openDel ? list.find((d) => d.id === WS.openDel) : null;
     WS.openDel = null;
@@ -812,10 +849,28 @@
   selectProject = open;
   async function openTab(pid, tab, boardId) {   // used by "take me to…" navigation
     WS.clicked = true;
-    if (WS.pid !== pid) await open(pid);
+    if (!window.meridianStudioContext.selectProject(pid)) return;
+    if (WS.pid !== pid && !(await open(pid))) return;
     if (boardId && window.meridianStoryboard && window.meridianStoryboard.preselect) window.meridianStoryboard.preselect(pid, boardId);
     else if (tab === 'storyboards' && window.meridianStoryboard) window.meridianStoryboard.reset();   // the list, not the last board
     if (tab && TABS.some(([k]) => k === tab)) { WS.tab = tab; await render(); }
   }
-  window.meridianWorkspace = { open, openTab, refresh: render, tabs: () => TABS.slice(), current: () => WS.pid };
+  function clear() {
+    WS.renderEpoch += 1;
+    WS.dataEpoch += 1;
+    WS.pid = null;
+    WS.tab = 'overview';
+    WS.clicked = false;
+    if (window.meridianStoryboard) window.meridianStoryboard.reset();
+    const root = document.getElementById('pw-host');
+    if (root) {
+      root.replaceChildren();
+      const split = root.closest('.projects-split');
+      if (split) split.classList.remove('pw-full');
+    }
+  }
+  window.meridianStudioContext.subscribe((state) => {
+    if (WS.pid && state.project?.id !== WS.pid) clear();
+  });
+  window.meridianWorkspace = { open, openTab, refresh: render, clear, tabs: () => TABS.slice(), current: () => WS.pid };
 })();

@@ -87,6 +87,11 @@ function initAuthUI() {
 function showLogin() {
   currentUser = null;
   currentMe = null;
+  currentProject = null;
+  projects = [];
+  window.meridianStudioContext.reset();
+  if (window.meridianWorkspace) window.meridianWorkspace.clear();
+  clearProjectCards('Sign in to load projects.');
   if (idleTimer) clearInterval(idleTimer);
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('login-password').value = '';
@@ -297,10 +302,50 @@ async function loadAllPanelData() {
 }
 
 // 1. Projects & Files
+function clearProjectCards(message) {
+  for (const id of ['nav-projects-count', 'overview-projects-stat', 'overview-projects-count']) {
+    const count = document.getElementById(id);
+    if (count) count.textContent = '0';
+  }
+  const badge = document.getElementById('projCountBadge');
+  if (badge) badge.textContent = '0 Projects';
+  for (const id of ['dashboardProjectsList', 'projectsMasterList', 'dashboardFilesList',
+    'projectFilesList', 'projectNotesList']) {
+    const list = document.getElementById(id);
+    if (list) list.textContent = message;
+  }
+  for (const id of ['activeProjectScopeTitle', 'dockProjectName']) {
+    const label = document.getElementById(id);
+    if (label) label.textContent = 'No project selected';
+  }
+}
+
 async function loadProjects() {
+  const studio = window.meridianStudioContext;
+  const listRequest = studio.beginProjectList();
   const res = await window.meridian.api.getProjects(currentMe ? currentMe.username : '');
-  if (!res || !res.success) return;
+  if (!res || !res.success) {
+    if (studio.rejectProjectList(listRequest)) {
+      projects = [];
+      currentProject = null;
+      clearProjectCards('Projects could not be loaded.');
+    }
+    return;
+  }
+  if (!studio.acceptProjects(res.data, listRequest)) {
+    if (studio.rejectProjectList(listRequest)) {
+      projects = [];
+      currentProject = null;
+      clearProjectCards('Projects could not be loaded.');
+    }
+    return;
+  }
   projects = res.data || [];
+  if (projects.length === 0) {
+    currentProject = null;
+    clearProjectCards('No projects assigned.');
+    return;
+  }
 
   const navCount = document.getElementById('nav-projects-count');
   if (navCount) navCount.textContent = projects.length;
@@ -735,16 +780,24 @@ function setupChatHandlers() {
     const container = document.getElementById('dockMessages');
     if (!container) return;
 
-    // Append user message
+    // Use the selected project from the authenticated list; never invent an ID.
+    const studio = window.meridianStudioContext;
+    const request = studio.beginProjectRequest();
+    if (!request) {
+      textInput.value = text;
+      const notice = document.createElement('div');
+      notice.className = 'm mer';
+      notice.textContent = 'Select a project before sending.';
+      container.appendChild(notice);
+      return;
+    }
     const you = document.createElement('div');
     you.className = 'm you';
     you.textContent = text;
     container.appendChild(you);
     container.scrollTop = container.scrollHeight;
-
-    // Send to mock stream
-    const projId = currentProject ? currentProject.id : 'proj-1';
-    const res = await window.meridian.api.sendChatMessage(projId, text);
+    const res = await window.meridian.api.sendChatMessage(request.projectId, text);
+    if (!studio.isCurrentRequest(request)) return;
     if (res && res.success && res.data) {
       const mer = document.createElement('div');
       mer.className = 'm mer';
