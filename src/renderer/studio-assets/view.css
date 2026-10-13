@@ -1,0 +1,13 @@
+.studio-assets { color:#e7edf7; background:#101e32; padding:24px; font:16px/1.5 system-ui,sans-serif; max-width:1100px; margin:auto; }
+.studio-assets * { box-sizing:border-box; }
+.studio-assets h1,.studio-assets h2 { overflow-wrap:anywhere; }
+.studio-assets input,.studio-assets select,.studio-assets button { color:inherit; background:#213654; border:1px solid #7791b3; border-radius:5px; padding:10px; margin:5px; font:inherit; max-width:100%; }
+.studio-assets button { cursor:pointer; white-space:normal; overflow-wrap:anywhere; }
+.studio-assets button:disabled { opacity:.6; cursor:default; }
+.studio-assets :focus-visible { outline:3px solid #60d4e5; outline-offset:3px; }
+.studio-assets .sa-banner { background:#29405c; padding:12px; border-left:4px solid #60d4e5; }
+.studio-assets section { border-top:1px solid #7791b3; margin-top:20px; }
+.studio-assets form { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+.studio-assets label { display:flex; flex-direction:column; flex:1 1 220px; }
+.studio-assets ul { padding-left:20px; }
+.studio-assets li { overflow-wrap:anywhere; margin:10px 0; }
