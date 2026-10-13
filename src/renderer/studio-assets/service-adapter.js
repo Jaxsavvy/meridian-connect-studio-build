@@ -7,7 +7,7 @@
   class ServiceAdapter {
     constructor(transport) {
       if (!transport || typeof transport.request !== 'function') throw new TypeError('Named asset transport required');
-      this.transport = transport; this.mode = 'service';
+      this.transport = transport; this.mode = transport.mode === 'synthetic' ? 'synthetic' : 'service';
     }
     async call(operation, input) {
       const { signal, ...payload } = input;

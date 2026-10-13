@@ -6,27 +6,31 @@
 ## Files changed
 
 - New `src/renderer/studio-assets/` modules implement model/lineage, naming, scoped state, synthetic service, host adapter, view and scoped CSS.
-- New `src/studio-assets/upscale-worker.js` implements injected worker validation/cancellation/registration boundary; no process launch implementation or external binaries.
-- `docs/studio/assets/8/` contains host contract, loopback demo, synthetic fixture, 21 component/worker tests, screenshot, overview and this review description.
+- New `src/studio-assets/` implements injected worker validation/cancellation/registration boundary, pinned native CLI runner and bounded PNG decoder. No external binaries/models packaged or committed.
+- `docs/studio/assets/8/` contains host contract, loopback demo, synthetic fixture, 23 component/worker/native tests, real CLI smoke/failure harnesses, external artifact staging script, pin/license/evidence report, screenshot and overview.
 - `docs/development/handoffs/ISSUE-8-chair-3.md` records scope, tests and dependencies.
 - Existing uncommitted DEV-003 planning files deliberately excluded.
 
 ## Checks performed
 
-- `node --test docs/studio/assets/8/component.test.cjs docs/studio/assets/8/worker.test.cjs`: 21 passing tests.
+- `node --test docs/studio/assets/8/component.test.cjs docs/studio/assets/8/worker.test.cjs docs/studio/assets/8/native.test.cjs`: 23 passing tests.
 - `node --check` on every new runtime JavaScript module; whitespace and exact staged path/diff checks.
 - Browser synthetic import, edit, submit-review, project isolation/sign-out, retained unsaved edit, keyboard focus and download checks. Screenshot in `docs/studio/assets/8/synthetic-preview.png`.
-- No Connect build/package, full accessibility audit, real Upscayl invocation, service permissions or production checks. No dependencies/executables/models installed.
+- Real Upscayl CLI: 32x32 -> 128x128, preserved original, synthetic idempotent derivative registration; real launch cancellation/timeout, missing input/wrong pin and corrupt zero-exit/no-output rejection verified. Artifacts officially sourced and pinned outside Git; no installer run.
+- Real native browser fixture: Running -> Succeeded, separate derivative/parent selection, cancelled job and unchanged version count verified. Arbitrary imports denied. See artifact report and native-preview screenshot.
+- No Connect build/package, full accessibility audit, integrated OS sandbox, authoritative service permissions or production checks. No third-party binaries/models/generated outputs committed.
 
 ## Screenshots or previews
 
 [Synthetic development preview](https://github.com/Jaxsavvy/meridian-connect-studio-build/blob/feature/studio-assets/docs/studio/assets/8/synthetic-preview.png)
 
+[Real native synthetic test preview](https://github.com/Jaxsavvy/meridian-connect-studio-build/blob/feature/studio-assets/docs/studio/assets/8/native-preview.png)
+
 Run the explicit-allowlist loopback preview using the README instructions. Neutral functional styling is not Tyler's approved integrated design.
 
 ## Known issues and dependencies
 
-Blocked for full acceptance on exact Chair 1 shared hooks/context/authoritative service contract, reusable Tyler token/component implementation, and approved pinned Upscayl executable/model/license/device plus OS runner and robust decoder. Tyler's issue #8 coordination supplies Command Workbench B direction/terminology; integrated surfaces remain unwired. Owner's pending PR #10 build map and DEV-007 boundary reviewed. Mock image checks and simulated worker outputs do not establish real decoding, isolation or upscaling. No shared main/preload/API/navigation/style files touched.
+Blocked for full acceptance on exact Chair 1 shared hooks/context/authoritative service contract, reusable Tyler token/component implementation, and owner-approved OS isolation/distribution policy. Tyler's issue #8 coordination supplies Command Workbench B direction/terminology; integrated surfaces remain unwired. Owner's pending PR #10 build map and DEV-007 boundary reviewed. Real CLI evidence exists separately from mock worker tests. Native runner is accurately process-scoped, not OS-enforced; integrated worker gate remains closed. No shared main/preload/API/navigation/style files touched.
 
 Current packaging includes `src/**/*`; owner must review new runtime modules for distribution. Fixtures/tests/screenshots stay under docs outside that allowlist. Scratch retention after uncertain registration, production review/download policies and resumable wire transport remain host decisions. Project switches discard scoped drafts in this isolated UI; shipping requires approved discard/resume UX.
 

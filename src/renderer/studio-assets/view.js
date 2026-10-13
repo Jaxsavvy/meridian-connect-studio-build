@@ -1,6 +1,6 @@
 (function (root) {
   'use strict';
-  function mount(host, controller, { enhance = null } = {}) {
+  function mount(host, controller, { enhance = null, allowImport = true, bannerText = null } = {}) {
     let versionId = null; let retryKey = null; let retryFile = null; let jobAbort = null; let jobState = 'idle'; let filters = { query: '', section: '' };
     const drafts = new Map();
     const element = (tag, text, attrs = {}) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; Object.assign(node, attrs); return node; };
@@ -10,7 +10,7 @@
       const oldFocus = document.activeElement && document.activeElement.dataset.focus;
       const busy = ['saving','loading'].includes(state.phase); host.replaceChildren(); host.classList.add('studio-assets');
       host.append(element('h1','Studio Asset Library'));
-      host.append(element('p',state.mode === 'synthetic' ? 'SYNTHETIC DEVELOPMENT — memory only; no production service connected.' : 'Authorized service adapter', {className:'sa-banner'}));
+      host.append(element('p',bannerText || (state.mode === 'synthetic' ? 'SYNTHETIC DEVELOPMENT — memory only; no production service connected.' : 'Authorized service adapter'), {className:'sa-banner'}));
       const project = element('select'); project.setAttribute('aria-label','Project'); project.dataset.focus = 'project'; project.append(element('option','Select project',{value:''}));
       for (const p of controller.projects) project.append(element('option',p.name,{value:p.id})); project.value = state.project?.id || '';
       project.onchange = () => { if(jobAbort) jobAbort.abort(); jobState='idle';drafts.clear(); filters={query:'',section:''}; versionId = null; retryKey = null; retryFile = null; controller.selectProject(project.value); };
@@ -21,7 +21,7 @@
       const controls = element('form'); const query = element('input',undefined,{type:'search',placeholder:'Search names and tags',value:filters.query}); query.setAttribute('aria-label','Search assets'); query.dataset.focus='search';query.oninput=()=>{filters.query=query.value;};
       const section = element('select'); section.setAttribute('aria-label','Filter section'); for (const s of ['','Files','Brand','Website','Docs']) section.append(element('option',s || 'All sections',{value:s}));section.value=filters.section;section.onchange=()=>{filters.section=section.value;};
       controls.append(query,section,button('Search',()=>controller.search(filters),busy)); controls.onsubmit=e=>{e.preventDefault();controller.search(filters);}; host.append(controls);
-      const file = element('input',undefined,{type:'file',accept:'.png,.jpg,.jpeg,.txt'}); file.setAttribute('aria-label','Import synthetic file'); file.disabled=busy;
+      const file = element('input',undefined,{type:'file',accept:'.png,.jpg,.jpeg,.txt'}); file.setAttribute('aria-label','Import synthetic file'); file.disabled=busy || !allowImport;
       file.onchange = async () => {
         const selected=file.files[0]; if(!selected) return; retryFile=selected; retryKey=crypto.randomUUID(); await importFile();
       };
@@ -33,7 +33,7 @@
         if(controller.generation !== generation) return;
         await controller.save('import',{filename:file.name,mediaType:file.type || 'text/plain',bytes,idempotencyKey:key});
       }
-      host.append(file,button('Retry import',importFile,busy || !retryFile),button('Cancel requests',()=>controller.cancel(),!busy));
+      host.append(file,button('Retry import',importFile,busy || !retryFile || !allowImport),button('Cancel requests',()=>controller.cancel(),!busy));
       const list=element('ul'); list.setAttribute('aria-label','Project assets');
       for(const asset of state.assets) { const row=element('li'); row.append(button(asset.name,()=> {versionId=null;controller.selectAsset(asset.id);}),element('span',` ${asset.tags.join(', ')} · ${asset.versions.length} version(s)`)); list.append(row); }
       host.append(list); if(!state.assets.length && !busy) host.append(element('p','No matching assets. Import a synthetic file to begin.'));
