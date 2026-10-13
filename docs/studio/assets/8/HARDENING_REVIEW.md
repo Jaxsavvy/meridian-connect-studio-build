@@ -12,7 +12,7 @@
 
 ## Checks performed
 
-- 38 component/worker/native/view tests pass; source syntax, whitespace, relative links and exact task-path diff reviewed.
+- 40 component/worker/native/view tests pass; source syntax, whitespace, relative links and exact task-path diff reviewed.
 - Browser Keep editing retains project A/draft/focus; Discard changes clears A details before B loads. Save inputs disable while pending.
 - Existing real Upscayl evidence remains applicable; worker/process code was not changed or re-executed for this UI/controller slice.
 - No shared renderer/bridge/API/backend files, external binaries/models or packaging changed. Prior DEV-003 uncommitted files preserved and excluded.
@@ -60,3 +60,7 @@ HOST_CONTRACT now describes implemented filters/history/reload and proposed auth
 Implemented the external prepareLeave/setProject/signOut/clearContext lifecycle in the isolated view, with hostOwned mode hiding local project/sign-out controls. Callable disposal remains compatible. Keep editing preserves draft/focus, failed/offline/conflict state retains drafts, discard allows the requested transition, and actual revocation clears immediately. Concurrent requests share one decision and generation checks prevent both transitions committing. Four new view-boundary tests bring the suite to 38; browser external switch Keep editing and confirmed sign-out pass. [Host guard preview](https://github.com/Jaxsavvy/meridian-connect-studio-build/blob/feature/studio-assets/docs/studio/assets/8/host-guard-preview.png).
 
 Owner now approved same-asset derivative identity and assigned restricted services/OS isolation to DEV-010/DEV-018. HOST_CONTRACT records these decisions and exact lifecycle semantics. Shared Connect mounting, versioned live transport and Tyler's real slot remain pending. Existing worker gate and no-redistribution policy remain unchanged.
+
+## Host transition edge cases
+
+Same-project host selection now preserves draft/context rather than prompting discard; unknown host IDs return false before context mutation. Two additional lifecycle tests verify those paths, local sign-out guarding and actual denial during pending leave. 40 tests pass; syntax and exact scoped diff checked. No new browser screenshot required for this boundary-only continuation; previous external guard browser evidence remains applicable. Shared integration remains pending.

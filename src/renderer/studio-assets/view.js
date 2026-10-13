@@ -113,7 +113,11 @@
     }
     const api=()=>{disposed=true;settleLeave(false);if(jobAbort)jobAbort.abort();clearPreview();drafts.clear();conflicts.clear();controller.onChange=()=>{};controller.cancel();host.replaceChildren();};
     api.prepareLeave=prepareLeave;
-    api.setProject=async id=>{const epoch=controller.generation;if(!await prepareLeave() || disposed || epoch!==controller.generation)return false;switchProject(id);return true;};
+    api.setProject=async id=>{
+      if(disposed || !controller.projects.some(project=>project.id===id))return false;
+      if(controller.snapshot().project?.id===id)return true;
+      const epoch=controller.generation;if(!await prepareLeave() || disposed || epoch!==controller.generation)return false;switchProject(id);return true;
+    };
     api.signOut=async()=>{const epoch=controller.generation;if(!await prepareLeave() || disposed || epoch!==controller.generation)return false;api.clearContext();return true;};
     api.clearContext=()=>{settleLeave(false);if(jobAbort)jobAbort.abort();clearPreview();drafts.clear();conflicts.clear();pendingProjectId=null;retryKey=null;retryFile=null;controller.signOut();};
     controller.onChange=render; render(controller.snapshot());
