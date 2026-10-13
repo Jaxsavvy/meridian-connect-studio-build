@@ -15,7 +15,7 @@
 - Inspected draft PR #15's controller/view diff for compatibility. Its internal unsaved-switch UI still has no external Connect scope-change hook; no merge or acceptance was inferred.
 - Files: `src/renderer/studio-context.js`, `src/renderer/studio-asset-host.js`, `tools/studio-context/asset-host.test.cjs`, this handoff and the contract.
 - No edits to Cassy's modules, Tyler's UI, main/preload/API, packaging, Core, Overseer or production Meridian. No executable, model, customer file or credential added.
-- The five intended files are staged for review; no commit or PR created for this slice.
+- Implementation commit: `fedb06a` on `feature/studio-integration`; [draft PR #17](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/17) is open for owner review. No merge or release.
 
 ## Checks and review
 
@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | `node --test --test-isolation=none tools/studio-context/studio-context.test.cjs tools/studio-context/renderer-integration.test.cjs tools/studio-context/asset-host.test.cjs` | 22 passed | Synthetic context and transport only. |
 | `node --test --test-isolation=none docs/studio/assets/8/component.test.cjs docs/studio/assets/8/worker.test.cjs docs/studio/assets/8/native.test.cjs` | 23 passed on current main | Does not include Cassy's unmerged PR #15 tests or run the real CLI. |
-| `git diff --cached --check` and exact staged file list | Passed; five intended files only | Does not constitute owner acceptance. |
+| `git diff --cached --check` and exact staged file list before commit | Passed; five intended files only | Does not constitute owner acceptance. |
 
 DEV-005 remains Blocked. Its already recorded real synthetic CLI test is evidence of local Upscayl execution only; it is not evidence of an authorized packaged integration. No owner acceptance for Complete.
 
@@ -31,5 +31,5 @@ DEV-005 remains Blocked. Its already recorded real synthetic CLI test is evidenc
 
 - New DEV-008 issue was added once to Project #1; Chair, Priority, Module and Building were set and read back. DEV-005's item/status was not changed.
 - Staged diff reviewed for scope and obvious secrets; only synthetic IDs/content and public-safe contract text are present.
-- Review the exact local diff and tests, then obtain specific owner authorization before commit, push or PR.
+- Review draft PR #17's exact diff and tests before any merge; no Complete transition is authorized.
 - Review PR #15 and settle external unsaved project-switch behavior with Cassy and Tyler. Define restricted service schema/permission matrix and OS isolation/distribution policy before any live transport or visible Asset Library mount.
