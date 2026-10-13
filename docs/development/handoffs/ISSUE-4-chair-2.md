@@ -31,8 +31,8 @@
 | 1440 × 1000 direction renders, visually inspected | Nine passed after one original Direction 1 spacing correction | Static synthetic HTML only; not the employee runtime |
 | `git diff --cached --check` and exact staged path review | Pass; 27 additions confined to the two issue-approved paths | Static whitespace/path check only |
 
-- Commit hashes: `780ac9b` — DEV-002 Studio design review package; `77e33e1` — normal merge of current `origin/main` after confirming no path overlap.
-- Pull request: pending creation after the final handoff commit and branch push; owner review is still required.
+- Commit hashes: `780ac9b` — DEV-002 Studio design review package; `77e33e1` — normal merge of current `origin/main` after confirming no path overlap; `e36f3bc` — pre-PR handoff readback.
+- Pull request: [#12 — DEV-002: add approved Studio Operations design package](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/12). Owner review is still required; do not merge or mark Complete without explicit acceptance.
 - Screenshots: nine synthetic 1440 × 1000 overview renders plus selected-Direction-B checks at 1080 × 900, 1280 × 900, and 1920 × 1080 under `docs/studio/design/4/renders/`; all were visually inspected.
 - Known issues and missing contracts: current employee runtime comparison is pending; backend save, permissions, asset identity/versioning, upload, generation, and review APIs are not implemented or verified here.
 - Sensitive-content and staged-file review: pass. Keyword scan found only explanatory references in the review/handoff; the exact staged list is confined to `docs/studio/design/4/**` and this handoff. Prototypes use synthetic content and no customer assets.
