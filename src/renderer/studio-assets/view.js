@@ -1,11 +1,14 @@
 (function (root) {
   'use strict';
   function mount(host, controller, { enhance = null, allowImport = true, bannerText = null } = {}) {
-    let versionId = null; let retryKey = null; let retryFile = null; let jobAbort = null; let jobState = 'idle'; let filters = { query: '', section: '' };
+    let versionId = null; let retryKey = null; let retryFile = null; let jobAbort = null; let jobState = 'idle'; let filters = { query: '', section: '' }; let pendingProjectId = null;
     const drafts = new Map();
     const element = (tag, text, attrs = {}) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; Object.assign(node, attrs); return node; };
     const button = (label, action, disabled = false) => { const node = element('button',label,{type:'button',disabled}); node.addEventListener('click', action); return node; };
     const errorText = { PROJECT_DENIED: 'Access has changed. Select another project.', OFFLINE: 'Offline. Your changes have not been saved.', REVISION_CONFLICT: 'A newer revision exists. Reload before editing.', STORAGE_FAILED: 'Storage failed. Retry the same import when available.', CANCELLED: 'Cancelled.', CORRUPT_MEDIA: 'This file cannot be accepted as that media type.' };
+    function switchProject(id) {
+      if(jobAbort)jobAbort.abort();jobState='idle';drafts.clear();filters={query:'',section:''};versionId=null;retryKey=null;retryFile=null;pendingProjectId=null;controller.selectProject(id);
+    }
     function render(state) {
       const oldFocus = document.activeElement && document.activeElement.dataset.focus;
       const busy = ['saving','loading'].includes(state.phase); host.replaceChildren(); host.classList.add('studio-assets');
@@ -13,10 +16,17 @@
       host.append(element('p',bannerText || (state.mode === 'synthetic' ? 'SYNTHETIC DEVELOPMENT — memory only; no production service connected.' : 'Authorized service adapter'), {className:'sa-banner'}));
       const project = element('select'); project.setAttribute('aria-label','Project'); project.dataset.focus = 'project'; project.append(element('option','Select project',{value:''}));
       for (const p of controller.projects) project.append(element('option',p.name,{value:p.id})); project.value = state.project?.id || '';
-      project.onchange = () => { if(jobAbort) jobAbort.abort(); jobState='idle';drafts.clear(); filters={query:'',section:''}; versionId = null; retryKey = null; retryFile = null; controller.selectProject(project.value); };
-      host.append(project,button('Sign out',()=> { if(jobAbort) jobAbort.abort(); drafts.clear();retryKey=null;retryFile=null;controller.signOut(); }));
+      project.onchange = () => {
+        if(drafts.size){pendingProjectId=project.value;render(controller.snapshot());return;}
+        switchProject(project.value);
+      };
+      host.append(project,button('Sign out',()=> { if(jobAbort) jobAbort.abort(); pendingProjectId=null;drafts.clear();retryKey=null;retryFile=null;controller.signOut(); }));
       const status = element('p',errorText[state.error] || state.error || ({ready:'Project assets loaded',loading:'Loading assets…',saving:'Saving…',cancelled:'Cancelled'}[state.phase] || 'Choose a project to begin'));
       status.setAttribute('role',state.error ? 'alert' : 'status'); status.setAttribute('aria-live','polite'); host.append(status);
+      if(pendingProjectId!==null){
+        const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved project switch');
+        notice.append(element('p','Unsaved asset metadata will be discarded if you switch projects.'),button('Keep editing',()=>{pendingProjectId=null;render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}),button('Discard changes and switch',()=>switchProject(pendingProjectId)));host.append(notice);
+      }
       if (!state.project) return;
       const controls = element('form'); const query = element('input',undefined,{type:'search',placeholder:'Search names and tags',value:filters.query}); query.setAttribute('aria-label','Search assets'); query.dataset.focus='search';query.oninput=()=>{filters.query=query.value;};
       const section = element('select'); section.setAttribute('aria-label','Filter section'); for (const s of ['','Files','Brand','Website','Docs']) section.append(element('option',s || 'All sections',{value:s}));section.value=filters.section;section.onchange=()=>{filters.section=section.value;};
@@ -40,11 +50,12 @@
       const asset=state.assets.find(a=>a.id===state.selectedId); if(!asset) return;
       const panel=element('section'); panel.setAttribute('aria-label','Asset details'); panel.append(element('h2',asset.name),element('p',`Original: ${asset.originalFilename}`));
       const form=element('form'); const fields={}; const draft=drafts.get(asset.id) || {revision:asset.revision,name:asset.name,tags:asset.tags.join(', '),description:asset.description,section:asset.section};
+      const draftNotice=element('p','Unsaved metadata changes — retained while this project remains selected.',{role:'status'});draftNotice.hidden=!drafts.has(asset.id);
       for(const [key,label] of [['name','Display name'],['tags','Tags (comma separated)'],['description','Description'],['section','Section']]) {
-        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || ''}); input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);};wrap.append(input);form.append(wrap);
+        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || '',disabled:busy}); input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);draftNotice.hidden=false;};wrap.append(input);form.append(wrap);
       }
       const save=element('button','Save metadata',{type:'submit',disabled:busy});form.append(save);form.onsubmit=async e=>{e.preventDefault();const result=await controller.save('metadata',{assetId:asset.id,revision:draft.revision,name:fields.name.value,tags:fields.tags.value.split(',').map(t=>t.trim()).filter(Boolean),description:fields.description.value,section:fields.section.value});if(result){drafts.delete(asset.id);render(controller.snapshot());}};panel.append(form);
-      if(drafts.has(asset.id))panel.append(element('p','Unsaved metadata changes — retained while this project remains selected.',{role:'status'}));
+      panel.append(draftNotice);
       const versions=element('select');versions.setAttribute('aria-label','Asset version'); for(const v of asset.versions) versions.append(element('option',`v${v.sequence} · ${v.operation} · ${v.reviewState}${v.id===asset.originalVersionId?' · Original':''}`,{value:v.id}));
       if(!asset.versions.some(v=>v.id===versionId)) versionId=asset.preferredVersionId;versions.value=versionId;versions.onchange=()=> {versionId=versions.value;render(controller.snapshot());};panel.append(versions);
       const selected=asset.versions.find(v=>v.id===versionId);panel.append(element('p',`Parent: ${selected.parentVersionId || 'none'} · ${selected.bytes} bytes`));

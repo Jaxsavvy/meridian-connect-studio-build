@@ -91,3 +91,28 @@ test('named service adapter snapshots payload and forwards cancellation without 
   const signal=new AbortController();await adapter.list({projectId:'A',signal:signal.signal});assert.equal(captured.operation,'asset.list');assert.deepEqual(captured.payload,{projectId:'A'});assert.equal(captured.options.signal,signal.signal);
   signal.abort();await assert.rejects(adapter.list({projectId:'A',signal:signal.signal}),{code:'CANCELLED'});
 });
+test('retried import acknowledgement cannot roll back newer human metadata',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');
+  const a=await c.save('import',input());await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Human correction',tags:['human'],description:'corrected',section:'Brand'});
+  const ack=await c.save('import',input());assert.equal(ack.revision,1);assert.equal(c.snapshot().assets[0].revision,2);assert.equal(c.snapshot().assets[0].name,'Human correction');
+});
+test('late same-project list cannot roll back a successful metadata save',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  let resolve;s.list=()=>new Promise(done=>{resolve=done;});const pending=c.search();await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Latest correction',tags:[],description:'',section:'Files'});
+  resolve([a]);await pending;assert.equal(c.snapshot().assets[0].name,'Latest correction');assert.equal(c.snapshot().assets[0].revision,2);
+});
+test('self-consistent download of the wrong version is rejected',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  const b=await c.save('import',input({assetId:a.id,parentVersionId:a.originalVersionId,operation:'manual-edit',idempotencyKey:'other',bytes:new Uint8Array([4,5,6])}));
+  const original=s.download.bind(s);s.download=scope=>original({...scope,versionId:b.preferredVersionId});await c.download({assetId:a.id,versionId:a.originalVersionId});assert.equal(c.snapshot().error,'CHECKSUM_MISMATCH');
+});
+test('mutation response for another asset is rejected despite matching project',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  const other=await s.import(input({idempotencyKey:'other'}));s.metadata=async()=>other;await c.save('metadata',{assetId:a.id});assert.equal(c.snapshot().error,'INVALID_RESPONSE');assert.equal(c.snapshot().assets.length,1);
+});
+test('read completion does not report ready while a metadata write is pending',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  let release;const gate=new Promise(resolve=>{release=resolve;});const original=s.metadata.bind(s);s.metadata=async p=>{await gate;return original(p);};
+  const save=c.save('metadata',{assetId:a.id,revision:a.revision,name:'Pending correction',tags:[],section:'Files'});await c.search();assert.equal(c.snapshot().phase,'saving');
+  release();await save;assert.equal(c.snapshot().phase,'ready');assert.equal(c.snapshot().assets[0].name,'Pending correction');
+});
