@@ -21,19 +21,21 @@ The demo uses neutral functional styling, not Tyler's selected Studio design. Ne
 
 - `model.js`: immutable-scope/lineage validation, SHA-256 record shape, safe export names and deterministic naming suggestions.
 - `synthetic-service.js`: project-scoped list/search/filter, import, parent-linked derivatives, exact-version download, metadata revision conflicts and review submission. Snapshot inputs, idempotent imports and commit-time mock revocation/cancellation checks. Mock PNG/JPEG checks only inspect signatures; they are not robust decoding or malware inspection.
-- `controller.js`: injected project list, scope generation, abort/sign-out/cancel handling, late-response rejection, structured states and download checksum validation.
+- `controller.js`: injected project list, scope generation, abort/sign-out/cancel handling, late-response rejection, monotonic revision handling, concurrent saving states and selected-version download identity/checksum validation. Older retry/list acknowledgements cannot undo newer metadata.
 - `service-adapter.js`: named transport interface for a later Chair 1 host adapter. No invented live endpoints or tokens.
-- `view.js` / `view.css`: isolated accessible-label controls for project/list/search/filter/import/retry/download/details/metadata/version selection/review and unavailable-or-injected Upscayl job state/cancel. Unsaved metadata stays in scoped memory while viewing that project. Project switch/sign-out discard these local drafts; integrated design needs a confirmed-discard UX before shipping.
+- `view.js` / `view.css`: isolated accessible-label controls for project/list/search/filter/import/retry/download/details/metadata/version selection/review and unavailable-or-injected Upscayl job state/cancel. Unsaved metadata stays in scoped memory while viewing that project; an inline Keep editing / Discard changes and switch choice protects project switching. Sign-out clears scoped drafts. Metadata fields disable while requests are pending so an acknowledgement cannot silently discard edits typed during save.
 - `upscale-worker.js`: fail-closed host component with approval/pin checks, injected authorization/decoder/OS-isolated runner, bounded I/O, original checksum preservation, cancellation/timeout signal, final authorization and derivative registration. Its original tests use simulated output, not real process evidence.
 - `native-runner.js` / `png.js`: concrete pinned CLI process runner and bounded PNG decoding. Real synthetic success/failure/cancellation evidence is in [the artifact report](UPSCAYL_ARTIFACTS.md). Runner is process-scoped, not an OS sandbox; the integrated worker gate remains closed.
 
 ## Evidence and limits
 
-23 Node tests pass. Tests cover branches, original preservation, snapshots, idempotency/conflicts, human naming, review isolation, cross-project/revocation, stale responses/sign-out, unsafe names, corrupt/missing media, storage failure, checksum errors, PNG validation/artifact pins and worker approval/pin/timeout/process/output/registration failures. Separate real CLI scripts pass success, actual launch cancellation, timeout, corrupt/no-output, missing-input and wrong-pin checks. Syntax checks pass for all new JavaScript modules.
+40 Node tests pass. Tests cover branches, original preservation, snapshots, idempotency/conflicts, human naming, review isolation, cross-project/revocation, stale responses/sign-out, unsafe names, corrupt/missing media, storage failure, checksum errors, PNG validation/artifact pins and worker approval/pin/timeout/process/output/registration failures. Additional cases protect newer metadata from old retry/list responses, reject wrong-asset responses and self-consistent wrong-version downloads, and preserve Saving while a concurrent write is pending. Separate real CLI scripts pass success, actual launch cancellation, timeout, corrupt/no-output, missing-input and wrong-pin checks. Syntax checks pass for all new JavaScript modules.
 
 Browser checks: selected A, imported a synthetic text file, corrected title/tags, submitted exact version for review, switched to empty B, and signed out with no prior asset details remaining. Rechecked final view after edits: unsaved naming retained across search, saved successfully, Tab moved from name to tags with visible focus, and downloaded exact synthetic version bytes. [Synthetic preview](synthetic-preview.png) is browser evidence, not an approved Connect build screenshot. Full keyboard, viewport/contrast audit, image decoding, real process-tree termination and build/package checks remain pending.
 
 Native browser checks also passed real job completion, distinct derivative selection/parent identity, cancellation and no added version after cancellation. [Native preview](native-preview.png). Baseline PNG decoding is now verified; broader image formats and descendant-tree/OS containment remain pending.
+
+Continuation browser checks verified immediate Unsaved feedback, project selector remaining on A while a switch is pending, Keep editing retaining the draft/focus, and explicit discard clearing A details before B loads. [Unsaved switch preview](unsaved-preview.png).
 
 ## Integration blockers
 
@@ -44,3 +46,15 @@ Native browser checks also passed real job completion, distinct derivative selec
 5. Packaging currently includes `src/**/*`: owner must review the new runtime modules before distribution. Tests, fixtures and screenshots are under docs outside the packaging allowlist. No installer or dependencies were generated.
 
 These gates prevent a complete Connect/Upscayl flow. This batch is reviewable working code, not task completion.
+
+## Librarian continuation evidence
+
+Synthetic adapter now retains changed-field provenance and last-100 metadata events; tags-only saves preserve rule-based naming. Search includes descriptions, with media/review filters matching the same version. These are proposed authoritative service semantics. The isolated view exposes explicit naming suggestions, last-ten history and controller-verified decoded image previews. URLs and drafts clear on scope changes. Browser checks passed PNG preview, attribution/history, filters, suggestion/discard and scope cleanup; [preview](librarian-preview.png). Three new regression tests pass. Broader image formats, full Connect integration and audit retention remain pending.
+
+## Reproduce recovery checks
+
+The synthetic demo exposes fixture-only Go offline / Restore connection and Simulate another metadata edit controls. Select A and its asset, edit locally, simulate another edit, then Save: REVISION_CONFLICT must preserve the draft. Go offline and discard/load: failure must retain draft/recovery. Restore connection and repeat: canonical metadata loads, draft clears and name focus returns. An ordinary offline Save can be retried after restoring connection; no background retries or restart persistence. See [contract](HOST_CONTRACT.md) and [recovery preview](recovery-preview.png). 34 automated tests pass; browser long-name/Tab/no-overflow checks passed at the current desktop viewport. No full Connect build/package or integrated design acceptance claimed.
+
+## Host-owned lifecycle checks
+
+Run the existing test command with docs/studio/assets/8/view.test.cjs added (38 tests total). Demo controls Host switch to project B / Host sign out / Host session revoked exercise lifecycle without shared Connect files. With an unsaved name, Keep editing must retain A/draft/focus; discard permits transition; actual revocation clears immediately. Host integrations use hostOwned:true and the API in HOST_CONTRACT. [Host guard screenshot](host-guard-preview.png). Owner derivative identity is now approved; remaining service/OS/Tyler dependencies stay pending.

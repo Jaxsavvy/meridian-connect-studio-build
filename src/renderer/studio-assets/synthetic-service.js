@@ -5,9 +5,9 @@
   'use strict';
   // Development adapter only. No endpoints, credentials, filesystem or persistence.
   class SyntheticService {
-    constructor({ projects, actor = 'synthetic-member', delay = 0, beforeCommit = null } = {}) {
+    constructor({ projects, actor = 'synthetic-member', delay = 0, beforeCommit = null, clock = () => new Date().toISOString() } = {}) {
       this.mode = 'synthetic'; this.actor = actor; this.memberships = new Set(projects || []);
-      this.delay = delay; this.beforeCommit = beforeCommit; this.assets = new Map(); this.content = new Map(); this.keys = new Map(); this.counter = 0; this.offline = false; this.storageFailure = false;
+      this.delay = delay; this.beforeCommit = beforeCommit;this.clock=clock;this.assets = new Map(); this.content = new Map(); this.keys = new Map(); this.counter = 0; this.offline = false; this.storageFailure = false;
     }
     revoke(projectId) { this.memberships.delete(projectId); }
     authorize(projectId, signal) {
@@ -27,10 +27,10 @@
       if (!asset || asset.projectId !== projectId) M.fail('NOT_FOUND');
       return asset;
     }
-    async list({ projectId, query = '', section = '', reviewState = '', signal }) {
+    async list({ projectId, query = '', section = '', mediaType = '', reviewState = '', signal }) {
       await this.boundary(projectId, signal);
       const q = String(query).toLocaleLowerCase();
-      return [...this.assets.values()].filter(a => a.projectId === projectId && (!section || a.section === section) && (!reviewState || a.versions.some(v => v.reviewState === reviewState)) && [a.name, a.originalFilename, ...a.tags].join(' ').toLocaleLowerCase().includes(q)).map(a => M.validate(a, projectId));
+      return [...this.assets.values()].filter(a => a.projectId === projectId && (!section || a.section === section) && a.versions.some(v=>(!mediaType || v.mediaType===mediaType) && (!reviewState || v.reviewState===reviewState)) && [a.name, a.originalFilename, a.description, ...a.tags].join(' ').toLocaleLowerCase().includes(q)).map(a => M.validate(a, projectId));
     }
     async import({ projectId, assetId, parentVersionId, filename, mediaType, bytes, operation = 'original', idempotencyKey, signal }) {
       // Filename is never a storage path. Reject path-like inputs rather than sanitizing silently.
@@ -58,7 +58,7 @@
         if (!asset.versions.some(v => v.id === parentVersionId) || operation === 'original') M.fail('INVALID_LINEAGE');
       } else {
         if (parentVersionId || operation !== 'original') M.fail('INVALID_LINEAGE');
-        asset = { id: `synthetic-asset-${++this.counter}`, projectId, name: M.suggestName(filename), originalFilename: filename, originalVersionId: null, preferredVersionId: null, revision: 1, tags: [], section: 'Files', description: '', provenance: { name: { source: 'rule', rule: 'filename-v1' } }, versions: [] };
+        asset = { id: `synthetic-asset-${++this.counter}`, projectId, name: M.suggestName(filename), originalFilename: filename, originalVersionId: null, preferredVersionId: null, revision: 1, tags: [], section: 'Files', description: '', provenance: { name: { source: 'rule', rule: 'filename-v1', at:this.clock() } }, metadataHistory:[],versions: [] };
       }
       const id = `synthetic-version-${++this.counter}`;
       if (!asset.originalVersionId) asset.originalVersionId = id;
@@ -72,7 +72,12 @@
       const patch = { name: M.text(name), tags: tags.map(t => M.text(t, 64)), description: String(description || '').slice(0, 2000), section: M.text(section) };
       await this.boundary(projectId, signal, true);
       const prior = this.record(projectId, assetId); if (prior.revision !== revision) M.fail('REVISION_CONFLICT');
-      const result = { ...M.clone(prior), ...patch, revision: prior.revision + 1, provenance: { ...prior.provenance, name: { source: 'human', actor: this.actor } } };
+      const provenance=M.clone(prior.provenance || {}),changes={},at=this.clock();
+      for(const field of ['name','tags','description','section'])if(JSON.stringify(prior[field])!==JSON.stringify(patch[field])){
+        changes[field]={before:M.clone(prior[field]),after:M.clone(patch[field])};provenance[field]={source:'human',actor:this.actor,at};
+      }
+      const history=M.clone(prior.metadataHistory || []);if(Object.keys(changes).length)history.push({revision:prior.revision+1,actor:this.actor,at,changes});
+      const result = { ...M.clone(prior), ...patch, revision: prior.revision + 1, provenance,metadataHistory:history.slice(-100) };
       this.assets.set(assetId, M.validate(result, projectId)); return M.clone(result);
     }
     async download({ projectId, assetId, versionId, signal }) {

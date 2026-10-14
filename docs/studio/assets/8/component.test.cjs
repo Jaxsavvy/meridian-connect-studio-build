@@ -91,3 +91,63 @@ test('named service adapter snapshots payload and forwards cancellation without 
   const signal=new AbortController();await adapter.list({projectId:'A',signal:signal.signal});assert.equal(captured.operation,'asset.list');assert.deepEqual(captured.payload,{projectId:'A'});assert.equal(captured.options.signal,signal.signal);
   signal.abort();await assert.rejects(adapter.list({projectId:'A',signal:signal.signal}),{code:'CANCELLED'});
 });
+test('retried import acknowledgement cannot roll back newer human metadata',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');
+  const a=await c.save('import',input());await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Human correction',tags:['human'],description:'corrected',section:'Brand'});
+  const ack=await c.save('import',input());assert.equal(ack.revision,1);assert.equal(c.snapshot().assets[0].revision,2);assert.equal(c.snapshot().assets[0].name,'Human correction');
+});
+test('late same-project list cannot roll back a successful metadata save',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  let resolve;s.list=()=>new Promise(done=>{resolve=done;});const pending=c.search();await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Latest correction',tags:[],description:'',section:'Files'});
+  resolve([a]);await pending;assert.equal(c.snapshot().assets[0].name,'Latest correction');assert.equal(c.snapshot().assets[0].revision,2);
+});
+test('self-consistent download of the wrong version is rejected',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  const b=await c.save('import',input({assetId:a.id,parentVersionId:a.originalVersionId,operation:'manual-edit',idempotencyKey:'other',bytes:new Uint8Array([4,5,6])}));
+  const original=s.download.bind(s);s.download=scope=>original({...scope,versionId:b.preferredVersionId});await c.download({assetId:a.id,versionId:a.originalVersionId});assert.equal(c.snapshot().error,'CHECKSUM_MISMATCH');
+});
+test('mutation response for another asset is rejected despite matching project',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  const other=await s.import(input({idempotencyKey:'other'}));s.metadata=async()=>other;await c.save('metadata',{assetId:a.id});assert.equal(c.snapshot().error,'INVALID_RESPONSE');assert.equal(c.snapshot().assets.length,1);
+});
+test('read completion does not report ready while a metadata write is pending',async()=>{
+  const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A',name:'A'}]});await c.selectProject('A');const a=await c.save('import',input());
+  let release;const gate=new Promise(resolve=>{release=resolve;});const original=s.metadata.bind(s);s.metadata=async p=>{await gate;return original(p);};
+  const save=c.save('metadata',{assetId:a.id,revision:a.revision,name:'Pending correction',tags:[],section:'Files'});await c.search();assert.equal(c.snapshot().phase,'saving');
+  release();await save;assert.equal(c.snapshot().phase,'ready');assert.equal(c.snapshot().assets[0].name,'Pending correction');
+});
+test('tags-only correction preserves rule name provenance and records independent change history',async()=>{
+  const s=new SyntheticService({projects:['A'],clock:()=> '2026-10-13T05:00:00Z'});const a=await s.import(input());
+  const b=await s.metadata({projectId:'A',assetId:a.id,revision:a.revision,name:a.name,tags:['blue'],description:a.description,section:a.section});
+  assert.equal(b.provenance.name.source,'rule');assert.equal(b.provenance.tags.source,'human');assert.deepEqual(Object.keys(b.metadataHistory[0].changes),['tags']);assert.deepEqual(b.metadataHistory[0].changes.tags.before,[]);
+  b.metadataHistory[0].changes.tags.after.push('mutated');const saved=(await s.list({projectId:'A'}))[0];assert.deepEqual(saved.metadataHistory[0].changes.tags.after,['blue']);assert.equal(saved.originalFilename,a.originalFilename);
+});
+test('media and review filters match the same version; description is searchable',async()=>{
+  const s=new SyntheticService({projects:['A']});const a=await s.import(input());await s.review({projectId:'A',assetId:a.id,versionId:a.originalVersionId,revision:a.revision});
+  const jpeg=new Uint8Array([255,216,255,217]);const b=await s.import(input({assetId:a.id,parentVersionId:a.originalVersionId,mediaType:'image/jpeg',bytes:jpeg,operation:'manual-edit',idempotencyKey:'jpeg'}));
+  assert.equal((await s.list({projectId:'A',mediaType:'image/jpeg',reviewState:'submitted'})).length,0);assert.equal((await s.list({projectId:'A',mediaType:'image/jpeg',reviewState:'draft'})).length,1);
+  await s.metadata({projectId:'A',assetId:a.id,revision:b.revision,name:b.name,tags:[],description:'campaign launch',section:'Files'});assert.equal((await s.list({projectId:'A',query:'campaign launch'})).length,1);
+});
+test('malformed provenance/history is rejected and legacy records without these fields remain valid',async()=>{
+  const s=new SyntheticService({projects:['A']});const a=await s.import(input());const legacy=structuredClone(a);delete legacy.provenance;delete legacy.metadataHistory;assert.equal(M.validate(legacy,'A').id,a.id);
+  const bad=structuredClone(a);bad.provenance.name.source='untrusted';assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
+  bad.provenance=a.provenance;bad.metadataHistory=[{revision:1,actor:'test',at:'test',changes:null}];assert.throws(()=>M.validate(bad,'A'),{code:'INVALID_METADATA'});
+});
+
+test('explicit conflict reload returns latest metadata without changing immutable versions',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');c.selectAsset(a.id);
+ const updated=await s.metadata({projectId:'A',assetId:a.id,revision:a.revision,name:'Other editor',tags:['new'],section:'Files'});
+ assert.equal(await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Stale draft',tags:[],section:'Files'}),null);assert.equal(c.snapshot().error,'REVISION_CONFLICT');
+ s.offline=true;assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().assets[0].name,a.name);
+ s.offline=false;const result=await c.reloadAsset(a.id);assert.equal(result.name,'Other editor');assert.equal(result.revision,updated.revision);assert.deepEqual(result.versions,a.versions);
+});
+test('conflict reload rejects foreign records and late responses after switching project',async()=>{
+ const s=new SyntheticService({projects:['A','B']});const a=await s.import(input());let release;const original=s.list.bind(s);const c=new Controller({service:s,projects:[{id:'A'},{id:'B'}]});await c.selectProject('A');
+ s.list=async()=>[{...a,projectId:'B'}];assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().error,'PROJECT_DENIED');
+ s.list=original;await c.selectProject('A');s.list=async()=>{await new Promise(r=>release=r);return [a];};const late=c.reloadAsset(a.id);s.list=original;await c.selectProject('B');release();assert.equal(await late,null);assert.equal(c.snapshot().project.id,'B');assert.equal(c.snapshot().assets.length,0);
+});
+test('offline metadata retry succeeds once and retains the original version',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');
+ const patch={assetId:a.id,revision:a.revision,name:'Resume after offline',tags:[],section:'Files'};s.offline=true;assert.equal(await c.save('metadata',patch),null);assert.equal(c.snapshot().phase,'offline');assert.equal(c.snapshot().assets[0].revision,a.revision);
+ s.offline=false;const saved=await c.save('metadata',patch);assert.equal(saved.revision,a.revision+1);assert.equal(saved.metadataHistory.length,1);assert.deepEqual(saved.versions,a.versions);
+});
