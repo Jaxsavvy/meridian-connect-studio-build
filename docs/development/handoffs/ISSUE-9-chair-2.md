@@ -7,7 +7,7 @@
 - Branch and current implementation commit: `feature/dev-006-studio-ui`; `fe9c4767aa7268621bc1ff9114a3fcb401ea38f2`
 - Clean start: separate worktree created from current `main` commit `89de8989b949e4bbd4e1cd0f27f77efa7fc97d80`
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
-- Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback after PR creation on 2026-10-13 PDT)
+- Current Status / Priority / Module: Review / P1 — High / Studio UI/UX (live readback after the verified PR submission on 2026-10-13 PDT)
 - Last owner decision: Chair 1 recorded Command Workbench B — Operations approval and the exact DEV-006 file boundary on 2026-10-13 PDT. Approval does not establish runnable-UI acceptance or employee-runtime visual verification.
 
 ## Work this session
@@ -20,7 +20,7 @@
   - `docs/studio/design/9/**` — focused tests, isolated Electron harness, metrics, and synthetic screenshots.
   - This handoff.
 - Implementation decisions: `window.meridianStudioContext` remains the only project identity. The editor and asset preview use explicit synthetic in-memory adapters. Tool cards stay Planned. Cassy's writable component is not mounted. `src/renderer/nav.js`, shared CSS, bridge, API, main process, packaging, restricted services, and production systems are unchanged.
-- Unsaved or uncommitted work: this handoff is the only pending local change at the time of this note; it will be committed and pushed to PR #29.
+- Unsaved or uncommitted work: none after this final handoff update is committed and pushed.
 
 ## Checks and review
 
@@ -35,16 +35,16 @@
 | Visual inspection | Pass: Operations, editor, Asset preview, recovery states, unsaved-leave dialog, and 200% zoom | Screen reader and Windows High Contrast remain unverified |
 | Primary action contrast | Pass: white on `#1f6fd6` meets 4.5:1 AA threshold | Token calculation, not every possible OS rendering mode |
 
-- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence.
-- Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29). Owner `Jaxsavvy` requested as reviewer; source check was in progress at the last readback.
+- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff.
+- Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29). Owner `Jaxsavvy` is requested as reviewer; the required source check passed before the board transition.
 - Screenshots: `docs/studio/design/9/renders/` contains six visually inspected synthetic captures plus `runtime-results.json`.
 - Known issues and missing contracts: employee-runtime comparison, screen-reader output, Windows High Contrast appearance, authoritative save/reopen and permissions, provider integrations, Cassy's accepted lifecycle host, and production behavior remain unverified. The locked dependency install reported 18 audit findings; no dependency or package file was changed in this task.
 - Sensitive-content and staged-file review: passed. The exact implementation commit contains only the approved two shared renderer files, `src/renderer/studio-ui/**`, and `docs/studio/design/9/**`; no credentials, private endpoints, customer content, personal paths, generated dependencies, or packaged builds are committed.
 
 ## Board synchronization
 
-- Intended transition and reason: Building → Review after PR #29 is submitted, the source check passes, and this handoff is pushed.
-- API/UI attempt and readback: current live value is still Building. Do not claim Review until the post-handoff write is read back.
+- Intended transition and reason: Building → Review after PR #29 was submitted, the source check passed, and the handoff was pushed.
+- API/UI attempt and readback: saved and verified on 2026-10-13 PDT as Chair 2 — Tyler / P1 — High / Studio UI/UX / Review.
 - Owner acceptance for Complete: not approved. Do not mark Complete.
 
 ## Next session
