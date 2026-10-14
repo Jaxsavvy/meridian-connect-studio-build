@@ -1,6 +1,6 @@
 # Safe setup and first day
 
-Use your **own** GitHub account and a fresh development folder on your own computer. The owner must grant access to the private repository and Project and give you an approved issue. An invitation is a prerequisite, not something your AI should create. Never use the owner's credentials.
+Use your **own** GitHub account and a fresh development folder on your own computer. The owner must grant access to the private repository and Project; work from an assigned issue with acceptance criteria. An invitation is a prerequisite, not something your AI should create. Never use the owner's credentials.
 
 ## 1. Install and sign in
 

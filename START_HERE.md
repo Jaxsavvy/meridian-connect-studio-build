@@ -10,9 +10,9 @@ This private repository is the **Meridian Connect v0.2.12 employee desktop clien
 | Tyler, Chair 2 | `feature/studio-ui` | [Chair 2 — Tyler](https://github.com/users/Jaxsavvy/projects/1/views/4) | [Tyler package](docs/developer-onboarding/chair-2-tyler/README.md) | [Chair 2 prompt](docs/developer-onboarding/chair-2-tyler/STARTUP_PROMPT.md) |
 | Cassy, Chair 3 | `feature/studio-assets` | [Chair 3 — Cassy](https://github.com/users/Jaxsavvy/projects/1/views/5) | [Cassy package](docs/developer-onboarding/chair-3-cassy/README.md) | [Chair 3 prompt](docs/developer-onboarding/chair-3-cassy/STARTUP_PROMPT.md) |
 
-**First day, in plain language:** Ask the owner for your own repository and Project access and an approved issue. Install Git, Node.js 24 with npm, GitHub CLI, and your chosen coding assistant on your own computer. Follow the [safe setup guide](docs/developer-onboarding/shared/SAFE_SETUP.md) to sign in, clone, check out your branch, and run source checks. Open your chair's prompt and paste its complete text into Codex or Claude Code. Let the AI guide you one step at a time; ask it to explain any command before you run it.
+**First day, in plain language:** Ask the owner for your own repository and Project access and an assigned issue. Install Git, Node.js 24 with npm, GitHub CLI, and your chosen coding assistant on your own computer. Follow the [safe setup guide](docs/developer-onboarding/shared/SAFE_SETUP.md) to sign in, clone, check out your branch, and run source checks. Open your chair's prompt and paste its complete text into Codex or Claude Code. Let the AI guide you one step at a time; ask it to explain any command before you run it.
 
-Before any change, your AI must find the **current GitHub issue**, its acceptance criteria, your branch, the [collaboration rules](docs/development/COLLABORATION_RULES.md), the [architecture](docs/developer-onboarding/shared/ARCHITECTURE.md), and any prior task handoff. If no approved issue exists, ask the owner for one. At the time this guide was prepared, the repository had no open issues and the Project had no items; always check again because that can change.
+Before any change, your AI must find the **current GitHub issue**, its acceptance criteria, your branch, the [collaboration rules](docs/development/COLLABORATION_RULES.md), the [architecture](docs/developer-onboarding/shared/ARCHITECTURE.md), and any prior task handoff. If no assigned issue exists, ask the owner for one. Always check the live repository and Project because their state changes.
 
 ## What to read for each question
 
@@ -21,6 +21,6 @@ Before any change, your AI must find the **current GitHub issue**, its acceptanc
 - Login, clone, prerequisites, and first-day checks: [Safe setup](docs/developer-onboarding/shared/SAFE_SETUP.md)
 - Testing, commits, pull requests, handoff, and recovery: [Daily workflow](docs/developer-onboarding/shared/WORKFLOW.md)
 - Project fields and status updates: [Board and handoffs](docs/developer-onboarding/shared/BOARD_AND_HANDOFF.md)
-- Studio look and design approval: [Visual design standard](docs/developer-onboarding/shared/STUDIO_VISUAL_STANDARD.md)
+- Studio look and design evidence: [Visual design standard](docs/developer-onboarding/shared/STUDIO_VISUAL_STANDARD.md)
 
-These guides are procedures, not technical access controls. On this private GitHub Free repository, owner review and no-direct-main rules rely on the team following them. Never paste a token, password, customer file, or private endpoint into AI chat, an issue, a handoff, or a commit.
+These guides are procedures, not technical access controls. Scoped work may proceed through PR merge and issue completion without routine owner approval; final release and the restricted actions named in the collaboration rules remain separate decisions. Never paste a token, password, customer file, or private endpoint into AI chat, an issue, a handoff, or a commit.

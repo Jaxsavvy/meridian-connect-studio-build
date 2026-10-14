@@ -1,0 +1,94 @@
+{
+  "standardMetrics": {
+    "viewport": {
+      "width": 1424,
+      "height": 935,
+      "zoom": 1
+    },
+    "documentFitsHorizontally": true,
+    "workspaceFitsHorizontally": true,
+    "tools": [
+      {
+        "id": "images",
+        "availability": "planned"
+      },
+      {
+        "id": "storyboard",
+        "availability": "planned"
+      },
+      {
+        "id": "video",
+        "availability": "planned"
+      },
+      {
+        "id": "blender",
+        "availability": "planned"
+      },
+      {
+        "id": "krita",
+        "availability": "planned"
+      },
+      {
+        "id": "upscayl",
+        "availability": "planned"
+      },
+      {
+        "id": "website",
+        "availability": "planned"
+      },
+      {
+        "id": "audio",
+        "availability": "planned"
+      },
+      {
+        "id": "files",
+        "availability": "planned"
+      }
+    ],
+    "unnamedButtons": 0,
+    "unlabeledFormControls": [],
+    "assetResultCountIsLive": true
+  },
+  "zoomMetrics": {
+    "viewport": {
+      "width": 632,
+      "height": 417,
+      "zoom": 2
+    },
+    "documentFitsHorizontally": true,
+    "workspaceFitsHorizontally": true,
+    "studioMainFitsHorizontally": true,
+    "projectName": "Northstar Product Launch — Extended Synthetic Project Name For Reflow Review"
+  },
+  "employeeMetrics": {
+    "viewport": {
+      "width": 1424,
+      "height": 935,
+      "zoom": 1
+    },
+    "studioNavigationDisabled": true,
+    "studioNavigationAvailability": "unavailable",
+    "studioNavigationBadge": "Unavailable",
+    "studioHostHidden": true,
+    "syntheticModulesLoaded": false,
+    "programmaticStudioRouteBlocked": true
+  },
+  "accessibilityMetrics": {
+    "toolDialog": {
+      "ariaModal": "true",
+      "localNavigationInert": true,
+      "workspaceInert": true,
+      "initialFocusAction": "close-tool",
+      "dialogClosed": true,
+      "focusReturnedToOpener": true
+    },
+    "unsavedLeaveDialog": {
+      "localNavigationInert": true,
+      "workspaceInert": true,
+      "shiftTabWraps": true,
+      "tabWraps": true,
+      "dialogClosed": true,
+      "focusReturnedToEditor": true
+    }
+  }
+}
