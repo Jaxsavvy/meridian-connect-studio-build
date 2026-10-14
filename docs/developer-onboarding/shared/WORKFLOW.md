@@ -9,11 +9,11 @@ Start from an existing issue with a number, Chair, Priority, Module, scope, and 
 3. Read `AGENTS.md`, [collaboration rules](../../development/COLLABORATION_RULES.md), [architecture](ARCHITECTURE.md), [file boundaries](FILE_BOUNDARIES.md), relevant source files, prior issue comments, and the task-specific handoff if one exists.
 4. Compare your branch with the latest remote main. Do not silently rebase, reset, or merge a shared feature branch; coordinate a sync plan with affected chairs if it is behind or conflicts.
 5. State a small plan: files to touch, reason, tests, and any restricted decision. Do not present a sketch as a verified interface or backend contract.
-6. Record the start in the issue/worklog and attempt the board transition from Ready to Building. Verify the saved value. If the API fails, mark board synchronization pending in the worklog and notify the owner.
+6. Record the start in the issue/worklog and attempt the board transition from Ready to Building. Verify the saved value. If the API fails, mark board synchronization pending in the worklog and continue safe work.
 
 ## During work
 
-Keep the approved issue small. Use synthetic data. Explain a command's effect before asking a nontechnical employee to run it. Do not expose customer data, production endpoints, credentials, or owner-only source to the AI. Put assumptions and unresolved backend contracts in the issue rather than disguising them as implemented behavior. If you are blocked, write the blocker and next needed decision, attempt Building to Blocked, then verify the board value. Do not make a fake “done” change merely to close a task.
+Keep the assigned issue small. Use synthetic data. Explain a command's effect before asking a nontechnical employee to run it. Do not expose customer data, production endpoints, credentials, or owner-only source to the AI. Put assumptions and unresolved backend contracts in the issue rather than disguising them as implemented behavior. If you are blocked, write the blocker and next needed decision, attempt Building to Blocked, then verify the board value. Do not make a fake “done” change merely to close a task.
 
 Tyler records a polished direction with visual evidence and communicates tokens/components to Cassy before broad shared UI integration. Cassy starts with contracts or isolated prototypes and uses the recorded design system. Image, version, Librarian, and Upscayl service behavior remains proposed until the responsible service owner verifies it. Coordinate bridge, auth, packaging, permission, and cross-chair changes with Chair 1; obtain the owner decisions listed in the collaboration rules before crossing those restricted boundaries.
 

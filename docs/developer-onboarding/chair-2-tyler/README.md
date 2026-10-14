@@ -2,7 +2,7 @@
 
 **Branch:** `feature/studio-ui` · **View:** [Chair 2 — Tyler](https://github.com/users/Jaxsavvy/projects/1/views/4) · **Prompt:** [copy Chair 2 startup prompt](STARTUP_PROMPT.md)
 
-You own Studio design exploration, navigation, layouts, and reusable renderer components. First study real current Connect screens in an approved development build or owner-provided screenshots, as well as the renderer source and [shared visual standard](../shared/STUDIO_VISUAL_STANDARD.md). If visual access is unavailable, mark the design review blocked and ask the owner for approved references; source and CSS alone are insufficient. The goal is a premium, calm creative workspace: navy, slate, layered blue, teal, restrained accents, clear project context, and polished editors. Avoid a generic AI dashboard, clutter, and excessive purple.
+You own Studio design exploration, navigation, layouts, and reusable renderer components. First study real current Connect screens in a development build or available screenshots, as well as the renderer source and [shared visual standard](../shared/STUDIO_VISUAL_STANDARD.md). If visual access is unavailable, record that gap and continue source-backed work; request references when needed. The goal is a premium, calm creative workspace: navy, slate, layered blue, teal, restrained accents, clear project context, and polished editors. Avoid a generic AI dashboard, clutter, and excessive purple.
 
 ## First day
 
