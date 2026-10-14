@@ -6,23 +6,27 @@ These rules apply to this private GitHub Free repository. They are team procedur
 
 | Chair | Responsibility | Working branch |
 | --- | --- | --- |
-| Chair 1 — Owner + Codex | Architecture, integration, API contracts, security review, and final merge decisions | `feature/studio-integration` |
-| Chair 2 — Tyler + AI | Studio design direction, renderer layout, navigation, editor UI, and reusable visual components within an owner-approved task | `feature/studio-ui` |
-| Chair 3 — Cassy + AI | Studio Asset Library and Librarian client experience, approved creative assets, versioning contracts, and Upscayl integration prototypes within an owner-approved task | `feature/studio-assets` |
+| Chair 1 — Owner + Codex | Architecture, integration, API contracts, security review, and final release decisions | `feature/studio-integration` |
+| Chair 2 — Tyler + AI | Studio design direction, renderer layout, navigation, editor UI, and reusable visual components within an assigned task | `feature/studio-ui` |
+| Chair 3 — Cassy + AI | Studio Asset Library and Librarian client experience, creative assets, versioning contracts, and Upscayl integration prototypes within an assigned task | `feature/studio-assets` |
 
-Confirm the current branch and assigned task before editing. Ask the owner before changing another chair's scope or shared files. Keep changes small and reviewable. Do not use the production Meridian checkout as a development workspace.
+Confirm the current branch and assigned task before editing. Coordinate shared files and cross-chair scope with the affected chair in the issue or PR before editing; escalate unresolved conflicts to Chair 1. Keep changes small and reviewable. Do not use the production Meridian checkout as a development workspace.
 
-Start at `START_HERE.md` for chair-specific file boundaries and prompts. Tyler prepares two or three polished design directions based on the current Connect UI; the owner approves a direction before broad Studio interface implementation. Cassy follows the approved shared design system and begins with contracts or isolated prototypes. Neither chair should implement a backend service, live generation, or external-tool packaging from an unapproved client concept.
+Start at `START_HERE.md` for chair-specific file boundaries and prompts. Tyler records a polished design direction with visual evidence and shares its tokens/components with Cassy; implementation may proceed within the assigned issue without a separate owner choice. Cassy begins with contracts or isolated prototypes and aligns her UI with the recorded shared design system. Neither chair should implement a backend service, live generation, or external-tool packaging from an unverified client concept.
 
 ## Integration procedure
 
 1. Never push directly to `main`. Never force-push or rewrite shared branch history.
-2. Push work only to the assigned feature branch and open a pull request to `main` using the repository template.
+2. Push work to the assigned feature branch and open a pull request to `main` using the repository template. Use a task branch if the assigned branch is shared or already has unrelated changes.
 3. Report the task number, changed files, checks, screenshots when relevant, known issues, and AI session handoff in the pull request.
-4. The owner reviews the exact diff and check results, requests corrections if needed, and explicitly approves before integration. Only the owner merges to `main`.
+4. The assigned chair reviews the exact diff, check results, scope, and known limits. After checks pass and the PR records acceptance evidence, a collaborator with repository write access may merge the scoped PR without waiting for owner approval. Resolve conflicts and required reviews before merging. Do not self-approve on GitHub or bypass repository rules.
 5. Treat a green CI result as a narrow source check. It does not establish runtime behavior, security, design quality, or permission correctness.
 
-These are procedural safeguards. A collaborator with write access may still be technically able to bypass them on this GitHub plan.
+These are procedural safeguards. A collaborator with write access may still be technically able to bypass them on this GitHub plan. Historical issue handoffs retain their original approval language as records; this current policy governs new work.
+
+## Decisions that remain with the owner
+
+The owner reviews the integrated Studio before release. Obtain an explicit owner decision before production deployment or publication, paid provider use or a spending commitment, use of customer data, changes to security or permission policy, new backend/API authority, or distributing a new executable, model, or third-party asset with unresolved license or packaging terms. A PR for client UI, synthetic fixtures, or a proposed contract may proceed while these dependencies are clearly labeled unverified. GitHub permissions and required platform reviews still apply.
 
 ## Repository boundary
 
@@ -32,7 +36,7 @@ Never commit credentials, API keys, tokens, `.env` files, private endpoints, per
 
 Use synthetic development data and approved development services. Keep backend changes and permission decisions with their restricted service owners; document the required contract in a Connect pull request without copying restricted implementation into this repository.
 
-The Development Command Board uses Chair, Status, Priority, and Module fields. Record verified task updates and handoffs using `docs/developer-onboarding/shared/BOARD_AND_HANDOFF.md`. Automatic board synchronization is a future integration until implemented and tested. Never mark a task Complete without explicit owner acceptance.
+The Development Command Board uses Chair, Status, Priority, and Module fields. Record verified task updates and handoffs using `docs/developer-onboarding/shared/BOARD_AND_HANDOFF.md`. The assigned chair may move Review → Testing → Complete after recording acceptance evidence and reading back each saved status. Complete means that issue's stated criteria were met; it does not mean Studio is released or its unverified dependencies are resolved. Automatic board synchronization remains a future integration until implemented and tested.
 
 ## Progress and mistakes
 

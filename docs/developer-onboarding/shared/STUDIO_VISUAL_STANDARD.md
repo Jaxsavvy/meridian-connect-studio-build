@@ -1,6 +1,6 @@
 # Meridian Studio visual standard
 
-**Tyler owns the design direction.** Cassy uses the owner-approved tokens and components for Asset Library and Upscayl UI. This file is a working standard, not approval of a specific Studio screen. The owner must approve one of Tyler's 2–3 polished directions before broad implementation.
+**Tyler owns the design direction.** Cassy uses the recorded shared tokens and components for Asset Library and Upscayl UI. This file is a working standard. Tyler may implement the direction within an assigned issue after recording visual evidence and coordinating shared components with Cassy.
 
 ## Design source
 
@@ -16,8 +16,8 @@ Study Connect's actual renderer before drawing Studio: `src/renderer/index.html`
 - Use local approved fonts and license-safe assets. Do not introduce customer imagery, owner-only files, externally hosted design dependencies, or large bundled binaries without approval.
 - Check keyboard focus, text contrast, labels, responsive desktop widths, and long project/file names. A pleasing static mockup is only one part of acceptance.
 
-## Design approval gate
+## Design evidence and handoff
 
-For an approved design issue, Tyler prepares **2–3 distinct polished directions** based on the current Connect shell. Each direction includes a Studio overview, project context, a representative editor, an Asset Library surface, palette/type/component notes, and key states. Use synthetic content and place reviewed proposal artifacts under `docs/studio/design/<issue-number>/`; no empty mockup placeholders. Summarize tradeoffs in the [design review template](../templates/DESIGN_REVIEW_TEMPLATE.md).
+For an assigned design issue, Tyler prepares **2–3 distinct polished directions** based on the current Connect shell, or records why one direction is sufficient for a narrow change. Each direction includes a Studio overview, project context, a representative editor, an Asset Library surface, palette/type/component notes, and key states. Use synthetic content and place proposal artifacts under `docs/studio/design/<issue-number>/`; no empty mockup placeholders. Summarize tradeoffs in the [design review template](../templates/DESIGN_REVIEW_TEMPLATE.md).
 
-The owner picks or revises a direction and records approval in the issue. Then Tyler publishes approved tokens/components and Cassy aligns the asset UI. Until that decision, both chairs may do contracts and isolated prototypes but must not start broad interface integration. A successful build does not prove the visual design was accepted.
+Tyler records the selected direction and reasons in the issue, publishes tokens/components, and coordinates with Cassy before shared UI integration. Include representative screenshots and accessibility checks in the PR. A successful build alone does not prove visual quality or employee runtime behavior; record those limits for final integrated review.
