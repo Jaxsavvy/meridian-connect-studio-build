@@ -7,8 +7,11 @@
   <link rel="icon" href="assets/meridian.ico">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="meridian-standard.css">
+  <link rel="stylesheet" href="studio-ui/studio-ui.css">
 </head>
 <body class="home-view">
+
+  <a class="studio-skip" href="#main-workspace">Skip to main workspace</a>
 
   <!-- ====================================================================
        1. LOGIN VIEW (Overlaid before authentication)
@@ -76,6 +79,12 @@
         <span class="nav-icon">▣</span>
         <span class="nav-text">Projects</span>
         <span class="nav-badge-pill" id="nav-projects-count">3</span>
+      </button>
+      <button type="button" class="nav-link" id="nav-studio-link" data-view="studio" disabled aria-disabled="true"
+        title="Studio unavailable — development integration is not enabled">
+        <span class="nav-icon">✦</span>
+        <span class="nav-text">Studio</span>
+        <span class="nav-badge-pill" id="nav-studio-status">Unavailable</span>
       </button>
       <button type="button" class="nav-link" data-view="tasks">
         <span class="nav-icon">☑</span>
@@ -171,7 +180,7 @@
     </header>
 
     <!-- Workspace Main: Content spaces + Right Chat Dock -->
-    <div class="workspace-main">
+    <div class="workspace-main" id="main-workspace" tabindex="-1">
 
       <!-- ================================================================
            VIEW 1: OVERVIEW (EXACT COMMAND ORBIT BOARD)
@@ -510,6 +519,9 @@
           <div id="toolExecOutputContent" style="font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: #c5d4ef; background: #060913; padding: 16px; border-radius: 8px; border: 1px solid var(--line); white-space: pre-wrap;"></div>
         </div>
       </section>
+
+      <!-- DEV-006: project-scoped Studio host. Content is rendered by studio-ui/studio-shell.js. -->
+      <section id="studioCenter" aria-label="Meridian Studio" hidden></section>
 
       <!-- Popped View Notice Placeholder -->
       <div id="view-popped-notice" class="panel-popped-state">
