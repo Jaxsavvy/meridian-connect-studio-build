@@ -60,6 +60,26 @@ app.whenReady().then(async () => {
     await pause(250);
     await capture(window, 'studio-operations-1440x1000.png');
 
+    await window.webContents.executeJavaScript(`(() => {
+      const opener = document.querySelector('[data-action="tool-detail"]');
+      opener.focus();
+      opener.click();
+    })()`);
+    await waitForSelector(window, '.studio-modal[role="dialog"]');
+    await pause(80);
+    const toolDialogOpenMetrics = await window.webContents.executeJavaScript(`(() => ({
+      ariaModal: document.querySelector('.studio-modal').getAttribute('aria-modal'),
+      localNavigationInert: document.querySelector('.studio-local-nav').inert,
+      workspaceInert: document.querySelector('.studio-workspace').inert,
+      initialFocusAction: document.activeElement.dataset.action,
+    }))()`);
+    await window.webContents.executeJavaScript(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))`);
+    await pause(100);
+    const toolDialogCloseMetrics = await window.webContents.executeJavaScript(`(() => ({
+      dialogClosed: !document.querySelector('.studio-modal'),
+      focusReturnedToOpener: document.activeElement.matches('[data-action="tool-detail"]'),
+    }))()`);
+
     await window.webContents.executeJavaScript("document.querySelector('[data-action=continue-campaign]').click()");
     await waitForSelector(window, '[data-surface=editor]');
     await pause(200);
@@ -77,6 +97,7 @@ app.whenReady().then(async () => {
       tools: window.meridianStudioContext.snapshot().tools.map(tool => ({ id: tool.id, availability: tool.availability })),
       unnamedButtons: [...document.querySelectorAll('#studioCenter button')].filter(button => !(button.getAttribute('aria-label') || button.textContent.trim())).length,
       unlabeledFormControls: [...document.querySelectorAll('#studioCenter input, #studioCenter select, #studioCenter textarea')].filter(control => !(control.getAttribute('aria-label') || document.querySelector('label[for="' + control.id + '"]'))).map(control => control.id),
+      assetResultCountIsLive: document.querySelector('#studio-results-title').getAttribute('aria-live') === 'polite',
     }))()`);
 
     await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=states]').click()");
@@ -86,13 +107,34 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(`(() => {
       document.querySelector('[data-action=surface][data-value=editor]').click();
       const notes = document.querySelector('#studio-scene-notes');
+      notes.focus();
       notes.value += ' Unsaved runtime evidence.';
       notes.dispatchEvent(new Event('input', { bubbles: true }));
       switchView('overview');
     })()`);
     await waitForSelector(window, '#studio-leave-title');
     await capture(window, 'studio-unsaved-leave-1440x1000.png');
-    await window.webContents.executeJavaScript("document.querySelector('[data-action=keep-editing]').click(); document.querySelector('[data-action=surface][data-value=operations]').click()");
+    const leaveDialogOpenMetrics = await window.webContents.executeJavaScript(`(() => {
+      const keepEditing = document.querySelector('[data-action="keep-editing"]');
+      const saveAndLeave = document.querySelector('[data-action="save-leave"]');
+      keepEditing.focus();
+      keepEditing.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+      const shiftTabWraps = document.activeElement === saveAndLeave;
+      saveAndLeave.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+      return {
+        localNavigationInert: document.querySelector('.studio-local-nav').inert,
+        workspaceInert: document.querySelector('.studio-workspace').inert,
+        shiftTabWraps,
+        tabWraps: document.activeElement === keepEditing,
+      };
+    })()`);
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=keep-editing]').click()");
+    await pause(100);
+    const leaveDialogCloseMetrics = await window.webContents.executeJavaScript(`(() => ({
+      dialogClosed: !document.querySelector('.studio-modal'),
+      focusReturnedToEditor: document.activeElement.id === 'studio-scene-notes',
+    }))()`);
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=operations]').click()");
 
     window.setSize(1280, 900);
     window.webContents.setZoomFactor(2);
@@ -134,7 +176,11 @@ app.whenReady().then(async () => {
       syntheticModulesLoaded: Boolean(window.MeridianStudioFixtures || window.MeridianStudioWorkspace || window.MeridianStudioUI),
       programmaticStudioRouteBlocked: (() => { switchView('studio'); return activeView !== 'studio' && document.querySelector('#studioCenter').hidden; })(),
     }))()`);
-    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, zoomMetrics, employeeMetrics }, null, 2) + '\n');
+    const accessibilityMetrics = {
+      toolDialog: { ...toolDialogOpenMetrics, ...toolDialogCloseMetrics },
+      unsavedLeaveDialog: { ...leaveDialogOpenMetrics, ...leaveDialogCloseMetrics },
+    };
+    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, zoomMetrics, employeeMetrics, accessibilityMetrics }, null, 2) + '\n');
   } finally {
     if (!window.isDestroyed()) window.destroy();
     if (employeeWindow && !employeeWindow.isDestroyed()) employeeWindow.destroy();
