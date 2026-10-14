@@ -30,6 +30,7 @@
     function snapshot() {
       return {
         project: project ? { ...project } : null,
+        projects: Array.from(allowed.values(), item => ({ ...item })),
         tools: TOOLS.map(({ id, name }) => ({ id, name, availability: 'planned' })),
       };
     }
@@ -56,8 +57,10 @@
 
     function rejectProjectList(ticket) {
       if (!isLatestListRequest(ticket)) return false;
+      const hadProjects = allowed.size > 0;
       allowed = new Map();
-      clearProject();
+      if (project) clearProject();
+      else if (hadProjects) notify();
       return true;
     }
 
@@ -77,6 +80,8 @@
         }
         next.set(item.id, { id: item.id, name: item.name });
       }
+      const listChanged = next.size !== allowed.size || Array.from(next).some(([id, item]) =>
+        allowed.get(id)?.name !== item.name);
       allowed = next;
       if (project) {
         const refreshed = allowed.get(project.id);
@@ -84,7 +89,9 @@
         else if (refreshed.name !== project.name) {
           project = { ...refreshed };
           notify();
-        }
+        } else if (listChanged) notify();
+      } else if (listChanged) {
+        notify();
       }
       return true;
     }
