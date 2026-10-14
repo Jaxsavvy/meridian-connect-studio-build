@@ -13,6 +13,7 @@ This directory records review evidence for the first runnable Chair 2 Studio UI 
 ## Review evidence
 
 - `studio-workspace.test.cjs` covers project switching and stale results, sign-out clearing, save/error/retry states, review semantics, asset filtering and selection/placement separation, and static accessibility/integration contracts.
+- Modal runtime checks cover initial focus, Tab and Shift+Tab wrapping, inert Studio background content, Escape dismissal, and focus restoration to the invoking tool or editor control. Asset filter result counts use a polite live region.
 - `runtime-preload.cjs` exposes synthetic, local-only Connect fixtures for the evidence run. It does not contain credentials, endpoints, customer content, or service authorization.
 - `runtime-capture.cjs` loads the real Connect renderer in Electron and captures the gated development Studio Operations, editor, Asset Library preview, recovery-state gallery, unsaved-leave dialog, and 200% zoom views. It also runs an ordinary employee-build state and captures the disabled Unavailable destination. It is an evidence harness, not a packaged or production entry point.
 - `renders/runtime-results.json` records programmatic viewport, horizontal-fit, nine-tool availability, accessible-button-name, form-label, and ordinary-build fail-closed checks from those isolated runs.
