@@ -4,7 +4,7 @@
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)
 - Project item URL and Chair: [Meridian Development Command #1](https://github.com/users/Jaxsavvy/projects/1); Chair 2 — Tyler
-- Branch and current implementation commit: `feature/dev-006-studio-ui-a11y`; accessibility/interaction continuation pending commit, based on merged `main` commit `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26`
+- Branch and current implementation commit: `feature/dev-006-studio-ui-a11y`; `d1ed280` accessibility/interaction continuation, based on merged `main` commit `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26`
 - Clean start: the continuation branch was fast-forwarded without local changes to authoritative `origin/main` commit `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26`.
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
 - Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback while the development-only gate correction is active on 2026-10-13 PDT)
@@ -21,7 +21,7 @@
   - `docs/studio/design/9/**` — focused tests, isolated Electron harness, metrics, and synthetic screenshots.
   - This handoff.
 - Implementation decisions: `window.meridianStudioContext` remains the only project identity. When and only when Connect reports development mode, the Studio modules load dynamically, the destination enables with a visible **Dev** badge, and the shell displays its synthetic-development banner. In an ordinary employee build, Studio remains visibly **Unavailable** and disabled, the host remains hidden, programmatic Studio routing is rejected, and the synthetic fixture/workspace/shell modules do not load. Tool cards stay Planned. Cassy's writable component is not mounted. `src/renderer/nav.js`, shared CSS, bridge, API, main process, packaging, restricted services, and production systems are unchanged.
-- Unsaved or uncommitted work: scoped accessibility implementation, runtime evidence, and this handoff update are pending commit at the time of this note.
+- Unsaved or uncommitted work: none after this final handoff update is committed and pushed.
 
 ## Checks and review
 
@@ -38,7 +38,7 @@
 | Modal keyboard/focus runtime checks | Pass: initial focus, Tab and Shift+Tab wrapping, inert Studio background, Escape/cancel dismissal, and exact opener/editor focus return | Electron programmatic evidence; not screen-reader output |
 | Primary action contrast | Pass: white on `#1f6fd6` meets 4.5:1 AA threshold | Token calculation, not every possible OS rendering mode |
 
-- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff; `1970363` — explicit development-only gate and ordinary employee Unavailable evidence.
+- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff; `1970363` — explicit development-only gate and ordinary employee Unavailable evidence; `d1ed280` — modal focus return, inert Studio background, live asset-result count, and runtime evidence.
 - Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29) merged as `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26` after corrected head `262835a` passed `source-checks`.
 - Merge integrity readback: the initial continuation checkout appeared to omit the Studio files because a narrow fetch updated only `FETCH_HEAD` while local `origin/main` remained stale at `89de898`. An explicit tracking-ref fetch confirmed authoritative `origin/main` and merge tree `4775e3a`, with parents `7a73b07` and `262835a`, contained every expected Studio/gate file; the untouched continuation branch was then fast-forwarded.
 - Screenshots: `docs/studio/design/9/renders/` contains six visually inspected gated-development captures, one ordinary employee Unavailable capture, and `runtime-results.json` covering both modes.
