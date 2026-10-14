@@ -67,7 +67,9 @@
       host.append(file,button('Retry import',importFile,busy || !retryFile || !allowImport),button('Cancel requests',()=>controller.cancel(),!busy));
       const list=element('ul'); list.setAttribute('aria-label','Project assets');
       for(const asset of state.assets) { const row=element('li'); row.append(button(asset.name,()=> {clearPreview();versionId=null;controller.selectAsset(asset.id);}),element('span',` ${asset.tags.join(', ')} · ${asset.versions.length} version(s)`)); list.append(row); }
-      host.append(list); if(!state.assets.length && !busy) host.append(element('p','No matching assets. Import a synthetic file to begin.'));
+      host.append(list);
+      const count=element('p',busy?'Updating asset results…':`${state.assets.length} matching asset${state.assets.length===1?'':'s'}.`,{role:'status'});count.setAttribute('aria-live','polite');count.setAttribute('aria-atomic','true');host.append(count);
+      if(!state.assets.length && !busy) host.append(element('p','No matching assets. Import a synthetic file to begin.'));
       const asset=state.assets.find(a=>a.id===state.selectedId); if(!asset){clearPreview();return;}
       const panel=element('section'); panel.setAttribute('aria-label','Asset details'); panel.append(element('h2',asset.name),element('p',`Original: ${asset.originalFilename}`));
       const form=element('form'); const fields={}; const draft=drafts.get(asset.id) || {revision:asset.revision,name:asset.name,tags:asset.tags.join(', '),description:asset.description,section:asset.section};
