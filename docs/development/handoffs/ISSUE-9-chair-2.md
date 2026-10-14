@@ -4,7 +4,7 @@
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)
 - Project item URL and Chair: [Meridian Development Command #1](https://github.com/users/Jaxsavvy/projects/1); Chair 2 — Tyler
-- Branch and current implementation commit: `feature/dev-006-studio-ui`; `fe9c4767aa7268621bc1ff9114a3fcb401ea38f2`
+- Branch and current implementation commit: `feature/dev-006-studio-ui`; `1970363` (development-only gate correction), building on `fe9c4767aa7268621bc1ff9114a3fcb401ea38f2`
 - Clean start: separate worktree created from current `main` commit `89de8989b949e4bbd4e1cd0f27f77efa7fc97d80`
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
 - Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback while the development-only gate correction is active on 2026-10-13 PDT)
@@ -20,7 +20,7 @@
   - `docs/studio/design/9/**` — focused tests, isolated Electron harness, metrics, and synthetic screenshots.
   - This handoff.
 - Implementation decisions: `window.meridianStudioContext` remains the only project identity. When and only when Connect reports development mode, the Studio modules load dynamically, the destination enables with a visible **Dev** badge, and the shell displays its synthetic-development banner. In an ordinary employee build, Studio remains visibly **Unavailable** and disabled, the host remains hidden, programmatic Studio routing is rejected, and the synthetic fixture/workspace/shell modules do not load. Tool cards stay Planned. Cassy's writable component is not mounted. `src/renderer/nav.js`, shared CSS, bridge, API, main process, packaging, restricted services, and production systems are unchanged.
-- Unsaved or uncommitted work: development-gate correction and evidence updates are pending commit at the time of this note.
+- Unsaved or uncommitted work: none after this final handoff update is committed and pushed.
 
 ## Checks and review
 
@@ -36,7 +36,7 @@
 | Visual inspection | Pass: gated development Operations, editor, Asset preview, recovery states, unsaved-leave dialog, 200% zoom, and ordinary employee Unavailable state | Screen reader and Windows High Contrast remain unverified |
 | Primary action contrast | Pass: white on `#1f6fd6` meets 4.5:1 AA threshold | Token calculation, not every possible OS rendering mode |
 
-- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff.
+- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff; `1970363` — explicit development-only gate and ordinary employee Unavailable evidence.
 - Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29). Owner `Jaxsavvy` is requested as reviewer; the required source check passed before the board transition.
 - Screenshots: `docs/studio/design/9/renders/` contains six visually inspected gated-development captures, one ordinary employee Unavailable capture, and `runtime-results.json` covering both modes.
 - Known issues and missing contracts: employee-runtime comparison, screen-reader output, Windows High Contrast appearance, authoritative save/reopen and permissions, provider integrations, Cassy's accepted lifecycle host, and production behavior remain unverified. The locked dependency install reported 18 audit findings; no dependency or package file was changed in this task.
