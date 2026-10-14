@@ -4,15 +4,16 @@
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)
 - Project item URL and Chair: [Meridian Development Command #1](https://github.com/users/Jaxsavvy/projects/1); Chair 2 — Tyler
-- Branch and current implementation commit: `feature/dev-006-studio-ui`; `1970363` (development-only gate correction), building on `fe9c4767aa7268621bc1ff9114a3fcb401ea38f2`
-- Clean start: separate worktree created from current `main` commit `89de8989b949e4bbd4e1cd0f27f77efa7fc97d80`
+- Branch and current implementation: `feature/dev-006-studio-ui-a11y`; `d1ed280` accessibility/interaction continuation plus handoff-only status commits at the current branch head, based on merged `main` commit `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26`
+- Clean start: the continuation branch was fast-forwarded without local changes to authoritative `origin/main` commit `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26`.
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
-- Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback while the development-only gate correction is active on 2026-10-13 PDT)
+- Current Status / Priority / Module: Review / P1 — High / Studio UI/UX (live readback after PR #31 passed `source-checks` on 2026-10-13 PDT)
 - Latest operating decision: routine owner approvals are no longer stopping points for safe, scoped Chair 2 work. Scoped PRs may merge when agreed checks pass; DEV-006 still must not be marked Complete from a slice merge. Production deployment, paid services, customer data, restricted services, and security-permission decisions remain stopping points.
 
 ## Work this session
 
 - Acceptance criteria addressed: an explicitly gated development-only Studio destination; a fail-closed ordinary employee state; persistent accepted project context; an Operations overview; campaign/story editor; save/review and unsaved-leave states; decision queue; Asset Library interaction preview; all nine honest Planned tool entries; loading/empty/error/recovery states; keyboard focus treatment; labels, accessible names, live status, long-name handling, reduced motion, forced colors, and small-window/200% zoom reflow.
+- Continuation after PR #29: repaired modal focus return on Escape and cancel, made the rendered Studio background inert while either modal is open, retained forward/reverse focus wrapping, and exposed Asset Library result counts as a polite live region. No provider, bridge, backend, packaging, Cassy-owned, or production behavior changed.
 - Files changed:
   - `src/renderer/studio-ui/**` — scoped Direction B UI, synthetic fixtures, project-aware workspace state, and interaction/recovery behavior.
   - `src/renderer/index.html` — one fail-closed Studio destination and host plus skip navigation; synthetic modules are no longer statically loaded.
@@ -34,23 +35,26 @@
 | Ordinary employee-mode capture | Pass: destination disabled and Unavailable; host hidden; programmatic route blocked; synthetic modules not loaded | Isolated renderer fixture, not a distributed employee installation |
 | Runtime metrics | Pass: all nine development tools Planned; zero unnamed Studio buttons; zero unlabeled rendered controls; no horizontal overflow at 1440 or 200% zoom | Programmatic checks do not replace assistive-technology review |
 | Visual inspection | Pass: gated development Operations, editor, Asset preview, recovery states, unsaved-leave dialog, 200% zoom, and ordinary employee Unavailable state | Screen reader and Windows High Contrast remain unverified |
+| Modal keyboard/focus runtime checks | Pass: initial focus, Tab and Shift+Tab wrapping, inert Studio background, Escape/cancel dismissal, and exact opener/editor focus return | Electron programmatic evidence; not screen-reader output |
 | Primary action contrast | Pass: white on `#1f6fd6` meets 4.5:1 AA threshold | Token calculation, not every possible OS rendering mode |
 
-- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff; `1970363` — explicit development-only gate and ordinary employee Unavailable evidence.
-- Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29). Owner `Jaxsavvy` is requested as reviewer; the required source check passed before the board transition.
+- Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff; `1970363` — explicit development-only gate and ordinary employee Unavailable evidence; `d1ed280` — modal focus return, inert Studio background, live asset-result count, and runtime evidence.
+- Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29) merged as `4775e3a1746e99a23a5dbbf16426b5b8d5f06d26` after corrected head `262835a` passed `source-checks`.
+- Continuation pull request: [#31 — DEV-006: strengthen Studio modal accessibility](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/31); implementation head passed `source-checks`, with a final handoff-only head check pending.
+- Merge integrity readback: the initial continuation checkout appeared to omit the Studio files because a narrow fetch updated only `FETCH_HEAD` while local `origin/main` remained stale at `89de898`. An explicit tracking-ref fetch confirmed authoritative `origin/main` and merge tree `4775e3a`, with parents `7a73b07` and `262835a`, contained every expected Studio/gate file; the untouched continuation branch was then fast-forwarded.
 - Screenshots: `docs/studio/design/9/renders/` contains six visually inspected gated-development captures, one ordinary employee Unavailable capture, and `runtime-results.json` covering both modes.
 - Known issues and missing contracts: employee-runtime comparison, screen-reader output, Windows High Contrast appearance, authoritative save/reopen and permissions, provider integrations, Cassy's accepted lifecycle host, and production behavior remain unverified. The locked dependency install reported 18 audit findings; no dependency or package file was changed in this task.
 - Sensitive-content and staged-file review: passed. The exact implementation commit contains only the approved two shared renderer files, `src/renderer/studio-ui/**`, and `docs/studio/design/9/**`; no credentials, private endpoints, customer content, personal paths, generated dependencies, or packaged builds are committed.
 
 ## Board synchronization
 
-- Current transition: Review → Building was saved and verified when the gate correction began. Move back to Review only after the corrected PR head passes checks; after safe scoped merge, keep DEV-006 active for remaining work rather than moving it to Complete.
-- API/UI readback: Chair 2 — Tyler / P1 — High / Studio UI/UX / Building.
+- Current transition: Building → Review was saved and verified after PR #31's implementation head passed `source-checks`. After merge, return DEV-006 to Building for remaining verification rather than moving it to Complete.
+- API/UI readback: Chair 2 — Tyler / P1 — High / Studio UI/UX / Review.
 - Completion boundary: routine approval is not a merge blocker, but DEV-006 remains incomplete after this slice.
 
 ## Next session
 
-1. Finish exact diff, test, and CI review for the development gate; update PR #29 and return the board to Review.
-2. Merge PR #29 if the corrected head is clean and all agreed checks pass, then read back the merge and keep DEV-006 in a non-complete active status for the next slice.
-3. Continue the next safe Chair 2 slice from current `main`; keep screen-reader, Windows High Contrast, and employee-runtime comparison limits explicit.
-- Blocker and person needed: none for this scoped gate correction and merge. Authoritative Studio Files, permissions, providers, and Cassy's writable host lifecycle remain external dependencies and are not Chair 2 implementation scope.
+1. Push this final handoff-only commit and read back PR #31 CI and exact diff.
+2. Merge PR #31 if clean; read back `main`, then return DEV-006 to Building because remaining verification is not complete.
+3. Continue only safe Chair 2 work while keeping screen-reader, actual Windows High Contrast, distributed employee-runtime comparison, authoritative services, and provider behavior explicitly unverified.
+- Blocker and person needed: none for this scoped accessibility continuation. Authoritative Studio Files, permissions, providers, and Cassy's writable host lifecycle remain external dependencies and are not Chair 2 implementation scope.

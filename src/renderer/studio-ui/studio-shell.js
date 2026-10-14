@@ -27,6 +27,7 @@
     let pendingLeave = null;
     let viewState = null;
     let announcementTimer = null;
+    let dialogReturnFocus = null;
     const adapter = root.MeridianStudioFixtures.createSyntheticAdapter();
     const workspace = root.MeridianStudioWorkspace.createWorkspace({
       context,
@@ -53,14 +54,47 @@
       }
     }
 
-    function renderNav(state) {
+    function rememberDialogReturnFocus(element = document.activeElement) {
+      if (!element || typeof element.focus !== 'function') return;
+      if (!host.contains(element)) {
+        dialogReturnFocus = { element };
+        return;
+      }
+      if (element.dataset && element.dataset.focusKey) {
+        dialogReturnFocus = { focusKey: element.dataset.focusKey };
+        return;
+      }
+      if (element.dataset && element.dataset.action) {
+        dialogReturnFocus = { action: element.dataset.action, value: element.dataset.value || '' };
+        return;
+      }
+      dialogReturnFocus = { id: element.id || 'studio-main' };
+    }
+
+    function restoreDialogReturnFocus() {
+      const returnFocus = dialogReturnFocus;
+      dialogReturnFocus = null;
+      if (!returnFocus) return;
+      requestAnimationFrame(() => {
+        let target = returnFocus.element && returnFocus.element.isConnected ? returnFocus.element : null;
+        if (!target && returnFocus.focusKey) target = host.querySelector(`[data-focus-key="${CSS.escape(returnFocus.focusKey)}"]`);
+        if (!target && returnFocus.action) {
+          const value = returnFocus.value ? `[data-value="${CSS.escape(returnFocus.value)}"]` : '';
+          target = host.querySelector(`[data-action="${CSS.escape(returnFocus.action)}"]${value}`);
+        }
+        if (!target && returnFocus.id) target = host.querySelector(`#${CSS.escape(returnFocus.id)}`);
+        target?.focus({ preventScroll: true });
+      });
+    }
+
+    function renderNav(state, modalOpen) {
       const items = [
         ['operations', 'Operations', 'Production overview'],
         ['editor', 'Campaign editor', 'Synthetic first slice'],
         ['assets', 'Asset Library', 'Read-only interaction preview'],
         ['states', 'States', 'Recovery patterns'],
       ];
-      return `<nav class="studio-local-nav" aria-label="Studio workspace">
+      return `<nav class="studio-local-nav" aria-label="Studio workspace"${modalOpen ? ' inert aria-hidden="true"' : ''}>
         <p class="studio-local-nav__eyebrow">Studio workspace</p>
         ${items.map(([id, label, hint]) => `<button type="button" class="studio-local-nav__item${state.surface === id ? ' is-current' : ''}"
           data-action="surface" data-value="${id}" ${state.surface === id ? 'aria-current="page"' : ''}>
@@ -251,7 +285,7 @@
           </div>
         </section>
         <div class="studio-library-layout">
-          <section aria-labelledby="studio-results-title"><h3 id="studio-results-title" class="studio-results-title">${assets.length} synthetic result${assets.length === 1 ? '' : 's'}</h3>
+          <section aria-labelledby="studio-results-title"><h3 id="studio-results-title" class="studio-results-title" role="status" aria-live="polite" aria-atomic="true">${assets.length} synthetic result${assets.length === 1 ? '' : 's'}</h3>
             ${assets.length ? `<div class="studio-library-grid">${assets.map(asset => `<button type="button" class="studio-library-card${asset.id === state.selectedAssetId ? ' is-selected' : ''}" data-action="asset-select" data-value="${attr(asset.id)}" aria-pressed="${asset.id === state.selectedAssetId}" aria-label="Select ${attr(asset.name)}, ${attr(asset.type)}, ${attr(asset.status)}">
               <span class="studio-asset-art studio-asset-art--${attr(asset.tone)}" role="img" aria-label="Abstract synthetic preview for ${attr(asset.name)}"><i>${escapeHtml(asset.version)}</i></span>
               <span class="studio-library-card__copy"><strong title="${attr(asset.name)}">${escapeHtml(asset.name)}</strong><small>${escapeHtml(asset.type)} · ${escapeHtml(asset.status)}</small>${asset.parent ? `<small>Source: ${escapeHtml(asset.parent)}</small>` : ''}</span>
@@ -320,9 +354,11 @@
       else if (viewState.surface === 'states') content = renderStates(viewState);
       else content = renderOperations(viewState);
 
+      const modalOpen = Boolean(pendingLeave || viewState.toolDetailId);
+
       host.innerHTML = `<div class="studio-shell" aria-labelledby="studio-title">
-        ${renderNav(viewState)}
-        <div class="studio-workspace"><div class="studio-dev-banner"><strong>Synthetic development build</strong><span>No production services, customer data, or employee-runtime comparison.</span></div>
+        ${renderNav(viewState, modalOpen)}
+        <div class="studio-workspace"${modalOpen ? ' inert aria-hidden="true"' : ''}><div class="studio-dev-banner"><strong>Synthetic development build</strong><span>No production services, customer data, or employee-runtime comparison.</span></div>
           ${renderProjectHeader(viewState)}
           <div class="studio-live-status" role="status" aria-live="polite" aria-atomic="true">${escapeHtml(viewState.statusMessage)}</div>
           <main class="studio-main" id="studio-main" tabindex="-1">${content}</main>
@@ -353,21 +389,22 @@
       else if (action === 'clear-assets') { workspace.setAssetFilter('all'); workspace.setAssetQuery(''); }
       else if (action === 'decision') workspace.openDecision(value);
       else if (action === 'resolve-decision') workspace.resolveDecision(value);
-      else if (action === 'tool-detail') workspace.showToolDetail(value);
-      else if (action === 'close-tool') workspace.closeToolDetail();
+      else if (action === 'tool-detail') { rememberDialogReturnFocus(button); workspace.showToolDetail(value); }
+      else if (action === 'close-tool') { workspace.closeToolDetail(); restoreDialogReturnFocus(); }
       else if (action === 'create-draft') workspace.createEmptyDraft();
       else if (action === 'simulate-load-error') workspace.simulateLoadFailure();
       else if (action === 'simulate-save-error') { workspace.openSurface('editor'); await workspace.simulateSaveFailure(); }
-      else if (action === 'keep-editing') { pendingLeave = null; render(); }
+      else if (action === 'keep-editing') { pendingLeave = null; render(); restoreDialogReturnFocus(); }
       else if (action === 'discard-leave') {
         const callback = pendingLeave && pendingLeave.callback;
         pendingLeave = null;
+        dialogReturnFocus = null;
         workspace.discardChanges();
         if (callback) callback();
       } else if (action === 'save-leave') {
         const callback = pendingLeave && pendingLeave.callback;
         const saved = await workspace.saveDraft();
-        if (saved) { pendingLeave = null; if (callback) callback(); }
+        if (saved) { pendingLeave = null; dialogReturnFocus = null; if (callback) callback(); }
       }
     });
 
@@ -390,6 +427,7 @@
         event.preventDefault();
         if (pendingLeave) { pendingLeave = null; render(); }
         else workspace.closeToolDetail();
+        restoreDialogReturnFocus();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -403,6 +441,7 @@
 
     function guardLeave(callback, reason) {
       if (!viewState || !viewState.unsaved) return true;
+      rememberDialogReturnFocus();
       pendingLeave = { callback, reason: reason || 'leave Studio' };
       render();
       return false;
@@ -419,6 +458,7 @@
 
     function destroy() {
       clearTimeout(announcementTimer);
+      dialogReturnFocus = null;
       workspace.destroy();
       host.replaceChildren();
       currentInstance = null;

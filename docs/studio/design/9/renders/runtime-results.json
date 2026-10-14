@@ -46,7 +46,8 @@
       }
     ],
     "unnamedButtons": 0,
-    "unlabeledFormControls": []
+    "unlabeledFormControls": [],
+    "assetResultCountIsLive": true
   },
   "zoomMetrics": {
     "viewport": {
@@ -71,5 +72,23 @@
     "studioHostHidden": true,
     "syntheticModulesLoaded": false,
     "programmaticStudioRouteBlocked": true
+  },
+  "accessibilityMetrics": {
+    "toolDialog": {
+      "ariaModal": "true",
+      "localNavigationInert": true,
+      "workspaceInert": true,
+      "initialFocusAction": "close-tool",
+      "dialogClosed": true,
+      "focusReturnedToOpener": true
+    },
+    "unsavedLeaveDialog": {
+      "localNavigationInert": true,
+      "workspaceInert": true,
+      "shiftTabWraps": true,
+      "tabWraps": true,
+      "dialogClosed": true,
+      "focusReturnedToEditor": true
+    }
   }
 }
