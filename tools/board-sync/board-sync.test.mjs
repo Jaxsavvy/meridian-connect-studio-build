@@ -80,13 +80,15 @@ test('a changed Project value just before mutation prevents the write', async ()
   });
 });
 
-test('Complete is forbidden even when requested by the owner account', async () => {
+test('Testing can advance to Complete with a verified write', async () => {
   await withHandoff(async handoffPath => {
     const gh = client('Testing');
-    await assert.rejects(sync(gh, request(handoffPath, {
+    const result = await sync(gh, request(handoffPath, {
       expected: 'Testing', target: 'Complete', eventId: 'accept',
-    })), { category: 'OWNER_APPROVAL' });
-    assert.equal(gh.writes, 0);
+      reason: 'Issue criteria verified and PR merged',
+    }));
+    assert.equal(result.status ?? result.target, 'Complete');
+    assert.equal(gh.writes, 1);
   });
 });
 

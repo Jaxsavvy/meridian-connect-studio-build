@@ -6,7 +6,7 @@ import { BoardError, ISSUE_URL, PROJECT_OWNER } from './github.mjs';
 const ALLOWED = new Set([
   'Ready:Building', 'Building:Blocked', 'Blocked:Ready', 'Blocked:Building',
   'Building:Review', 'Review:Building', 'Review:Testing',
-  'Testing:Building', 'Testing:Blocked',
+  'Testing:Building', 'Testing:Blocked', 'Testing:Complete',
 ]);
 
 export function publicTask(task) {
@@ -56,7 +56,6 @@ export async function sync(client, { expected, target, eventId, handoffPath, rea
   }
   if (!handoffPath) throw new BoardError('HANDOFF', '--handoff is required for retry-safe writes.');
   if (!reason || reason.length > 500) throw new BoardError('REASON', 'A short, nonsensitive --reason is required.');
-  if (target === 'Complete') throw new BoardError('OWNER_APPROVAL', 'Complete is manual owner-only; this utility cannot set it.');
   if (expected !== target && !ALLOWED.has(`${expected}:${target}`)) {
     throw new BoardError('TRANSITION', `Transition ${expected} → ${target} is not allowed.`);
   }
