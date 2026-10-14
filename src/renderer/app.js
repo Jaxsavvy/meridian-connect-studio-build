@@ -12,6 +12,7 @@ const poppedViews = new Set();
 const viewHeadings = {
   'overview': { eyebrow: 'Remote intelligence workspace · Employee Client', title: 'Meridian / Connect' },
   'projects': { eyebrow: 'WORKSPACE // PROJECTS', title: 'Projects & <em>Workspace.</em>' },
+  'studio': { eyebrow: 'STUDIO // COMMAND WORKBENCH', title: 'Meridian / <em>Studio.</em>' },
   'tasks': { eyebrow: 'WORKSPACE // TASKS', title: 'My Tasks & <em>Queue.</em>' },
   'messages': { eyebrow: 'WORKSPACE // MESSAGES', title: 'Team Messages with <em>Jax.</em>' },
   'send': { eyebrow: 'WORKSPACE // INBOX', title: 'Send to <em>Meridian.</em>' },
@@ -22,6 +23,7 @@ const viewHeadings = {
 document.addEventListener('DOMContentLoaded', async () => {
   initAuthUI();
   setupNavigation();
+  initStudioUI();
   initBokehField();
   initSkyOrb();
   setupClock();
@@ -78,10 +80,26 @@ function initAuthUI() {
 
   if (signoutBtn) {
     signoutBtn.addEventListener('click', async () => {
-      await window.meridian.logout();
-      showLogin();
+      const completeSignout = async () => {
+        await window.meridian.logout();
+        showLogin();
+      };
+      if (!window.MeridianStudioUI || window.MeridianStudioUI.guardLeave(completeSignout, 'sign out')) {
+        await completeSignout();
+      }
     });
   }
+}
+
+function initStudioUI() {
+  const host = document.getElementById('studioCenter');
+  if (!host || !window.MeridianStudioUI) return;
+  window.MeridianStudioUI.mount({
+    host,
+    context: window.meridianStudioContext,
+    getProjects: () => projects,
+    onProjectSelect: projectId => selectProject(projectId),
+  });
 }
 
 function showLogin() {
@@ -226,9 +244,15 @@ function setupNavigation() {
   }
 }
 
-function switchView(viewKey) {
+function switchView(viewKey, options = {}) {
+  if (!options.skipStudioGuard && activeView === 'studio' && viewKey !== 'studio' &&
+      window.MeridianStudioUI &&
+      !window.MeridianStudioUI.guardLeave(() => switchView(viewKey, { skipStudioGuard: true }), 'leave Studio')) {
+    return;
+  }
   activeView = viewKey;
   document.body.classList.toggle('view-chat', viewKey === 'chat');   // floating orb/logo only on Meridian AI
+  document.body.classList.toggle('view-studio', viewKey === 'studio');
 
   // Update navigation buttons
   document.querySelectorAll('.nav-link').forEach(btn => {
@@ -249,6 +273,7 @@ function switchView(viewKey) {
   const messagesEl = document.getElementById('teamMessagesCenter');
   const sendEl = document.getElementById('sendCenter');
   const toolsEl = document.getElementById('toolsCenter');
+  const studioEl = document.getElementById('studioCenter');
   const chatDock = document.getElementById('chatDock');
 
   if (msgsEl) msgsEl.style.display = (viewKey === 'overview') ? 'block' : 'none';
@@ -257,6 +282,8 @@ function switchView(viewKey) {
   if (messagesEl) messagesEl.style.display = (viewKey === 'messages') ? 'flex' : 'none';
   if (sendEl) sendEl.style.display = (viewKey === 'send') ? 'flex' : 'none';
   if (toolsEl) toolsEl.style.display = (viewKey === 'tools') ? 'flex' : 'none';
+  if (studioEl) studioEl.hidden = viewKey !== 'studio';
+  if (window.MeridianStudioUI) window.MeridianStudioUI.setActive(viewKey === 'studio');
 
   if (chatDock) {
     if (viewKey === 'chat') {
@@ -413,9 +440,18 @@ async function loadProjects() {
   }
 }
 
-async function selectProject(projectId) {
-  currentProject = projects.find(p => p.id === projectId);
-  if (!currentProject) return;
+async function selectProject(projectId, options = {}) {
+  const nextProject = projects.find(p => p.id === projectId);
+  if (!nextProject) return;
+  if (!options.skipStudioGuard && currentProject && currentProject.id !== projectId &&
+      window.MeridianStudioUI &&
+      !window.MeridianStudioUI.guardLeave(() => selectProject(projectId, { skipStudioGuard: true }), 'switch projects')) {
+    return;
+  }
+  const studio = window.meridianStudioContext;
+  if (!studio.selectProject(projectId)) return;
+  currentProject = nextProject;
+  const projectRequest = studio.beginProjectRequest();
 
   document.querySelectorAll('#projectsMasterList .project-item').forEach(el => {
     el.classList.toggle('active', el.dataset.id === projectId);
@@ -429,6 +465,7 @@ async function selectProject(projectId) {
 
   // Load project files
   const filesRes = await window.meridian.api.getProjectFiles(projectId);
+  if (!studio.isCurrentRequest(projectRequest)) return;
   const files = (filesRes && filesRes.data) ? filesRes.data : [];
   const filesList = document.getElementById('projectFilesList');
   if (filesList) {
@@ -453,6 +490,7 @@ async function selectProject(projectId) {
 
   // Load project notes
   const notesRes = await window.meridian.api.getProjectNotes(projectId);
+  if (!studio.isCurrentRequest(projectRequest)) return;
   const notes = (notesRes && notesRes.data) ? notesRes.data : [];
   const notesList = document.getElementById('projectNotesList');
   if (notesList) {
