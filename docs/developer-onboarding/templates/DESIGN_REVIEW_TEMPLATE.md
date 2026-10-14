@@ -1,6 +1,6 @@
 # TEMPLATE ONLY — Studio design direction review
 
-Tyler copies this into an approved design issue or `docs/studio/design/<issue-number>/` after preparing real, polished artifacts. Replace every prompt before asking for owner review. Use synthetic content.
+Tyler copies this into an assigned design issue or `docs/studio/design/<issue-number>/` after preparing real, polished artifacts. Replace every prompt before recording the selected direction. Use synthetic content.
 
 - Issue and acceptance criteria: [link and criteria]
 - Current Connect references studied: [screens/files]
@@ -13,7 +13,7 @@ Tyler copies this into an approved design issue or `docs/studio/design/<issue-nu
 | 3, if proposed | [name and tokens] | [actual artifact links] | [specifics] |
 
 - Recommended direction and why: [reason]
-- What Cassy can reuse after approval: [tokens/components]
+- What Cassy can reuse: [tokens/components]
 - Unresolved design or API questions: [questions]
-- **Owner decision:** [approved direction and issue-comment link, requested changes, or “pending”]
-- Broad implementation is blocked until the owner decision is recorded.
+- **Selected direction:** [direction, rationale, issue-comment link, and coordination with Cassy]
+- Visual and accessibility checks still needed: [specific checks and owner end-review items]

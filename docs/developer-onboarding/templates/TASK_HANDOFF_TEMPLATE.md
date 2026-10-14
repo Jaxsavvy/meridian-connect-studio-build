@@ -9,7 +9,7 @@ Copy to `docs/development/handoffs/ISSUE-<number>-chair-<number>.md` **after a r
 - Branch and current commit: [verified branch/hash]
 - Developer and AI assistant: [name/tool]
 - Current Status / Priority / Module: [read back from Project]
-- Last owner decision and date: [issue comment or “none yet”]
+- Last relevant decision and date: [issue comment or “none yet”]
 
 ## Work this session
 
@@ -33,7 +33,7 @@ Copy to `docs/development/handoffs/ISSUE-<number>-chair-<number>.md` **after a r
 
 - Intended transition and reason: [for example Ready → Building]
 - API/UI attempt and readback: [confirmed saved value, or “Board sync pending” with error category]
-- Owner acceptance for Complete: [link to explicit approval, or “not approved”]
+- Complete evidence: [criteria, verification result, merged PR, or “not yet complete”]
 
 ## Next session
 

@@ -2,7 +2,7 @@
 
 Meridian Connect is the Electron desktop client for Breakthrough Ventures employees. This repository contains the Connect client source and its required design and installer assets. It does not contain Meridian Core, Team Hub, customer data, credentials, or a runnable backend.
 
-New developers and coding assistants: begin with [START_HERE.md](START_HERE.md), then use your chair's onboarding package and the existing collaboration rules. An owner-approved issue is required before application changes.
+New developers and coding assistants: begin with [START_HERE.md](START_HERE.md), then use your chair's onboarding package and the existing collaboration rules. An assigned issue with acceptance criteria is required before application changes.
 
 ## Source layout
 
