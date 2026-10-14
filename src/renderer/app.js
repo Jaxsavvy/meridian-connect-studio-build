@@ -23,7 +23,6 @@ const viewHeadings = {
 document.addEventListener('DOMContentLoaded', async () => {
   initAuthUI();
   setupNavigation();
-  initStudioUI();
   initBokehField();
   initSkyOrb();
   setupClock();
@@ -34,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const devBox = document.getElementById('dev-bypass-box');
     if (devBox) devBox.style.display = 'block';
   }
+  await configureStudioGate(isDev);
 
   // Check saved session
   const existingUser = await window.meridian.getCurrentUser();
@@ -88,6 +88,56 @@ function initAuthUI() {
         await completeSignout();
       }
     });
+  }
+}
+
+function setStudioGatePresentation(enabled) {
+  const nav = document.getElementById('nav-studio-link');
+  const badge = document.getElementById('nav-studio-status');
+  const host = document.getElementById('studioCenter');
+  if (nav) {
+    nav.disabled = !enabled;
+    nav.setAttribute('aria-disabled', String(!enabled));
+    nav.dataset.availability = enabled ? 'development-only' : 'unavailable';
+    nav.title = enabled ? 'Open synthetic development-only Studio' : 'Studio unavailable — development integration is not enabled';
+  }
+  if (badge) badge.textContent = enabled ? 'Dev' : 'Unavailable';
+  if (host) {
+    host.hidden = true;
+    host.dataset.mode = enabled ? 'synthetic-development' : 'employee-unavailable';
+  }
+}
+
+function loadStudioDevelopmentScript(source) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-studio-development="${source}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === 'true') resolve();
+      else existing.addEventListener('load', resolve, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = source;
+    script.dataset.studioDevelopment = source;
+    script.addEventListener('load', () => { script.dataset.loaded = 'true'; resolve(); }, { once: true });
+    script.addEventListener('error', () => reject(new Error('Studio development module failed to load.')), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+async function configureStudioGate(isDevelopment) {
+  setStudioGatePresentation(Boolean(isDevelopment));
+  if (!isDevelopment) return false;
+  try {
+    for (const source of ['studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js', 'studio-ui/studio-shell.js']) {
+      await loadStudioDevelopmentScript(source);
+    }
+    initStudioUI();
+    return true;
+  } catch (error) {
+    console.error('Studio development UI remains unavailable.', error);
+    setStudioGatePresentation(false);
+    return false;
   }
 }
 
@@ -245,6 +295,8 @@ function setupNavigation() {
 }
 
 function switchView(viewKey, options = {}) {
+  const studioNav = document.getElementById('nav-studio-link');
+  if (viewKey === 'studio' && (!window.MeridianStudioUI || !studioNav || studioNav.disabled)) return;
   if (!options.skipStudioGuard && activeView === 'studio' && viewKey !== 'studio' &&
       window.MeridianStudioUI &&
       !window.MeridianStudioUI.guardLeave(() => switchView(viewKey, { skipStudioGuard: true }), 'leave Studio')) {

@@ -7,20 +7,20 @@
 - Branch and current implementation commit: `feature/dev-006-studio-ui`; `fe9c4767aa7268621bc1ff9114a3fcb401ea38f2`
 - Clean start: separate worktree created from current `main` commit `89de8989b949e4bbd4e1cd0f27f77efa7fc97d80`
 - Developer and AI assistant: Tyler (`tylerjonesprofessional`) and Codex
-- Current Status / Priority / Module: Review / P1 — High / Studio UI/UX (live readback after the verified PR submission on 2026-10-13 PDT)
-- Last owner decision: Chair 1 recorded Command Workbench B — Operations approval and the exact DEV-006 file boundary on 2026-10-13 PDT. Approval does not establish runnable-UI acceptance or employee-runtime visual verification.
+- Current Status / Priority / Module: Building / P1 — High / Studio UI/UX (live readback while the development-only gate correction is active on 2026-10-13 PDT)
+- Latest operating decision: routine owner approvals are no longer stopping points for safe, scoped Chair 2 work. Scoped PRs may merge when agreed checks pass; DEV-006 still must not be marked Complete from a slice merge. Production deployment, paid services, customer data, restricted services, and security-permission decisions remain stopping points.
 
 ## Work this session
 
-- Acceptance criteria addressed: a primary Connect Studio destination; persistent accepted project context; an Operations overview; campaign/story editor; save/review and unsaved-leave states; decision queue; Asset Library interaction preview; all nine honest Planned tool entries; loading/empty/error/recovery states; keyboard focus treatment; labels, accessible names, live status, long-name handling, reduced motion, forced colors, and small-window/200% zoom reflow.
+- Acceptance criteria addressed: an explicitly gated development-only Studio destination; a fail-closed ordinary employee state; persistent accepted project context; an Operations overview; campaign/story editor; save/review and unsaved-leave states; decision queue; Asset Library interaction preview; all nine honest Planned tool entries; loading/empty/error/recovery states; keyboard focus treatment; labels, accessible names, live status, long-name handling, reduced motion, forced colors, and small-window/200% zoom reflow.
 - Files changed:
   - `src/renderer/studio-ui/**` — scoped Direction B UI, synthetic fixtures, project-aware workspace state, and interaction/recovery behavior.
-  - `src/renderer/index.html` — one Studio destination and host, skip navigation, and scoped includes.
-  - `src/renderer/app.js` — Studio route, accepted context selection, stale response rejection, and unsaved leave guards.
+  - `src/renderer/index.html` — one fail-closed Studio destination and host plus skip navigation; synthetic modules are no longer statically loaded.
+  - `src/renderer/app.js` — explicit `isDevMode()` gate, development-only dynamic module loading, ordinary-build route rejection, accepted context selection, stale response rejection, and unsaved leave guards.
   - `docs/studio/design/9/**` — focused tests, isolated Electron harness, metrics, and synthetic screenshots.
   - This handoff.
-- Implementation decisions: `window.meridianStudioContext` remains the only project identity. The editor and asset preview use explicit synthetic in-memory adapters. Tool cards stay Planned. Cassy's writable component is not mounted. `src/renderer/nav.js`, shared CSS, bridge, API, main process, packaging, restricted services, and production systems are unchanged.
-- Unsaved or uncommitted work: none after this final handoff update is committed and pushed.
+- Implementation decisions: `window.meridianStudioContext` remains the only project identity. When and only when Connect reports development mode, the Studio modules load dynamically, the destination enables with a visible **Dev** badge, and the shell displays its synthetic-development banner. In an ordinary employee build, Studio remains visibly **Unavailable** and disabled, the host remains hidden, programmatic Studio routing is rejected, and the synthetic fixture/workspace/shell modules do not load. Tool cards stay Planned. Cassy's writable component is not mounted. `src/renderer/nav.js`, shared CSS, bridge, API, main process, packaging, restricted services, and production systems are unchanged.
+- Unsaved or uncommitted work: development-gate correction and evidence updates are pending commit at the time of this note.
 
 ## Checks and review
 
@@ -30,26 +30,27 @@
 | Cassy Asset baseline component/native tests | Pass in combined run | No Cassy-owned files changed; does not accept her integration |
 | `node --test docs/studio/assets/8/worker.test.cjs` outside filesystem sandbox | Pass, 7/7 | Isolated baseline regression only; no real Upscayl acceptance |
 | Changed JavaScript `node --check` and `git diff --check` | Pass | Syntax and whitespace only |
-| Isolated Electron capture via `runtime-capture.cjs` | Pass | Synthetic local fixtures; not employee or production runtime |
-| Runtime metrics | Pass: all nine tools Planned; zero unnamed Studio buttons; zero unlabeled rendered controls; no horizontal overflow at 1440 or 200% zoom | Programmatic checks do not replace assistive-technology review |
-| Visual inspection | Pass: Operations, editor, Asset preview, recovery states, unsaved-leave dialog, and 200% zoom | Screen reader and Windows High Contrast remain unverified |
+| Isolated Electron development capture via `runtime-capture.cjs` | Pass | Synthetic local fixtures; not employee or production runtime |
+| Ordinary employee-mode capture | Pass: destination disabled and Unavailable; host hidden; programmatic route blocked; synthetic modules not loaded | Isolated renderer fixture, not a distributed employee installation |
+| Runtime metrics | Pass: all nine development tools Planned; zero unnamed Studio buttons; zero unlabeled rendered controls; no horizontal overflow at 1440 or 200% zoom | Programmatic checks do not replace assistive-technology review |
+| Visual inspection | Pass: gated development Operations, editor, Asset preview, recovery states, unsaved-leave dialog, 200% zoom, and ordinary employee Unavailable state | Screen reader and Windows High Contrast remain unverified |
 | Primary action contrast | Pass: white on `#1f6fd6` meets 4.5:1 AA threshold | Token calculation, not every possible OS rendering mode |
 
 - Commit hashes: `fe9c476` — runnable DEV-006 Studio shell, focused tests, and isolated runtime evidence; `f3143da` — persistent Chair 2 handoff.
 - Pull request: [#29 — DEV-006: build approved Studio Operations shell](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/29). Owner `Jaxsavvy` is requested as reviewer; the required source check passed before the board transition.
-- Screenshots: `docs/studio/design/9/renders/` contains six visually inspected synthetic captures plus `runtime-results.json`.
+- Screenshots: `docs/studio/design/9/renders/` contains six visually inspected gated-development captures, one ordinary employee Unavailable capture, and `runtime-results.json` covering both modes.
 - Known issues and missing contracts: employee-runtime comparison, screen-reader output, Windows High Contrast appearance, authoritative save/reopen and permissions, provider integrations, Cassy's accepted lifecycle host, and production behavior remain unverified. The locked dependency install reported 18 audit findings; no dependency or package file was changed in this task.
 - Sensitive-content and staged-file review: passed. The exact implementation commit contains only the approved two shared renderer files, `src/renderer/studio-ui/**`, and `docs/studio/design/9/**`; no credentials, private endpoints, customer content, personal paths, generated dependencies, or packaged builds are committed.
 
 ## Board synchronization
 
-- Intended transition and reason: Building → Review after PR #29 was submitted, the source check passed, and the handoff was pushed.
-- API/UI attempt and readback: saved and verified on 2026-10-13 PDT as Chair 2 — Tyler / P1 — High / Studio UI/UX / Review.
-- Owner acceptance for Complete: not approved. Do not mark Complete.
+- Current transition: Review → Building was saved and verified when the gate correction began. Move back to Review only after the corrected PR head passes checks; after safe scoped merge, keep DEV-006 active for remaining work rather than moving it to Complete.
+- API/UI readback: Chair 2 — Tyler / P1 — High / Studio UI/UX / Building.
+- Completion boundary: routine approval is not a merge blocker, but DEV-006 remains incomplete after this slice.
 
 ## Next session
 
-1. Read issue #9, PR #29, this handoff, and `git status`; confirm the PR head and checks.
-2. Address owner review in this same scoped branch without crossing into Cassy's files, bridge/backend/packaging, or production systems.
-3. Perform approved screen-reader and Windows High Contrast checks if the owner provides that review environment; keep the employee-runtime comparison pending until a current approved reference exists.
-- Blocker and person needed: owner review of PR #29. Authoritative Studio Files, permissions, providers, and Cassy's writable host lifecycle remain Chair 1/Cassy dependencies.
+1. Finish exact diff, test, and CI review for the development gate; update PR #29 and return the board to Review.
+2. Merge PR #29 if the corrected head is clean and all agreed checks pass, then read back the merge and keep DEV-006 in a non-complete active status for the next slice.
+3. Continue the next safe Chair 2 slice from current `main`; keep screen-reader, Windows High Contrast, and employee-runtime comparison limits explicit.
+- Blocker and person needed: none for this scoped gate correction and merge. Authoritative Studio Files, permissions, providers, and Cassy's writable host lifecycle remain external dependencies and are not Chair 2 implementation scope.

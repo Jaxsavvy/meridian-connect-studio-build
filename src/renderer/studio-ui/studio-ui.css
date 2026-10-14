@@ -44,6 +44,16 @@ body.view-studio .workspace-main { background: var(--studio-night); }
 body.view-studio #chatDock,
 body.view-studio .workspace-main > #mx-dock { display: none !important; }
 
+#nav-studio-link[disabled] {
+  cursor: not-allowed;
+  opacity: .78;
+}
+
+#nav-studio-link[disabled] .nav-badge-pill {
+  color: #c8d3e1 !important;
+  background: #263344 !important;
+}
+
 .studio-shell,
 .studio-shell * { box-sizing: border-box; }
 

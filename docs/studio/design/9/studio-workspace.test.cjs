@@ -143,7 +143,13 @@ test('renderer integration contains the required accessible and honest UI contra
   assert.doesNotMatch(css, /min-width:\s*1080px/i);
   assert.match(html, /class="studio-skip"/);
   assert.match(html, /data-view="studio"/);
+  assert.match(html, /id="nav-studio-link"[^>]*disabled[^>]*aria-disabled="true"/);
+  assert.match(html, /id="nav-studio-status">Unavailable/);
+  assert.doesNotMatch(html, /<script src="studio-ui\/(studio-fixtures|studio-workspace|studio-shell)\.js"/);
   assert.match(app, /meridianStudioContext/);
+  assert.match(app, /await configureStudioGate\(isDev\)/);
+  assert.match(app, /if \(!isDevelopment\) return false/);
+  assert.match(app, /studioNav\.disabled/);
   assert.doesNotMatch(shell, /StudioAssetView\.mount/);
 });
 

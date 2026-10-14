@@ -45,8 +45,10 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      additionalArguments: ['--studio-evidence-mode=development'],
     },
   });
+  let employeeWindow = null;
 
   try {
     await window.loadFile(renderer);
@@ -105,9 +107,37 @@ app.whenReady().then(async () => {
       studioMainFitsHorizontally: document.querySelector('.studio-main').scrollWidth <= document.querySelector('.studio-main').clientWidth,
       projectName: document.querySelector('#studio-project-select').selectedOptions[0].textContent,
     }))()`);
-    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, zoomMetrics }, null, 2) + '\n');
+    employeeWindow = new BrowserWindow({
+      width: 1440,
+      height: 1000,
+      show: false,
+      backgroundColor: '#07101d',
+      webPreferences: {
+        preload: join(__dirname, 'runtime-preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        additionalArguments: ['--studio-evidence-mode=employee'],
+      },
+    });
+    await employeeWindow.loadFile(renderer);
+    employeeWindow.webContents.setZoomFactor(1);
+    await waitForSelector(employeeWindow, '#nav-studio-link[disabled]');
+    await pause(900);
+    await capture(employeeWindow, 'studio-employee-unavailable-1440x1000.png');
+    const employeeMetrics = await employeeWindow.webContents.executeJavaScript(`(() => ({
+      viewport: { width: innerWidth, height: innerHeight, zoom: 1 },
+      studioNavigationDisabled: document.querySelector('#nav-studio-link').disabled,
+      studioNavigationAvailability: document.querySelector('#nav-studio-link').dataset.availability,
+      studioNavigationBadge: document.querySelector('#nav-studio-status').textContent,
+      studioHostHidden: document.querySelector('#studioCenter').hidden,
+      syntheticModulesLoaded: Boolean(window.MeridianStudioFixtures || window.MeridianStudioWorkspace || window.MeridianStudioUI),
+      programmaticStudioRouteBlocked: (() => { switchView('studio'); return activeView !== 'studio' && document.querySelector('#studioCenter').hidden; })(),
+    }))()`);
+    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, zoomMetrics, employeeMetrics }, null, 2) + '\n');
   } finally {
-    window.destroy();
+    if (!window.isDestroyed()) window.destroy();
+    if (employeeWindow && !employeeWindow.isDestroyed()) employeeWindow.destroy();
     app.quit();
   }
 }).catch(error => {

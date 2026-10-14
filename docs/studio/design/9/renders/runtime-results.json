@@ -58,5 +58,18 @@
     "workspaceFitsHorizontally": true,
     "studioMainFitsHorizontally": true,
     "projectName": "Northstar Product Launch — Extended Synthetic Project Name For Reflow Review"
+  },
+  "employeeMetrics": {
+    "viewport": {
+      "width": 1424,
+      "height": 935,
+      "zoom": 1
+    },
+    "studioNavigationDisabled": true,
+    "studioNavigationAvailability": "unavailable",
+    "studioNavigationBadge": "Unavailable",
+    "studioHostHidden": true,
+    "syntheticModulesLoaded": false,
+    "programmaticStudioRouteBlocked": true
   }
 }

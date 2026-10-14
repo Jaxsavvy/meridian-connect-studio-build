@@ -2,6 +2,9 @@
 
 const { contextBridge } = require('electron');
 
+const evidenceMode = process.argv.find(argument => argument.startsWith('--studio-evidence-mode='))?.split('=')[1] || 'employee';
+const developmentMode = evidenceMode === 'development';
+
 const projects = [
   {
     id: 'synthetic-northstar',
@@ -52,7 +55,7 @@ const api = {
 
 contextBridge.exposeInMainWorld('meridian', {
   api,
-  isDevMode: async () => true,
+  isDevMode: async () => developmentMode,
   getCurrentUser: async () => ({ id: 'synthetic-chair-2', username: 'tyler.synthetic', displayName: 'Tyler — Isolated Review' }),
   getSettings: async () => ({ serverUrl: 'synthetic://isolated-review' }),
   getUserLayout: async () => ({ popouts: {} }),
