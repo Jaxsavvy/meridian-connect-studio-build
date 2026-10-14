@@ -29,6 +29,10 @@
     let disposed = false;
     let selectedId = null;
     let selectedName = null;
+    function namedSnapshot(state) {
+      if (state.project?.id === selectedId) state.project.name = selectedName;
+      return state;
+    }
     const scopedTransport = {
       mode: transport?.mode === 'synthetic' ? 'synthetic' : 'service',
       async request(operation, payload, options) {
@@ -47,7 +51,7 @@
     const controller = new Controller({
       service,
       projects: [],
-      onChange: state => { if (!disposed) onChange(state); },
+      onChange: state => { if (!disposed) onChange(namedSnapshot(state)); },
     });
 
     function sync() {
@@ -65,11 +69,14 @@
         }
         return;
       }
-      if (selected.id !== selectedId || selected.name !== selectedName) {
+      if (selected.id !== selectedId) {
         selectedId = selected.id;
         selectedName = selected.name;
         // Controller clears old scope and aborts its requests synchronously.
         void controller.selectProject(selected.id);
+      } else if (selected.name !== selectedName) {
+        selectedName = selected.name;
+        onChange(namedSnapshot(controller.snapshot()));
       }
     }
 
@@ -85,7 +92,7 @@
     }
 
     return Object.freeze({
-      snapshot: () => controller.snapshot(),
+      snapshot: () => namedSnapshot(controller.snapshot()),
       search(filters) { requireScope(); return controller.search(filters); },
       selectAsset(id) { requireScope(); return controller.selectAsset(id); },
       save(method, input) { requireScope(); return controller.save(method, input); },

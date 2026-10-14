@@ -8,7 +8,9 @@ This is the Chair 1 boundary for DEV-005. It connects the accepted Connect proje
 
 `src/renderer/studio-asset-host.js` exports `createAssetHost({context,Controller,ServiceAdapter,transport,onChange})`. The owner supplies DEV-004's `meridianStudioContext`, Cassy's `Controller` and `ServiceAdapter`, and eventually a reviewed named `transport`. The host injects the current copied project list, follows Connect selection, and clears/aborts Cassy's controller on project switch, revocation, failed list refresh and sign-out. Its returned interface exposes `snapshot`, `search`, `selectAsset`, `save`, `download`, `cancel` and `dispose`; it does not expose `selectProject`. Callers cannot choose an asset project independently of Connect. A transport call checks the current selection before dispatch and after response. Controller generation checks also discard late results.
 
-An absent transport returns `SERVICE_UNAVAILABLE` through Cassy's controller state. In this state, no asset list or save can succeed. The injected synthetic transport used by tests is visibly test-only. No renderer-selected endpoint, local path, executable, token or model enters this module. No script include or visible navigation was added: mounting the view before an approved service and external unsaved-switch contract would create a misleading or unsafe flow.
+A name-only refresh of the currently selected project updates the host's copied display name without restarting Cassy's controller or cancelling an in-flight write. A changed project ID or revoked selection still clears and aborts immediately.
+
+An absent transport returns `SERVICE_UNAVAILABLE` through Cassy's controller state. In this state, no asset list or save can succeed. The injected synthetic transport used by tests is visibly test-only. No renderer-selected endpoint, local path, executable, token or model enters this module. This slice adds no script include or visible navigation; the development-only mount and its external unsaved-switch guard are separate work.
 
 ## Approved transport prerequisites
 
@@ -24,8 +26,8 @@ Do not add the executable, models or generated files to Git or Electron packagin
 
 ## Integration dependencies
 
-1. Review Cassy's open draft PR #15 before mounting the view. Its controller/view changes address internal unsaved switching and version identity; they are not in this branch's current `main` baseline.
-2. Agree with Cassy and Tyler on an **external** Connect project-switch guard. The current `view.mount` owns a separate project selector, sign-out action and private draft map, and directly reads/mutates controller fields. It cannot be passed this restricted host API unchanged. Cassy's internal Keep editing / Discard choice does not yet intercept every Connect switch; external sign-out/revocation must also clear drafts. The next view contract should accept host-controlled selection/sign-out callbacks and an explicit external scope-change notification. Until those rules are implemented and tested, do not mount a writable Asset Library into shared navigation.
+1. Cassy's PR #15 and Tyler's PR #29 are now on `main`. Cassy's view exposes `hostOwned` and guarded `prepareLeave`, `setProject`, `signOut`, and `clearContext` methods. The DEV-008 binding still exposes a restricted facade rather than a mounted view, so those methods have not been connected to Connect navigation or sign-out.
+2. A separate, development-gated mounting slice must connect Cassy's host-owned lifecycle to Tyler's Asset Library slot and Connect's project/navigation guards. Voluntary leave must await the draft decision before changing shared context; actual revocation must clear immediately. Keep synthetic fixtures clearly labeled and unavailable in ordinary employee mode. Verify this in a running isolated build before claiming a writable integration.
 3. Define and test the authenticated asset service and named main/preload bridge. Synthetic tests here prove the client binding, not backend permission enforcement.
 4. Review OS isolation, distribution, licenses and supported image formats before enabling Upscayl in Connect.
 

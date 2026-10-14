@@ -101,6 +101,36 @@ test('revocation aborts the asset scope and the refreshed list is used', async (
   host.dispose();
 });
 
+test('renaming the selected project preserves a pending asset save', async () => {
+  const synthetic = new SyntheticService({ projects: ['A'] });
+  const imported = await synthetic.import({
+    projectId: 'A', filename: 'Draft.txt', mediaType: 'text/plain',
+    bytes: new TextEncoder().encode('draft'), idempotencyKey: 'rename-seed',
+  });
+  let finishSave;
+  const transport = { mode: 'synthetic', request(operation, payload) {
+    if (operation === 'asset.metadata') {
+      return new Promise(resolve => { finishSave = () => resolve(synthetic.metadata(payload)); });
+    }
+    return synthetic.list(payload);
+  } };
+  const { context, host } = setup(transport);
+  context.selectProject('A');
+  await tick();
+  const pending = host.save('metadata', {
+    assetId: imported.id, revision: imported.revision, name: 'Saved draft',
+    tags: [], description: '', section: 'Files',
+  });
+  assert.equal(typeof finishSave, 'function');
+  context.acceptProjects([{ id: 'A', name: 'Renamed project' }, B], context.beginProjectList());
+  assert.equal(host.snapshot().project.name, 'Renamed project');
+  assert.equal(host.snapshot().phase, 'saving');
+  finishSave();
+  assert.equal((await pending).name, 'Saved draft');
+  assert.equal(host.snapshot().assets[0].revision, imported.revision + 1);
+  host.dispose();
+});
+
 test('host denies calls after disposal and cannot select outside shared context', async () => {
   const { context, host } = setup();
   assert.throws(() => host.search(), { code: 'NO_PROJECT' });

@@ -27,6 +27,13 @@
 
 DEV-005 remains Blocked. Its already recorded real synthetic CLI test is evidence of local Upscayl execution only; it is not evidence of an authorized packaged integration. No owner acceptance for Complete.
 
+## Current main integration update
+
+- Incorporated `main` after Cassy's PR #15 and Tyler's PR #29 merged. The DEV-008 change remains a host binding only; it does not mount a view, add IPC or expose a live Asset Library.
+- Fixed a name-only project refresh so it updates the copied display name without clearing an in-progress asset mutation. A regression holds a metadata save through the rename and verifies its result.
+- Re-ran the current context/host suite (23 passing) and Cassy's component/worker/native/view suite (40 passing). These are synthetic checks; the running Connect mount and authoritative service remain unverified.
+- Next scoped work: connect Cassy's `hostOwned` lifecycle to Tyler's development-only Asset Library slot and shared navigation, with explicit unsaved-leave and revocation tests. Keep ordinary employee mode unavailable until the restricted service and permission work is accepted.
+
 ## Board synchronization and next step
 
 - New DEV-008 issue was added once to Project #1; Chair, Priority, Module and Building were set and read back. DEV-005's item/status was not changed.
