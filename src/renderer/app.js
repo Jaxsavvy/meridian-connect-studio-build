@@ -531,7 +531,7 @@ async function selectProject(projectId, options = {}) {
   if (!nextProject) return;
   if (!options.skipStudioGuard && currentProject && currentProject.id !== projectId &&
       window.MeridianStudioUI &&
-      !window.MeridianStudioUI.guardLeave(() => selectProject(projectId, { skipStudioGuard: true }), 'switch projects')) {
+      !window.MeridianStudioUI.guardLeave(() => selectStudioConnectProject(projectId, { skipStudioGuard: true }), 'switch projects')) {
     return;
   }
   const studio = window.meridianStudioContext;
