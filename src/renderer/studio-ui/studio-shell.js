@@ -55,6 +55,7 @@
       const ticket = context.beginProjectRequest();
       assetTransitionPending = true;
       Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
+        if (root.__DEV020_TRACE__) console.warn('DEV020 asset decision',allowed);
         assetTransitionPending = false;
         if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
           // A confirmed host transition may re-enter guardLeave synchronously.
@@ -458,7 +459,7 @@
 
     host.addEventListener('change', event => {
       const control = event.target;
-      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') onProjectSelect(control.value);
+      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') { if (root.__DEV020_TRACE__) console.warn('DEV020 studio change fired',control.value); onProjectSelect(control.value); }
       if (control.dataset.editorField) workspace.updateEditor(control.dataset.editorField, control.value);
     });
 
@@ -488,6 +489,7 @@
     });
 
     function guardLeave(callback, reason) {
+      if (root.__DEV020_TRACE__) console.warn('DEV020 guardLeave', reason, !!pendingLeave, assetTransitionPending, viewState?.unsaved);
       if (executingApprovedTransition) return true;
       if (pendingLeave || assetTransitionPending) return false;
       if (!viewState || !viewState.unsaved) {
