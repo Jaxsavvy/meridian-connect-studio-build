@@ -36,9 +36,13 @@ app.whenReady().then(async () => {
       additionalArguments:['--studio-evidence-mode=development']},
   });
   let failed=false;
+  const watchdog = setTimeout(() => { console.error('DEV-020 runtime watchdog exceeded 75 seconds'); app.exit(1); }, 75000);
   try {
+    console.log('DEV-020 step: load renderer');
     await window.loadFile(renderer);
+    console.log('DEV-020 step: renderer loaded');
     await until(window, "Boolean(document.querySelector('#projectsMasterList .project-item'))", 'project context');
+    console.log('DEV-020 step: open Studio');
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studioCenter:not([hidden]) .studio-campaign'))", 'studio');
     await script(window, "document.querySelector('[data-action=surface][data-value=assets]').click()");
@@ -53,6 +57,7 @@ app.whenReady().then(async () => {
     if(!initial.banner.includes('SYNTHETIC DEVELOPMENT ONLY') || initial.localProjectSelector || initial.localSignout || initial.upscaleEnabled || !initial.devOnly) {
       throw new Error('Asset view gate/ownership invariant failed: '+JSON.stringify(initial));
     }
+    console.log('DEV-020 step: mounted asset view');
     await snap(window,'asset-view-1440');
 
     await script(window, `(() => {
@@ -62,6 +67,7 @@ app.whenReady().then(async () => {
       input.files=data.files;
       input.dispatchEvent(new Event('change',{bubbles:true}));
     })()`);
+    console.log('DEV-020 step: wait for import');
     await until(window, "Boolean(document.querySelector('#studio-asset-client ul li button'))", 'synthetic import');
     await script(window, "document.querySelector('#studio-asset-client ul li button').click()");
     await until(window, "Boolean(document.querySelector('#studio-asset-client [data-focus=name]'))", 'metadata editor');
@@ -72,6 +78,7 @@ app.whenReady().then(async () => {
       switchView('overview');
     })()`);
     await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]'))", 'unsaved leave prompt');
+    console.log('DEV-020 step: unsaved guard opened');
     await snap(window,'unsaved-asset-leave');
     await script(window, `[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Keep editing').click()`);
     await wait(100);
@@ -89,6 +96,7 @@ app.whenReady().then(async () => {
     const project=await script(window, "window.meridianStudioContext.snapshot().project?.id");
     const scoped=await script(window, "document.querySelectorAll('#studio-asset-client ul li').length");
     if(project!=='synthetic-field-notes' || scoped!==0)throw new Error('Project isolation failed after switch');
+    console.log('DEV-020 step: project switch done');
     await snap(window,'asset-project-switch');
 
     window.webContents.setZoomFactor(2);
@@ -107,6 +115,7 @@ app.whenReady().then(async () => {
     console.error('DEV-020 isolated Electron smoke FAIL',error.stack||String(error));
     failed=true;
   } finally {
+    clearTimeout(watchdog);
     window.destroy();
     app.exit(failed ? 1 : 0);
   }
