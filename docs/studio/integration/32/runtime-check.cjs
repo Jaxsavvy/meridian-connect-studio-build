@@ -111,7 +111,27 @@ app.whenReady().then(async () => {
 
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'Studio after return');
-    await script(window, "selectProject('synthetic-field-notes')");
+    const beforeSwitch=await script(window, `(() => ({
+      projects:projects.map(p=>({id:p.id,name:p.name})),
+      selected:currentProject?.id,
+      context:window.meridianStudioContext.snapshot().project,
+      workspaceUnsaved:window.MeridianStudioUI?.mount && document.querySelector('#studio-leave-title')?.textContent,
+      projectOptions:[...document.querySelectorAll('#studio-project-select option')].map(p=>p.value),
+    }))()`);
+    console.log('DEV-020 step: before project switch',JSON.stringify(beforeSwitch));
+    await script(window, `(() => {
+      const original=window.MeridianStudioUI.guardLeave;
+      window.MeridianStudioUI.guardLeave=(callback,reason)=>{
+        console.warn('DEV020 app guard invoked',reason);
+        const approved=original.call(window.MeridianStudioUI,()=>{
+          console.warn('DEV020 approved callback invoked',reason);
+          callback();
+        },reason);
+        console.warn('DEV020 app guard returned',approved);
+        return approved;
+      };
+      selectProject('synthetic-field-notes');
+    })()`);
     await wait(250);
     const switchState = await script(window, `(() => ({
       context:window.meridianStudioContext.snapshot().project,
