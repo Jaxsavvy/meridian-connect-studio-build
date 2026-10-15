@@ -32,6 +32,8 @@ jobs:
             tools/studio-context/dev-asset-mount.test.cjs \
             docs/studio/assets/8/component.test.cjs \
             docs/studio/assets/8/view.test.cjs \
+            docs/studio/assets/8/native.test.cjs \
+            docs/studio/assets/8/worker.test.cjs \
             docs/studio/design/9/studio-workspace.test.cjs
       - name: Check source and packaging inputs
         run: |
