@@ -9,6 +9,14 @@
 - Limits: local application storage is not authoritative Team Hub persistence or multi-device collaboration. Asset placement, provider-backed AI, authoritative permission evidence, whole-site UI packaging, screen-reader output, Windows High Contrast, installed-app validation, deployment, and production remain incomplete.
 - Publication: implementation commit `fe02832` and documentation commits `6c3727b`, `8df2274`, and `39857b9` were pushed to `origin/feature/tyler-website-studio-ui` and verified through GitHub readback. [PR #34 — DEV-006: add persistent Website Builder foundation](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/34) is open against `main`; its description now records the exact scope, checks, screenshots, limits, AI handoff, and incomplete review/dependency checklist. Its `source-checks` job passed and GitHub reports no merge conflicts. DEV-006 stays open and incomplete.
 
+## 2026-10-15 PR #35 coordination and combined dry run
+
+- Chair 1 documented the shared-file integration contract on PR #34. Tyler accepted it and requested review from `Jaxsavvy` and `Theecassycat`. PR #33 has no source-file overlap with PR #34; PR #35 overlaps only `src/renderer/app.js` and `src/renderer/studio-ui/studio-shell.js`.
+- A disposable checkout combined PR #34 head `df6b85e` with PR #35 head `8ed3f367`. The resolution composed both development loaders, retained `selectStudioConnectProject`, retained the host-owned Asset mount and accepted-project list, preserved the Website controller/render/events, and sequenced Website save/discard before the Asset leave guard. No combined code was committed or pushed.
+- Combined JavaScript syntax and the relevant Node suite passed 91/91 outside the filesystem sandbox. The identical sandboxed suite passed 86 tests and denied five existing OS-worker cases with `EPERM`; those five passed in the authorized development environment.
+- Both combined Electron paths completed: DEV-020 mount/import/leave/project-isolation/revocation/sign-out/200%-zoom and Website Builder create/edit/save/reload/reopen/leave/200%-zoom. The Website evidence probe needed to accept the mounted Asset client's polite status element instead of only the superseded read-only-preview selector.
+- Manual visual review passed the mounted Asset view, project-switch state, and 200% zoom. PR #35's `unsaved-asset-leave.png` was byte-identical to `asset-view-1440.png` and did not visibly show the warning, although the runtime DOM assertion measured a connected visible 855-by-81 warning. Tyler submitted a requested-changes review for corrected screenshot evidence and an anti-stale capture guard. PR #34 remains unmerged while that evidence/review gate is open.
+
 ## Identity
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)
