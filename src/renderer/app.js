@@ -8,6 +8,8 @@ let clientSettings = null;
 let idleTimer = null;
 let activeView = 'overview';
 const poppedViews = new Set();
+// Preserve Connect's guarded selector before project-workspace.js replaces the legacy global selectProject.
+const selectStudioConnectProject = selectProject;
 
 const viewHeadings = {
   'overview': { eyebrow: 'Remote intelligence workspace · Employee Client', title: 'Meridian / Connect' },
@@ -170,7 +172,7 @@ function initStudioUI() {
     host,
     context: window.meridianStudioContext,
     getProjects: () => projects,
-    onProjectSelect: projectId => selectProject(projectId),
+    onProjectSelect: projectId => selectStudioConnectProject(projectId),
     assetMount: window.MeridianStudioAssetMount,
     assetDeps: {
       host: window.MeridianStudioAssetHost,
@@ -524,7 +526,6 @@ async function loadProjects() {
 }
 
 async function selectProject(projectId, options = {}) {
-  if (window.__DEV020_TRACE__) console.warn('DEV020 selectProject begin', projectId, 'selected', currentProject?.id, 'skip', !!options.skipStudioGuard);
   const nextProject = projects.find(p => p.id === projectId);
   if (!nextProject) return;
   if (!options.skipStudioGuard && currentProject && currentProject.id !== projectId &&
