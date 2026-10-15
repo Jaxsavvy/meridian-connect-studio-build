@@ -112,6 +112,14 @@ app.whenReady().then(async () => {
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'Studio after return');
     await script(window, "selectProject('synthetic-field-notes')");
+    await wait(250);
+    const switchState = await script(window, `(() => ({
+      context:window.meridianStudioContext.snapshot().project,
+      projectHeader:document.querySelector('#studio-title')?.textContent,
+      assetBanner:!!document.querySelector('#studio-asset-client .sa-banner'),
+      inStudio:document.body.classList.contains('view-studio'),
+    }))()`);
+    console.log('DEV-020 step: Connect switch diagnostic', JSON.stringify(switchState));
     await until(window, `document.querySelector('#studio-title')?.textContent.includes('Field Notes Campaign') && Boolean(document.querySelector('#studio-asset-client .sa-banner'))`, 'Connect project switch');
     const project=await script(window, "window.meridianStudioContext.snapshot().project?.id");
     const scoped=await script(window, "document.querySelectorAll('#studio-asset-client ul li').length");
