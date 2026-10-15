@@ -93,7 +93,7 @@ test('gate and shell use development-only loader and preserve existing standalon
   assert.match(app,/if \(!isDevelopment\) return false/);
   assert.match(app,/studio-dev-asset-mount\.js/);
   assert.match(app,/studio-assets\/view\.css/);
-  assert.match(shell,/assetLifecycle\.prepareLeave/);
+  assert.match(shell,/lifecycle\.prepareLeave/);
   assert.match(shell,/continueAfterAssetGuard/);
   assert.match(shell,/studio-asset-client-slot/);
   assert.match(shell,/renderAssets\(viewState\)/);
