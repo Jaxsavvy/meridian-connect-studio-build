@@ -4,7 +4,7 @@ This is a public-safe companion to ASSET_SERVICE_CONTRACT_V1.md. It specifies ob
 
 ## Common envelope
 
-Every request has `contract: "studio.assets.v1"` and a server-checked `projectId`. Every success has the same contract and a nonsensitive `correlationId`. Mutations have a `mutationKey`: an opaque, random 16–128 character value reused only for the same logical request. The main process must retain the key during an uncertain attempt; it must not mint a new key merely because a response timed out. The service indexes actor, project, operation and key, stores a SHA-256 fingerprint of the normalized request, and persists the canonical outcome in the same durable boundary as the mutation. An identical repeat may return the stored result after current access is rechecked; changed intent under the key returns `IDEMPOTENCY_CONFLICT`.
+Every request has `contract: "studio.files.v1"` and a server-checked `projectId`. Every success has the same contract and a nonsensitive `correlationId`. Mutations have a `mutationKey`: an opaque, random 16–128 character value reused only for the same logical request. The main process must retain the key during an uncertain attempt; it must not mint a new key merely because a response timed out. The service indexes actor, project, operation and key, stores a SHA-256 fingerprint of the normalized request, and persists the canonical outcome in the same durable boundary as the mutation. An identical repeat may return the stored result after current access is rechecked; changed intent under the key returns `IDEMPOTENCY_CONFLICT`.
 
 For v1, the fingerprint input is UTF-8 JSON of the ordered tuples below. Values are validated and normalized before fingerprinting; optional values become JSON `null`, integer lengths use JSON integers, tags retain submitted order, and SHA-256 is lowercase hex. The tuple excludes `mutationKey`, `correlationId`, and transient transport offsets:
 
@@ -27,7 +27,7 @@ An error response has `{ contract, correlationId, error: { code, retryable } }`.
 
 ```json
 {
-  "contract": "studio.assets.v1",
+  "contract": "studio.files.v1",
   "correlationId": "synthetic-correlation-1",
   "asset": {
     "assetId": "synthetic-asset-a",
