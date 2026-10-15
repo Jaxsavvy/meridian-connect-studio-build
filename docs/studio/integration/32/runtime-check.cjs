@@ -21,7 +21,7 @@ async function until(window, expression, message, timeout = 8000) {
 }
 async function snap(window, name) {
   await wait(200);
-  const image = await window.webContents.capturePage();
+  const image = await Promise.race([window.webContents.capturePage(), wait(5000).then(() => { throw new Error('Screenshot capture timed out'); })]);
   await writeFile(join(evidence, name+'.png'), image.toPNG());
 }
 async function script(window, content) {
@@ -31,7 +31,7 @@ async function script(window, content) {
 app.whenReady().then(async () => {
   await mkdir(evidence, { recursive: true });
   const window=new BrowserWindow({
-    width:1440,height:1000,show:false,backgroundColor:'#07101d',
+    width:1440,height:1000,show:true,backgroundColor:'#07101d',
     webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:false,
       additionalArguments:['--studio-evidence-mode=development']},
   });
