@@ -40,10 +40,12 @@
       status.setAttribute('role',state.error ? 'alert' : 'status'); status.setAttribute('aria-live','polite'); host.append(status);
       if(leave){
         const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved host transition');
+        notice.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();settleLeave(false);render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}});
         notice.append(element('p','Unsaved asset metadata will be discarded if you leave this project.'),button('Keep editing',()=>{settleLeave(false);render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}),button('Discard changes and leave',()=>{drafts.clear();conflicts.clear();settleLeave(true);render(controller.snapshot());}));host.append(notice);
       }
       if(pendingProjectId!==null){
         const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved project switch');
+        notice.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();pendingProjectId=null;render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}});
         notice.append(element('p','Unsaved asset metadata will be discarded if you switch projects.'),button('Keep editing',()=>{pendingProjectId=null;render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}),button('Discard changes and switch',()=>switchProject(pendingProjectId)));host.append(notice);
       }
       if (!state.project) return;
