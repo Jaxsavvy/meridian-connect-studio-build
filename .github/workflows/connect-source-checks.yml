@@ -89,7 +89,7 @@ jobs:
       - name: Install Electron for isolated runtime evidence
         run: npm ci --no-audit --no-fund
       - name: Run synthetic Studio Asset Library in Electron
-        run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
+        run: timeout --signal=TERM --kill-after=5s 95s xvfb-run -a ./node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
       - name: Attach synthetic runtime screenshots
         if: always()
         uses: actions/upload-artifact@v4
