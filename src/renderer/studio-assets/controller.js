@@ -10,6 +10,19 @@
     }
     snapshot() { return M.clone(this.state); }
     emit() { this.onChange(this.snapshot()); }
+    validateRecord(input, projectId) {
+      const asset = M.validate(input, projectId);
+      const prior = this.state.assets.find(a => a.id === asset.id && a.projectId === projectId);
+      // Older acknowledgements are ignored by monotonic merge; compare only records that could replace current state.
+      if (!prior || asset.revision < prior.revision) return asset;
+      if (asset.originalVersionId !== prior.originalVersionId || asset.originalFilename !== prior.originalFilename) M.fail('IMMUTABLE_VERSION_CHANGED');
+      const versions = new Map(asset.versions.map(v => [v.id,v]));
+      for (const original of prior.versions) {
+        const incoming = versions.get(original.id);
+        if (!incoming || ['assetId','projectId','originalVersionId','parentVersionId','sequence','operation','bytes','sha256','mediaType','originalFilename'].some(key => incoming[key] !== original[key])) M.fail('IMMUTABLE_VERSION_CHANGED');
+      }
+      return asset;
+    }
     clear() {
       this.generation++; for (const request of this.requests) request.abort(); this.requests.clear(); this.writes.clear(); this.read = null;
       this.state = { project: null, assets: [], selectedId: null, phase: 'idle', error: null, mode: this.service.mode };
@@ -48,7 +61,7 @@
       const result = await this.request(async scope => {
         const list = await this.service.list({ ...filters, ...scope });
         if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
-        return list.map(a => M.validate(a, scope.projectId));
+        return list.map(a => this.validateRecord(a, scope.projectId));
       }, true);
       if (result) {
         const prior = new Map(this.state.assets.map(a => [a.id,a]));
@@ -61,7 +74,7 @@
     async save(method, input) {
       if (!['import','metadata','review'].includes(method)) M.fail('INVALID_OPERATION');
       const result = await this.request(async scope => {
-        const asset = M.validate(await this.service[method]({ ...input, ...scope }), scope.projectId);
+        const asset = this.validateRecord(await this.service[method]({ ...input, ...scope }), scope.projectId);
         if (input.assetId && asset.id !== input.assetId) M.fail('INVALID_RESPONSE');
         return asset;
       });
@@ -76,7 +89,7 @@
       const result = await this.request(async scope => {
         const list = await this.service.list({ ...scope });
         if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
-        const records = list.map(a => M.validate(a, scope.projectId));
+        const records = list.map(a => this.validateRecord(a, scope.projectId));
         const asset = records.find(a => a.id === assetId);
         if (!asset) M.fail('NOT_FOUND');
         return asset;

@@ -151,3 +151,15 @@ test('offline metadata retry succeeds once and retains the original version',asy
  const patch={assetId:a.id,revision:a.revision,name:'Resume after offline',tags:[],section:'Files'};s.offline=true;assert.equal(await c.save('metadata',patch),null);assert.equal(c.snapshot().phase,'offline');assert.equal(c.snapshot().assets[0].revision,a.revision);
  s.offline=false;const saved=await c.save('metadata',patch);assert.equal(saved.revision,a.revision+1);assert.equal(saved.metadataHistory.length,1);assert.deepEqual(saved.versions,a.versions);
 });
+
+test('newer adapter responses cannot rewrite loaded original bytes or filename',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');
+ const changed=structuredClone(a);changed.revision++;changed.versions[0].sha256='a'.repeat(64);s.list=async()=>[changed];assert.equal(await c.search(),null);assert.equal(c.snapshot().error,'IMMUTABLE_VERSION_CHANGED');assert.deepEqual(c.snapshot().assets[0],a);
+ changed.versions[0].sha256=a.versions[0].sha256;changed.originalFilename='replacement.txt';assert.equal(await c.reloadAsset(a.id),null);assert.deepEqual(c.snapshot().assets[0],a);
+});
+test('mutation cannot remove an existing derivative but review-state changes remain valid',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const b=await s.import(input({assetId:a.id,parentVersionId:a.originalVersionId,operation:'manual-edit',idempotencyKey:'branch'}));const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');
+ const incomplete=structuredClone(b);incomplete.revision++;incomplete.versions=incomplete.versions.slice(0,1);incomplete.preferredVersionId=incomplete.originalVersionId;s.metadata=async()=>incomplete;
+ assert.equal(await c.save('metadata',{assetId:a.id}),null);assert.equal(c.snapshot().error,'IMMUTABLE_VERSION_CHANGED');assert.equal(c.snapshot().assets[0].versions.length,2);
+ const reviewed=await c.save('review',{assetId:b.id,versionId:b.originalVersionId,revision:b.revision});assert.equal(reviewed.versions[0].reviewState,'submitted');assert.equal(reviewed.versions.length,2);
+});
