@@ -145,8 +145,74 @@ app.whenReady().then(async () => {
     await snap(window,'asset-view-200pct');
     if(!zoom.documentFits || !zoom.assetFits)throw new Error('200% asset view horizontal overflow: '+JSON.stringify(zoom));
 
-    await writeFile(join(evidence,'runtime-results.json'),JSON.stringify({initial,retained,project,scoped,zoom},null,2));
-    console.log('DEV-020 isolated Electron smoke PASS',JSON.stringify({initial,retained,project,scoped,zoom}));
+    // Revoking the current project must clear an unsaved asset draft immediately,
+    // not wait for a voluntary leave confirmation.
+    window.webContents.setZoomFactor(1);
+    await script(window, \`(() => {
+      const input=document.querySelector('#studio-asset-client input[type="file"]');
+      const data=new DataTransfer();
+      data.items.add(new File(['revoked project example'],'revoked-synthetic.txt',{type:'text/plain'}));
+      input.files=data.files; input.dispatchEvent(new Event('change',{bubbles:true}));
+    })()\`);
+    await until(window, "Boolean(document.querySelector('#studio-asset-client ul li button'))",'revoked project synthetic import');
+    await script(window,"document.querySelector('#studio-asset-client ul li button').click()");
+    await until(window,"Boolean(document.querySelector('#studio-asset-client [data-focus=name]'))",'revocation draft editor');
+    await script(window,\`(() => {
+      const name=document.querySelector('#studio-asset-client [data-focus=name]');
+      name.value='UNSAVED REVOKED PROJECT DRAFT';
+      name.dispatchEvent(new Event('input',{bubbles:true}));
+      const context=window.meridianStudioContext;
+      const kept=context.snapshot().projects.find(p=>p.id==='synthetic-northstar');
+      if(!kept || !context.acceptProjects([kept],context.beginProjectList()))throw new Error('Could not simulate accepted-project revocation');
+    })()\`);
+    await until(window,"window.meridianStudioContext.snapshot().project===null && !document.querySelector('#studio-asset-client [data-focus=name]')",'immediate revocation cleanup');
+    const revoked=await script(window,\`(() => ({
+      selected:window.meridianStudioContext.snapshot().project,
+      retainedRevokedOption:[...document.querySelectorAll('#studio-project-select option')].some(p=>p.value==='synthetic-field-notes'),
+      staleAssetDraft:document.querySelector('#studio-asset-client')?.textContent.includes('UNSAVED REVOKED PROJECT DRAFT'),
+    }))()\`);
+    if(revoked.selected || revoked.retainedRevokedOption || revoked.staleAssetDraft)throw new Error('Revoked project remained visible or retained dirty asset state: '+JSON.stringify(revoked));
+    console.log('DEV-020 step: revoked project and dirty asset cleared',JSON.stringify(revoked));
+
+    // Voluntary sign-out differs from revocation: it must prompt before clearing.
+    await script(window,\`(() => {
+      const selector=document.querySelector('#studio-project-select');
+      selector.value='synthetic-northstar';selector.dispatchEvent(new Event('change',{bubbles:true}));
+    })()\`);
+    await until(window,"window.meridianStudioContext.snapshot().project?.id==='synthetic-northstar' && Boolean(document.querySelector('#studio-asset-client input[type=file]'))",'project reselected after revocation');
+    await script(window,\`(() => {
+      const input=document.querySelector('#studio-asset-client input[type=file]');
+      const data=new DataTransfer();
+      data.items.add(new File(['sign-out guard example'],'signout-synthetic.txt',{type:'text/plain'}));
+      input.files=data.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+    })()\`);
+    await until(window, "Boolean(document.querySelector('#studio-asset-client ul li button'))",'signout synthetic import');
+    await script(window, "document.querySelector('#studio-asset-client ul li button').click()");
+    await until(window,"Boolean(document.querySelector('#studio-asset-client [data-focus=name]'))",'signout draft editor');
+    await script(window,\`(() => {
+      const input=document.querySelector('#studio-asset-client [data-focus=name]');
+      input.value='UNSAVED SIGNOUT DRAFT'; input.dispatchEvent(new Event('input',{bubbles:true}));
+      document.querySelector('#btn-signout').click();
+    })()\`);
+    await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\\\"Unsaved host transition\\\"]'))",'signout confirmation prompt');
+    await script(window,"[...document.querySelectorAll('#studio-asset-client button')].find(b=>b.textContent==='Keep editing').click()");
+    await wait(120);
+    const signoutRetained=await script(window,"window.meridianStudioContext.snapshot().project?.id==='synthetic-northstar' && document.querySelector('#studio-asset-client [data-focus=name]')?.value==='UNSAVED SIGNOUT DRAFT' && document.getElementById('login-view').style.display !== 'flex'");
+    if(!signoutRetained)throw new Error('Keep editing did not cancel voluntary sign-out');
+    await script(window, "document.querySelector('#btn-signout').click()");
+    await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\\\"Unsaved host transition\\\"]'))",'second signout confirmation');
+    await script(window, \`(() => { const b=[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Discard changes and leave');setTimeout(()=>b.click(),0);return true;})()\`);
+    await until(window,"window.meridianStudioContext.snapshot().project===null && document.getElementById('login-view').style.display==='flex'",'confirmed voluntary signout');
+    const signedOut=await script(window,\`(() => ({
+      selected:window.meridianStudioContext.snapshot().project,
+      acceptedProjects:window.meridianStudioContext.snapshot().projects.length,
+      exposedDraft:document.querySelector('#studio-asset-client')?.textContent.includes('UNSAVED SIGNOUT DRAFT'),
+    }))()\`);
+    if(signedOut.selected || signedOut.acceptedProjects || signedOut.exposedDraft)throw new Error('Sign-out retained scoped client state: '+JSON.stringify(signedOut));
+    console.log('DEV-020 step: guarded voluntary sign-out passed',JSON.stringify(signedOut));
+
+    await writeFile(join(evidence,'runtime-results.json'),JSON.stringify({initial,retained,project,scoped,zoom,revoked,signoutRetained,signedOut},null,2));
+    console.log('DEV-020 isolated Electron smoke PASS',JSON.stringify({initial,retained,project,scoped,zoom,revoked,signoutRetained,signedOut}));
   } catch(error) {
     console.error('DEV-020 isolated Electron smoke FAIL',error.stack||String(error));
     failed=true;
