@@ -7,7 +7,7 @@
 - Added `WEBSITE_STUDIO_AUDIT.md`, integration contracts, implementation notes, test report, and delivery/recovery documentation at the repository root.
 - Verification: focused Website Builder tests pass 11/11; full relevant regression passes 92/92; isolated Electron create/edit/save/reload/reopen, preview, form-label, leave-guard, and 200% horizontal-fit checks pass; editor/preview/reopen/zoom captures were visually inspected. Unsigned NSIS build succeeded; installer execution remains unverified.
 - Limits: local application storage is not authoritative Team Hub persistence or multi-device collaboration. Asset placement, provider-backed AI, authoritative permission evidence, whole-site UI packaging, screen-reader output, Windows High Contrast, installed-app validation, deployment, and production remain incomplete.
-- Publication: implementation commit `fe02832` pushed successfully to `origin/feature/tyler-website-studio-ui`. Pull request status is recorded after GitHub readback. DEV-006 stays open and incomplete.
+- Publication: implementation commit `fe02832` and documentation commit `6c3727b` pushed successfully to `origin/feature/tyler-website-studio-ui` and verified through GitHub readback. Automated pull-request creation is blocked because the GitHub connector returned `403 Resource not accessible by integration` and the local GitHub CLI credential is invalid. Owner action: open <https://github.com/Jaxsavvy/meridian-connect-studio-build/compare/main...feature/tyler-website-studio-ui?expand=1> and select **Create pull request**, or restore pull-request permission. No pull request is claimed as created. DEV-006 stays open and incomplete.
 
 ## Identity
 

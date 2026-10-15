@@ -15,7 +15,7 @@ Audit baseline: `main` at `29a0df6` on 2026-10-14 PDT. This document distinguish
 | Assets | PARTIAL | Cassy's accepted Asset Library client and host lifecycle exist on `main`; Website Builder placement is not yet connected. |
 | AI generation | BLOCKED | No approved Website Builder provider/service contract or configured provider exists in this client. No mock is presented as production AI. |
 | Authorization | BLOCKED | Renderer isolation and project ID validation exist, but authoritative membership and action checks belong to the separately managed service. |
-| Packaging | UNVERIFIED | Existing Electron packaging is present. A full installer has not been built or installed for this branch. |
+| Packaging | PARTIAL | An unsigned Windows NSIS installer built successfully and includes the Website Builder module. The installer was not executed, installed, signed, or distributed. |
 
 ## Initial findings
 
