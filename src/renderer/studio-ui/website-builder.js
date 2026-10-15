@@ -28,16 +28,21 @@
     }[character]));
   }
 
+  function pageFilename(page) { return `${page.slug || 'index'}.html`; }
+
   function validateProject(input, expectedProjectId) {
     if (!input || input.schema !== SCHEMA || typeof input.id !== 'string' || !input.id) throw new Error('Invalid website project.');
     if (input.meridianProjectId !== expectedProjectId) throw new Error('Website project does not belong to the selected Meridian project.');
     if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 50) throw new Error('Website project pages are invalid.');
     const pageIds = new Set();
     const slugs = new Set();
+    const filenames = new Set();
     for (const page of input.pages) {
       if (!page || typeof page.id !== 'string' || !page.id || pageIds.has(page.id)) throw new Error('Website page identity is invalid.');
       if (!/^([a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(page.slug || '') || slugs.has(page.slug || '')) throw new Error('Website page slug is invalid.');
       if (!Array.isArray(page.sections) || page.sections.length > 100) throw new Error('Website page sections are invalid.');
+      if (filenames.has(pageFilename(page))) throw new Error('Each page needs a unique export filename.');
+      filenames.add(pageFilename(page));
       pageIds.add(page.id);
       slugs.add(page.slug || '');
       for (const section of page.sections) {
@@ -171,7 +176,7 @@
   function exportSite(project) {
     validateProject(project, project.meridianProjectId);
     const files = {};
-    for (const page of project.pages) files[page.slug ? `${page.slug}.html` : 'index.html'] = renderPage(project, page.id);
+    for (const page of project.pages) files[pageFilename(page)] = renderPage(project, page.id);
     return { name: `${safeId(project.name, 'website')}-site`, files };
   }
 
@@ -203,6 +208,7 @@
       const id = makeId('website');
       const project = initialProject({ id, meridianProjectId: contextProject.id, name, now: now() });
       repository.save(project);
+      history = []; future = [];
       refreshList();
       state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Website project created and saved locally.' };
       emit();
@@ -224,18 +230,18 @@
 
     function mutate(mutator, message) {
       if (!state.project) return false;
-      history.push(copy(state.project));
-      if (history.length > 50) history.shift();
-      future = [];
+      const previous = { project: copy(state.project), selectedPageId: state.selectedPageId };
       const project = copy(state.project);
       try {
         mutator(project);
         project.updatedAt = now();
+        history.push(previous);
+        if (history.length > 50) history.shift();
+        future = [];
         state = { ...state, project, dirty: true, error: null, status: message };
         emit(); return true;
       } catch (error) {
-        history.pop();
-        state = { ...state, error: error.message || 'Website edit failed.', status: 'Website edit was not applied.' };
+        state = { ...state, selectedPageId: previous.selectedPageId, error: error.message || 'Website edit failed.', status: 'Website edit was not applied.' };
         emit(); return false;
       }
     }
@@ -250,7 +256,7 @@
       return mutate(project => {
         const base = safeId(label, 'page');
         let slug = base; let suffix = 2;
-        while (project.pages.some(page => page.slug === slug || (!slug && !page.slug))) slug = `${base}-${suffix++}`;
+        while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) slug = `${base}-${suffix++}`;
         const id = makeId('page');
         project.pages.push({ id, title: label, slug, sections: [{ id: makeId('section'), type: 'content', heading: label, body: 'Add the content this page needs.', action: '' }] });
         state.selectedPageId = id;
@@ -270,7 +276,7 @@
         if (field === 'title') page.title = cleanText(value, 120);
         else {
           const slug = safeId(value, 'page');
-          if (project.pages.some(item => item.id !== page.id && item.slug === slug)) throw new Error('Each page needs a unique URL slug.');
+          if (project.pages.some(item => item.id !== page.id && pageFilename(item) === pageFilename({ slug }))) throw new Error('Each page needs a unique URL slug and export filename.');
           page.slug = slug;
         }
       }, 'Page settings updated.');
@@ -310,14 +316,14 @@
 
     function undo() {
       if (!history.length || !state.project) return false;
-      future.push(copy(state.project));
-      state = { ...state, project: history.pop(), dirty: true, status: 'Last website edit undone.' }; emit(); return true;
+      future.push({ project: copy(state.project), selectedPageId: state.selectedPageId });
+      state = { ...state, ...history.pop(), dirty: true, error: null, status: 'Last website edit undone.' }; emit(); return true;
     }
 
     function redo() {
       if (!future.length || !state.project) return false;
-      history.push(copy(state.project));
-      state = { ...state, project: future.pop(), dirty: true, status: 'Website edit restored.' }; emit(); return true;
+      history.push({ project: copy(state.project), selectedPageId: state.selectedPageId });
+      state = { ...state, ...future.pop(), dirty: true, error: null, status: 'Website edit restored.' }; emit(); return true;
     }
 
     function close() {

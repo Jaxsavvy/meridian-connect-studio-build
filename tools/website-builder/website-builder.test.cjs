@@ -162,3 +162,48 @@ test('renderer source loads the builder only inside the development gate', () =>
   assert.match(app, /studio-ui\/website-builder\.js/);
   assert.doesNotMatch(html, /<script src="studio-ui\/website-builder\.js"/);
 });
+
+test('undoing a new page keeps selection editable and redo restores the new page', () => {
+  const active = controller();
+  active.createProject('History site');
+  const home = active.snapshot().selectedPageId;
+  active.addPage('Services');
+  const services = active.snapshot().selectedPageId;
+  active.undo();
+  assert.equal(active.snapshot().selectedPageId, home);
+  active.redo();
+  assert.equal(active.snapshot().selectedPageId, services);
+  assert.equal(active.updatePage('title', 'Our services'), true);
+  assert.equal(active.snapshot().project.pages[1].title, 'Our services');
+  active.undo();
+  active.undo();
+  assert.equal(active.snapshot().selectedPageId, home);
+  assert.equal(active.addSection('content'), true);
+});
+
+test('failed edits preserve redo and new websites cannot undo into another website', () => {
+  const active = controller();
+  active.createProject('First site');
+  active.updateBrief('tone', 'Direct');
+  active.undo();
+  assert.equal(active.updateSection('missing', 'heading', 'Rejected'), false);
+  assert.equal(active.redo(), true);
+  assert.equal(active.snapshot().project.brief.tone, 'Direct');
+  active.save();
+  active.close();
+  active.createProject('Second site');
+  assert.equal(active.undo(), false);
+  assert.equal(active.snapshot().project.name, 'Second site');
+});
+
+test('Index pages cannot overwrite the home file and conflicting imported records fail export', () => {
+  const active = controller();
+  active.createProject('Filename site');
+  active.addPage('Index');
+  assert.equal(active.snapshot().project.pages[1].slug, 'index-2');
+  assert.equal(active.updatePage('slug', 'index'), false);
+  assert.deepEqual(Object.keys(active.exportSite().files).sort(), ['index-2.html', 'index.html']);
+  const invalid = active.snapshot().project;
+  invalid.pages[1].slug = 'index';
+  assert.throws(() => exportSite(invalid), /filename/i);
+});

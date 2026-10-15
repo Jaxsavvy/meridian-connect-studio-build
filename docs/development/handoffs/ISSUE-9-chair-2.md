@@ -1,5 +1,15 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 Website history and export correction
+
+- Continuing PR #34 from `288e1d6` on `feature/tyler-website-studio-ui`, assigned issue #9 / Chair 2. Only the Builder model, focused tests, this handoff and verification report changed.
+- Undo/redo now restores the selected page together with document content. Undoing page creation no longer leaves the editor pointing at a missing page. Failed edits preserve redo, and creating another website clears the prior website's history.
+- Export filename uniqueness now includes the home page's `index.html`. Adding an Index page chooses `index-2`; editing a conflicting slug or exporting a conflicting stored model fails explicitly rather than silently overwriting a page.
+- Three regression cases failed on the prior implementation and pass with the fix. Focused Builder: 14/14; full relevant Node suite: 95/95; model/test syntax and whitespace checks passed.
+- No layout or shared app/shell change. Electron screenshots, packaging and installed-app checks were not repeated for this model-only correction. Earlier runtime evidence is historical; it does not validate this new head.
+- PR #35's screenshot correction and the coordinated shared-file review remain pending. No merge, release, backend wiring or board completion claimed.
+- Board sync pending: no GitHub Project API tool or authenticated gh CLI is available in this environment. Existing issue #9 and its recorded Project identity retained; no duplicate created.
+
 ## 2026-10-14 Website Builder continuation
 
 - Branch: `feature/tyler-website-studio-ui`, created from live `main` `29a0df6`. The previously reported unpublished commit `52daa2f`, recovery ZIP, and publication guide were not found in GitHub or located local Git object stores/files; they are not claimed as recovered.

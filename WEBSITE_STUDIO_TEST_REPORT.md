@@ -1,5 +1,11 @@
 # Website Studio verification report
 
+## 2026-10-15 model correction
+
+Three new regression cases reproduced failures in page-selection history, redo retention and export filename collisions before the fix. Undo/redo now retains the matching page selection; rejected edits retain redo; a new website cannot undo into a previous website; home and Index pages cannot overwrite the same exported file.
+
+Verification: `node --test tools/website-builder/website-builder.test.cjs tools/studio-context/*.test.cjs tools/board-sync/board-sync.test.mjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/assets/8/*.test.cjs` passed **95/95**, including **14/14** Builder tests. Changed JavaScript syntax and `git diff --check` passed. No screenshot or packaging rerun for this model-only patch; historical evidence below is not a runtime verification of this patch. Shared integration remains pending review.
+
 Updated: 2026-10-14 PDT.
 
 ## Automated coverage
