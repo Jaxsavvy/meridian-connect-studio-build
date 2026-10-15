@@ -459,6 +459,9 @@
 
     host.addEventListener('change', event => {
       const control = event.target;
+      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') {
+        onProjectSelect(control.value);
+      }
       if (control.dataset.editorField) workspace.updateEditor(control.dataset.editorField, control.value);
     });
 
