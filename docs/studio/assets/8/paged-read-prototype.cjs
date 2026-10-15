@@ -26,4 +26,3 @@ class PagedRead {
  clear(){this.reset();this.projectId=null;}
 }
 module.exports={PagedRead};
-
