@@ -29,6 +29,7 @@
     let announcementTimer = null;
     let dialogReturnFocus = null;
     let assetTransitionPending = false;
+    let executingApprovedTransition = false;
     let assetLifecycle = null;
     let assetContainer = null;
     const adapter = root.MeridianStudioFixtures.createSyntheticAdapter();
@@ -55,12 +56,13 @@
       assetTransitionPending = true;
       Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
         assetTransitionPending = false;
-        if (root.__DEV020_TRACE__) console.warn('DEV020 leave settled', allowed, 'same lifecycle', lifecycle === assetLifecycle, 'scope', !ticket || context.isCurrentRequest(ticket));
         if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
-          // Defer host navigation until the asset prompt's DOM event has fully settled.
+          // A confirmed host transition may re-enter guardLeave synchronously.
+          // The approval is valid only for that callback, never a later navigation.
           if (callback) setTimeout(() => {
-            if (root.__DEV020_TRACE__) console.warn('DEV020 dispatch navigation', lifecycle === assetLifecycle, !ticket || context.isCurrentRequest(ticket));
-            if (lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) callback();
+            if (lifecycle !== assetLifecycle || (ticket && !context.isCurrentRequest(ticket))) return;
+            executingApprovedTransition = true;
+            try { callback(); } finally { executingApprovedTransition = false; }
           }, 0);
         }
       }).catch(error => {
@@ -486,6 +488,7 @@
     });
 
     function guardLeave(callback, reason) {
+      if (executingApprovedTransition) return true;
       if (pendingLeave || assetTransitionPending) return false;
       if (!viewState || !viewState.unsaved) {
         if (!assetLifecycle) return true;
