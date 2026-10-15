@@ -524,6 +524,7 @@ async function loadProjects() {
 }
 
 async function selectProject(projectId, options = {}) {
+  if (window.__DEV020_TRACE__) console.warn('DEV020 selectProject begin', projectId, 'selected', currentProject?.id, 'skip', !!options.skipStudioGuard);
   const nextProject = projects.find(p => p.id === projectId);
   if (!nextProject) return;
   if (!options.skipStudioGuard && currentProject && currentProject.id !== projectId &&
