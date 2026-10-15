@@ -169,3 +169,21 @@ test('save outcomes are explicit and failed retry, cancel and signout clear succ
  s.offline=true;await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Offline edit',tags:[],section:'Files'});assert.equal(c.snapshot().notice,null);assert.equal(c.snapshot().phase,'offline');s.offline=false;
  const b=await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Saved edit',tags:[],section:'Files'});assert.equal(c.snapshot().notice,'Metadata saved.');await c.save('review',{assetId:b.id,versionId:b.originalVersionId,revision:b.revision});assert.equal(c.snapshot().notice,'Selected version submitted for review.');c.cancel();assert.equal(c.snapshot().notice,null);c.signOut();assert.equal(c.snapshot().notice,undefined);
 });
+
+test('exact reload hydrates selected record independently of a partial search list',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());let listCalls=0,getCalls=0;
+ const service={mode:'service',list:async()=>{listCalls++;return [];},get:async request=>{getCalls++;assert.equal(request.projectId,'A');assert.equal(request.assetId,a.id);assert.ok(request.signal);return a;}};
+ const c=new Controller({service,projects:[{id:'A'}]});await c.selectProject('A');assert.equal(c.snapshot().assets.length,0);const result=await c.reloadAsset(a.id);assert.equal(result.id,a.id);assert.equal(listCalls,1);assert.equal(getCalls,1);
+ delete service.get;assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().error,'SERVICE_UNAVAILABLE');assert.equal(listCalls,1);
+});
+test('exact reload rejects wrong identity, revoked scope and late results',async()=>{
+ const s=new SyntheticService({projects:['A','B']});const a=await s.import(input());const other=await s.import(input({filename:'other.txt',idempotencyKey:'other'}));const c=new Controller({service:s,projects:[{id:'A'},{id:'B'}]});await c.selectProject('A');s.get=async()=>other;assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().error,'INVALID_RESPONSE');
+ s.get=async()=>({...a,projectId:'B'});assert.equal(await c.reloadAsset(a.id),null);assert.equal(c.snapshot().assets.length,0);
+ let release;s.get=async()=>{await new Promise(r=>release=r);return a;};const pending=c.reloadAsset(a.id);await c.selectProject('B');release();assert.equal(await pending,null);assert.equal(c.snapshot().project.id,'B');assert.equal(c.snapshot().assets.length,0);
+});
+test('unknown mutation outcome is not auto-replayed and exact read can reconcile committed data',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input());const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');const metadata=s.metadata.bind(s);let attempts=0;
+ s.metadata=async request=>{attempts++;await metadata(request);throw Object.assign(new Error('unknown'),{code:'UNKNOWN_OUTCOME'});};
+ await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Committed but timed out',tags:[],section:'Files'});assert.equal(attempts,1);assert.equal(c.snapshot().error,'UNKNOWN_OUTCOME');assert.equal(c.snapshot().assets[0].name,a.name);assert.equal(c.snapshot().notice,null);
+ s.get=async({projectId,assetId})=>structuredClone(s.record(projectId,assetId));const read=await c.reloadAsset(a.id);assert.equal(read.name,'Committed but timed out');assert.equal(attempts,1);assert.deepEqual(read.versions,a.versions);
+});

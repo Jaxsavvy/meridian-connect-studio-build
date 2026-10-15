@@ -88,6 +88,13 @@
     }
     async reloadAsset(assetId) {
       const result = await this.request(async scope => {
+        if (typeof this.service.get === 'function') {
+          const asset = this.validateRecord(await this.service.get({assetId,...scope}),scope.projectId);
+          if(asset.id!==assetId)M.fail('INVALID_RESPONSE');
+          return asset;
+        }
+        // Full-list fallback belongs only to the existing explicitly synthetic adapter.
+        if(this.service.mode!=='synthetic')M.fail('SERVICE_UNAVAILABLE');
         const list = await this.service.list({ ...scope });
         if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
         const records = list.map(a => this.validateRecord(a, scope.projectId));
