@@ -99,6 +99,8 @@ test('gate and shell use development-only loader and preserve existing standalon
   assert.match(app,/onProjectSelect: projectId => selectStudioConnectProject\(projectId\)/);
   assert.match(app,/guardLeave\(\(\) => selectStudioConnectProject\(projectId, \{ skipStudioGuard: true \}\)/);
   assert.match(shell,/context\.snapshot\(\)\.projects/);
+  assert.match(shell,/control\.dataset\.action === 'project'/);
+  assert.match(shell,/onProjectSelect\(control\.value\)/);
   assert.match(shell,/lifecycle\.prepareLeave/);
   assert.match(shell,/continueAfterAssetGuard/);
   assert.match(shell,/studio-asset-client-slot/);
