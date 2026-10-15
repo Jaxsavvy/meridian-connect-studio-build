@@ -13,7 +13,7 @@
 - Updated `docs/studio/integration/19/ASSET_SERVICE_V1_CONFORMANCE.md`, `tools/studio-context/asset-v1-contract.cjs`, and its focused test file. No shared renderer, Electron bridge, package inputs, or other chairs' files changed.
 - `node --test --test-isolation=none tools/studio-context/asset-v1-contract.test.cjs`: 10 pass. `node --test --test-isolation=none tools/studio-context/*.test.cjs`: 33 pass. `node --check` on both changed JavaScript files and `git diff --check`: pass.
 - [Connect source checks](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38810642974) passed at the implementation commit. Exact changed-file list and synthetic fixture scan were reviewed; no private source, credentials, customer data, or personal paths were added.
-- The separate private unmounted Studio Files stage last passed 78 synthetic A/B checks. This PR's mapper has not been exercised against a mounted service. The earlier combined PR #33/#34/#35/#36 run predates the history-mapping commit and is historical evidence only.
+- The separate private unmounted Studio Files stage now passes 81 synthetic A/B checks after local commit `8345403` aligned unsafe filename handling. That private branch has no remote. This PR's mapper has not been exercised against a mounted service. The earlier combined PR #33/#34/#35/#36 run predates the history-mapping commit and is historical evidence only.
 
 ## Remaining gates
 
