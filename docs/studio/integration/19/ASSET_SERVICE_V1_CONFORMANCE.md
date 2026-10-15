@@ -100,4 +100,3 @@ Client-only checks R03/R05 also run against a fake versioned transport. They do 
 ## Open owner decisions
 
 DEV-011 defines reviewer/owner and self-review policy, approval/export rights, and action-specific membership. The restricted service owner sets media/transfer/quota limits, retention and backup, audit history access/expiry, upload TTL, and SQLite transaction/recovery policy. Cassy confirms page state and exact read mapping in her adapter/controller tests. Chair 1 approves the individually named main/preload methods only after these decisions and staging evidence.
-

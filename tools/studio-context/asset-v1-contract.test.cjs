@@ -135,4 +135,3 @@ test('mutation names stay within the current Asset Model read limit', async () =
     tags: [], description: '', section: 'Files', mutationKey: 'synthetic-mutation-0008' };
   await assert.rejects(Contract.bodyDigest('files.metadata', A, metadata), { code: 'INVALID_REQUEST' });
 });
-

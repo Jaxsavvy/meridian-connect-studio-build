@@ -141,4 +141,3 @@ module.exports = (function (Model) {
   }
   return Object.freeze({ CONTRACT, parseSearchPage, mapAsset, bodyDigest });
 })(require('../../src/renderer/studio-assets/model'));
-

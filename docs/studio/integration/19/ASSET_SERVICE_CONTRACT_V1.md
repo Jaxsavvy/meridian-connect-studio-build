@@ -76,4 +76,3 @@ With isolated synthetic A/B identities and no customer data: deny unauthenticate
 2. The restricted service owner must set transfer/media/quota limits; upload expiry; audit retention and pagination; backup/recovery; object encryption and tombstone/legal-hold policy.
 3. Cassy must review the paged summary + exact hydration mapping and add adapter/controller contract tests for partial pages, immutable loaded versions, conflict, unknown outcome and revoked scope. This draft is not an accepted Cassy adapter contract until that review and tests exist.
 4. Chair 1 must review exact main/preload method names and payload schemas after the service contract and staged authorization tests. Keep employee Studio Assets `Unavailable` meanwhile.
-
