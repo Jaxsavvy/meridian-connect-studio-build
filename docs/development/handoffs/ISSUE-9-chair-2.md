@@ -1,5 +1,14 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-14 Website Builder continuation
+
+- Branch: `feature/tyler-website-studio-ui`, created from live `main` `29a0df6`. The previously reported unpublished commit `52daa2f`, recovery ZIP, and publication guide were not found in GitHub or located local Git object stores/files; they are not claimed as recovered.
+- Implemented a development-only Website Builder surface with project-scoped persistent local website projects, backup/pending recovery, editable brief, sitemap pages, reusable sections, undo/redo, unsaved-leave protection, sandboxed model-backed preview, and validated static HTML output.
+- Added `WEBSITE_STUDIO_AUDIT.md`, integration contracts, implementation notes, test report, and delivery/recovery documentation at the repository root.
+- Verification: focused Website Builder tests pass 11/11; full relevant regression passes 92/92; isolated Electron create/edit/save/reload/reopen, preview, form-label, leave-guard, and 200% horizontal-fit checks pass; editor/preview/reopen/zoom captures were visually inspected. Unsigned NSIS build succeeded; installer execution remains unverified.
+- Limits: local application storage is not authoritative Team Hub persistence or multi-device collaboration. Asset placement, provider-backed AI, authoritative permission evidence, whole-site UI packaging, screen-reader output, Windows High Contrast, installed-app validation, deployment, and production remain incomplete.
+- Publication: update this section with the commit and pull request only after push and GitHub readback succeed. DEV-006 stays open and incomplete.
+
 ## Identity
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)

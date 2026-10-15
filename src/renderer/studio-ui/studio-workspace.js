@@ -6,7 +6,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
 
-  const SURFACES = new Set(['operations', 'editor', 'assets', 'states']);
+  const SURFACES = new Set(['operations', 'editor', 'assets', 'website', 'states']);
 
   function copy(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
