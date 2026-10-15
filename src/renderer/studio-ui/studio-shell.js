@@ -56,7 +56,10 @@
       Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
         assetTransitionPending = false;
         if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
-          if (callback) callback();
+          // Defer host navigation until the asset prompt's DOM event has fully settled.
+          if (callback) setTimeout(() => {
+            if (lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) callback();
+          }, 0);
         }
       }).catch(error => {
         assetTransitionPending = false;
