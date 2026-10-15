@@ -14,7 +14,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(window, expression, message, timeout = 8000) {
   const start=Date.now();
   while(Date.now()-start<timeout) {
-    if(await window.webContents.executeJavaScript(expression))return;
+    if(await script(window, expression))return;
     await wait(80);
   }
   throw new Error('Timed out: '+message);
@@ -25,7 +25,10 @@ async function snap(window, name) {
   await writeFile(join(evidence, name+'.png'), image.toPNG());
 }
 async function script(window, content) {
-  return window.webContents.executeJavaScript(content);
+  return Promise.race([
+    window.webContents.executeJavaScript(content),
+    wait(5000).then(() => { throw new Error('Renderer execution timed out: '+content.slice(0,90)); }),
+  ]);
 }
 
 app.whenReady().then(async () => {
@@ -80,14 +83,20 @@ app.whenReady().then(async () => {
     await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]'))", 'unsaved leave prompt');
     console.log('DEV-020 step: unsaved guard opened');
     await snap(window,'unsaved-asset-leave');
+    console.log('DEV-020 step: guard screenshot written');
     await script(window, `[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Keep editing').click()`);
+    console.log('DEV-020 step: clicked Keep editing');
     await wait(100);
     const retained=await script(window, "document.body.classList.contains('view-studio') && document.querySelector('#studio-asset-client [data-focus=name]').value==='Unsaved synthetic metadata'");
     if(!retained) throw new Error('Keep editing did not retain the draft and Studio route.');
+    console.log('DEV-020 step: Keep editing retained draft');
+    console.log('DEV-020 step: attempt second leave');
     await script(window, "switchView('overview')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]'))", 'second unsaved prompt');
+    console.log('DEV-020 step: second guard appeared');
     await script(window, `[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Discard changes and leave').click()`);
     await until(window, "document.body.classList.contains('view-studio') === false", 'confirmed Studio leave');
+    console.log('DEV-020 step: discard-and-leave done');
 
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'Studio after return');
