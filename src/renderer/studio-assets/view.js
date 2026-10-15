@@ -36,7 +36,7 @@
         switchProject(project.value);
       };
       if(!hostOwned)host.append(project,button('Sign out',()=> api.signOut()));
-      const status = element('p',errorText[state.error] || state.error || ({ready:'Project assets loaded',loading:'Loading assets…',saving:'Saving…',cancelled:'Cancelled'}[state.phase] || 'Choose a project to begin'));
+      const status = element('p',errorText[state.error] || state.error || (state.phase==='ready' && state.notice) || ({ready:'Project assets loaded',loading:'Loading assets…',saving:'Saving…',cancelled:'Cancelled'}[state.phase] || 'Choose a project to begin'));
       status.setAttribute('role',state.error ? 'alert' : 'status'); status.setAttribute('aria-live','polite'); host.append(status);
       if(leave){
         const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved host transition');

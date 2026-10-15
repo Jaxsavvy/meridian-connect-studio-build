@@ -39,7 +39,7 @@
       const projectId = this.state.project.id; const generation = this.generation;
       const request = new AbortController();
       if (read && this.read) this.read.abort(); if (read) this.read = request;
-      this.requests.add(request); if(!read)this.writes.add(request);this.state.phase = this.writes.size ? 'saving' : 'loading'; this.state.error = null; this.emit();
+      this.requests.add(request); if(!read)this.writes.add(request);this.state.phase = this.writes.size ? 'saving' : 'loading'; this.state.error = null; this.state.notice = null; this.emit();
       try {
         const result = await action({ projectId, signal: request.signal });
         if (generation !== this.generation || request.signal.aborted) return null;
@@ -81,7 +81,8 @@
       if (result) {
         const asset = M.validate(result, this.state.project.id); const index = this.state.assets.findIndex(a => a.id === asset.id);
         if (index < 0) this.state.assets.push(asset); else if (this.state.assets[index].revision <= asset.revision) this.state.assets[index] = asset;
-        this.state.selectedId = asset.id; this.emit();
+        this.state.selectedId = asset.id;
+        this.state.notice = {import:'Asset imported and saved.',metadata:'Metadata saved.',review:'Selected version submitted for review.'}[method];this.emit();
       }
       return result;
     }
@@ -112,7 +113,7 @@
       if (hash !== result.sha256 || result.sha256 !== version.sha256 || result.mediaType !== version.mediaType || result.bytes.length !== version.bytes) M.fail('CHECKSUM_MISMATCH');
       return { ...result, filename: M.safeName(result.filename) };
     }, true); }
-    cancel() { this.generation++; for (const r of this.requests) r.abort(); this.requests.clear();this.writes.clear();this.read = null; this.state.phase = 'cancelled'; this.emit(); }
+    cancel() { this.generation++; for (const r of this.requests) r.abort(); this.requests.clear();this.writes.clear();this.read = null; this.state.notice=null;this.state.phase = 'cancelled'; this.emit(); }
   }
   return { Controller };
 });

@@ -163,3 +163,9 @@ test('mutation cannot remove an existing derivative but review-state changes rem
  assert.equal(await c.save('metadata',{assetId:a.id}),null);assert.equal(c.snapshot().error,'IMMUTABLE_VERSION_CHANGED');assert.equal(c.snapshot().assets[0].versions.length,2);
  const reviewed=await c.save('review',{assetId:b.id,versionId:b.originalVersionId,revision:b.revision});assert.equal(reviewed.versions[0].reviewState,'submitted');assert.equal(reviewed.versions.length,2);
 });
+
+test('save outcomes are explicit and failed retry, cancel and signout clear success',async()=>{
+ const s=new SyntheticService({projects:['A']});const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');const a=await c.save('import',input());assert.equal(c.snapshot().notice,'Asset imported and saved.');
+ s.offline=true;await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Offline edit',tags:[],section:'Files'});assert.equal(c.snapshot().notice,null);assert.equal(c.snapshot().phase,'offline');s.offline=false;
+ const b=await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Saved edit',tags:[],section:'Files'});assert.equal(c.snapshot().notice,'Metadata saved.');await c.save('review',{assetId:b.id,versionId:b.originalVersionId,revision:b.revision});assert.equal(c.snapshot().notice,'Selected version submitted for review.');c.cancel();assert.equal(c.snapshot().notice,null);c.signOut();assert.equal(c.snapshot().notice,undefined);
+});
