@@ -125,13 +125,35 @@ function loadStudioDevelopmentScript(source) {
   });
 }
 
+function loadStudioDevelopmentStyle(source) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('link[data-studio-development-style]');
+    if (existing) { resolve(); return; }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = source;
+    link.dataset.studioDevelopmentStyle = 'true';
+    link.addEventListener('load', resolve, { once: true });
+    link.addEventListener('error', () => reject(new Error('Asset Library development stylesheet failed.')), { once: true });
+    document.head.appendChild(link);
+  });
+}
+
 async function configureStudioGate(isDevelopment) {
   setStudioGatePresentation(Boolean(isDevelopment));
   if (!isDevelopment) return false;
   try {
-    for (const source of ['studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js', 'studio-ui/studio-shell.js']) {
+    for (const source of [
+      'studio-assets/model.js', 'studio-assets/controller.js',
+      'studio-assets/service-adapter.js', 'studio-assets/synthetic-service.js',
+      'studio-assets/view.js', 'studio-asset-host.js',
+      'studio-dev-asset-transport.js', 'studio-dev-asset-mount.js',
+      'studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js',
+      'studio-ui/studio-shell.js',
+    ]) {
       await loadStudioDevelopmentScript(source);
     }
+    await loadStudioDevelopmentStyle('studio-assets/view.css');
     initStudioUI();
     return true;
   } catch (error) {
@@ -149,6 +171,15 @@ function initStudioUI() {
     context: window.meridianStudioContext,
     getProjects: () => projects,
     onProjectSelect: projectId => selectProject(projectId),
+    assetMount: window.MeridianStudioAssetMount,
+    assetDeps: {
+      host: window.MeridianStudioAssetHost,
+      transport: window.MeridianStudioSyntheticAssetTransport,
+      view: window.StudioAssetView,
+      asset: window.StudioAssetController,
+      adapter: window.StudioAssetService,
+      synthetic: window.StudioSyntheticService,
+    },
   });
 }
 
