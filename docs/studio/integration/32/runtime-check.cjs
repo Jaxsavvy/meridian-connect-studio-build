@@ -6,7 +6,7 @@ const { join } = require('node:path');
 
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
-const root = join(__dirname, '..', '..', '..');
+const root = join(__dirname, '..', '..', '..', '..');
 const renderer = join(root, 'src', 'renderer', 'index.html');
 const evidence = join(__dirname, 'renders');
 const preload = join(root, 'docs', 'studio', 'design', '9', 'runtime-preload.cjs');
@@ -35,6 +35,7 @@ app.whenReady().then(async () => {
     webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:false,
       additionalArguments:['--studio-evidence-mode=development']},
   });
+  let failed=false;
   try {
     await window.loadFile(renderer);
     await until(window, "Boolean(document.querySelector('#projectsMasterList .project-item'))", 'project context');
@@ -104,9 +105,9 @@ app.whenReady().then(async () => {
     console.log('DEV-020 isolated Electron smoke PASS',JSON.stringify({initial,retained,project,scoped,zoom}));
   } catch(error) {
     console.error('DEV-020 isolated Electron smoke FAIL',error.stack||String(error));
-    process.exitCode=1;
+    failed=true;
   } finally {
     window.destroy();
-    app.quit();
+    app.exit(failed ? 1 : 0);
   }
-}).catch(error=>{console.error(error);process.exitCode=1;app.quit();});
+}).catch(error=>{console.error(error);app.exit(1);});
