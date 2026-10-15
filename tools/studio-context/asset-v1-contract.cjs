@@ -26,6 +26,47 @@ module.exports = (function (Model) {
   function responseKeys(value, allowed) {
     if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) fail('INVALID_RESPONSE');
   }
+  function historyTime(seconds) {
+    if (!Number.isSafeInteger(seconds) || seconds < 0) fail('INVALID_RESPONSE');
+    const date = new Date(seconds * 1000);
+    if (!Number.isFinite(date.getTime())) fail('INVALID_RESPONSE');
+    return date.toISOString();
+  }
+  function mapMetadataHistory(events, revision) {
+    if (!Array.isArray(events) || events.length > 100) fail('PAGED_HISTORY_UNSUPPORTED');
+    return events.map(event => {
+      responseKeys(event, ['actorId','priorRevision','revision','changed','createdAt','correlationId']);
+      if (!id(event.actorId) || !id(event.correlationId) || !integer(event.priorRevision) ||
+          !integer(event.revision) || event.priorRevision >= event.revision ||
+          event.revision > revision || !object(event.changed) ||
+          !Object.keys(event.changed).length ||
+          Object.keys(event.changed).some(field => !['name','tags','description','section'].includes(field))) fail('INVALID_RESPONSE');
+      for (const [field, change] of Object.entries(event.changed)) {
+        responseKeys(change, ['before','after']);
+        if (!Object.hasOwn(change, 'before') || !Object.hasOwn(change, 'after')) fail('INVALID_RESPONSE');
+        for (const value of [change.before, change.after]) {
+          if (field === 'tags') {
+            if (!Array.isArray(value) || value.length > 30 || value.some(tag => typeof tag !== 'string' || !tag.trim() || tag.length > 64)) fail('INVALID_RESPONSE');
+          } else if (typeof value !== 'string' || value.length > (field === 'description' ? 2000 : field === 'section' ? 100 : 160)) fail('INVALID_RESPONSE');
+        }
+      }
+      return { actor: event.actorId, at: historyTime(event.createdAt),
+        priorRevision: event.priorRevision, revision: event.revision,
+        changes: structuredClone(event.changed), correlationId: event.correlationId };
+    });
+  }
+  function mapReviewHistory(events, revision, versionIds) {
+    if (!Array.isArray(events) || events.length > 100) fail('PAGED_HISTORY_UNSUPPORTED');
+    return events.map(event => {
+      responseKeys(event, ['actorId','versionId','decision','revision','createdAt','correlationId']);
+      if (!id(event.actorId) || !id(event.correlationId) || !versionIds.has(event.versionId) ||
+          !['submitted','approved','changes-requested'].includes(event.decision) || !integer(event.revision) ||
+          event.revision > revision) fail('INVALID_RESPONSE');
+      return { actor: event.actorId, at: historyTime(event.createdAt),
+        versionId: event.versionId, decision: event.decision, revision: event.revision,
+        correlationId: event.correlationId };
+    });
+  }
   function parseSearchPage(response, projectId, limit = 50) {
     envelope(response);
     responseKeys(response, ['contract','correlationId','items','nextCursor']);
@@ -63,7 +104,7 @@ module.exports = (function (Model) {
     if (a.historyCursor) fail('PAGED_HISTORY_UNSUPPORTED');
     responseKeys(a, ['assetId','projectId','revision','name','originalFilename','tags',
       'description','section','originalVersionId','preferredVersionId','versions',
-      'historyCursor','provenance','metadataHistory']);
+      'historyCursor','provenance','metadataHistory','reviewHistory']);
     responseText(a.name, 160);
     responseText(a.originalFilename, 160);
     if (typeof a.description !== 'string' || a.description.length > 2000) fail('INVALID_RESPONSE');
@@ -90,7 +131,9 @@ module.exports = (function (Model) {
       }),
     };
     if (a.provenance !== undefined) mapped.provenance = a.provenance;
-    if (a.metadataHistory !== undefined) mapped.metadataHistory = a.metadataHistory;
+    if (a.metadataHistory !== undefined) mapped.metadataHistory = mapMetadataHistory(a.metadataHistory, a.revision);
+    if (a.reviewHistory !== undefined) mapped.reviewHistory = mapReviewHistory(
+      a.reviewHistory, a.revision, new Set(a.versions.map(v => v.versionId)));
     try { return Model.validate(mapped, projectId); }
     catch (error) { fail(error.code === 'PROJECT_DENIED' ? 'PROJECT_DENIED' : 'INVALID_RESPONSE'); }
   }

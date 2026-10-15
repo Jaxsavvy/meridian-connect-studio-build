@@ -53,6 +53,10 @@ In this client-facing v1, display names and original filenames are limited to 16
 
 Hashes and lengths above are shape examples, not hashes of actual files. An implemented service must return true values. `versions` contains the complete lineage or fails with a bounded explicit response; silently truncated lineage is invalid. Audit/metadata history can page separately behind `historyCursor`, but the response must say when it is incomplete. `files.get-version` checks that the requested version belongs to the requested asset/project and returns one descriptor matching the full record.
 
+When present on an exact record, `metadataHistory` contains events shaped as `{ actorId, priorRevision, revision, changed, createdAt, correlationId }`, where `changed` contains only `name`, `tags`, `description`, or `section` fields with `{ before, after }` values. `reviewHistory` contains `{ actorId, versionId, decision, revision, createdAt, correlationId }`; `versionId` must belong to the record. `createdAt` is a Unix-seconds integer. The test reference checks these fields, rejects unexpected internal fields, and maps metadata events to the current component's `actor`/ISO `at`/`changes` shape while retaining validated review events. These examples describe a draft wire shape, not a live route or approved reviewer policy.
+
+The current component accepts at most 100 metadata events. The reference therefore returns `PAGED_HISTORY_UNSUPPORTED` for more than 100 metadata or review events, or any non-null `historyCursor`. A service must not claim `historyCursor: null` for silently truncated history. History paging and a client page state remain an integration gate before the service can handle larger histories.
+
 ## Transfer and mutation shapes
 
 | Operation | Required input | Required success |

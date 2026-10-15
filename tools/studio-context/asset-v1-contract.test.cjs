@@ -64,6 +64,43 @@ test('exact record maps complete lineage to Cassy component shape', () => {
   assert.equal(mapped.description, 'First line\nSecond line');
 });
 
+test('staged metadata and review history map without losing provenance', () => {
+  const record = asset();
+  record.revision = 4;
+  record.metadataHistory = [{ actorId: 'synthetic-actor-a', priorRevision: 2,
+    revision: 3, changed: { name: { before: 'poster', after: 'poster final' } },
+    createdAt: 1760486400, correlationId: 'synthetic-correlation-2' }];
+  record.reviewHistory = [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-2',
+    decision: 'submitted', revision: 4, createdAt: 1760486401,
+    correlationId: 'synthetic-correlation-3' }];
+  const mapped = Contract.mapAsset(envelope({ asset: record }), A, record.assetId);
+  assert.equal(mapped.metadataHistory[0].actor, 'synthetic-actor-a');
+  assert.equal(mapped.metadataHistory[0].changes.name.after, 'poster final');
+  assert.match(mapped.metadataHistory[0].at, /^2025-10-15T/);
+  assert.equal(mapped.reviewHistory[0].versionId, 'synthetic-version-2');
+  assert.equal(mapped.reviewHistory[0].decision, 'submitted');
+});
+
+test('history rejects foreign versions, internal fields and unsupported size', () => {
+  const record = asset();
+  record.reviewHistory = [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-foreign',
+    decision: 'submitted', revision: 2, createdAt: 1760486401,
+    correlationId: 'synthetic-correlation-3' }];
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'INVALID_RESPONSE' });
+  record.reviewHistory[0].versionId = 'synthetic-version-2';
+  record.reviewHistory[0].storageKey = 'private-object-key';
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'INVALID_RESPONSE' });
+  delete record.reviewHistory[0].storageKey;
+  record.metadataHistory = Array.from({ length: 101 }, (_, index) => ({
+    actorId: 'synthetic-actor-a', priorRevision: 1, revision: 2,
+    changed: { name: { before: 'poster', after: `poster-${index}` } },
+    createdAt: 1760486400, correlationId: 'synthetic-correlation-2' }));
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'PAGED_HISTORY_UNSUPPORTED' });
+});
+
 test('foreign, cyclic and incomplete exact records fail closed', () => {
   const foreign = asset(); foreign.versions[1].projectId = B;
   assert.throws(() => Contract.mapAsset(envelope({ asset: foreign }), A, 'synthetic-asset-a'), { code: 'PROJECT_DENIED' });
