@@ -1,0 +1,31 @@
+name: Website guided UI
+on:
+  pull_request:
+    branches: [main, feature/tyler-website-studio-ui]
+permissions:
+  contents: read
+jobs:
+  guided-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --no-audit --no-fund
+      - name: Syntax and regression
+        run: |
+          node --check src/renderer/studio-ui/studio-shell.js
+          node --check tools/website-builder/ui-flow-smoke.cjs
+          node --test tools/website-builder/*.test.cjs tools/studio-context/*.test.cjs docs/studio/design/9/studio-workspace.test.cjs
+      - name: Synthetic Electron workflow
+        run: xvfb-run -a node_modules/.bin/electron --no-sandbox tools/website-builder/ui-flow-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: website-guided-ui-evidence
+          path: ui-flow-evidence/
+          if-no-files-found: warn
