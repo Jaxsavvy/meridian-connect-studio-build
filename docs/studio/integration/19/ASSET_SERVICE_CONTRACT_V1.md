@@ -2,6 +2,8 @@
 
 Status: public-safe review draft for DEV-010 #19 and DEV-005 #8. This document defines a target interface; it does not assert a live endpoint, storage service, bridge method, or employee availability. The authoritative implementation belongs in the restricted Team Hub source. The Connect repository must contain no private service code or data.
 
+The contract identifier is `studio.files.v1`, matching the existing owner-side unmounted Files client proposal. The component's `asset.*` names remain adapter calls and are not service operation names.
+
 ## Baseline and compatibility
 
 The current Asset Library component calls five names through `ServiceAdapter`: `asset.list`, `asset.import`, `asset.metadata`, `asset.download`, and `asset.submit-review`. The synthetic implementation returns a fully hydrated array and keeps records, bytes, and retry keys in memory. Its controller reloads one asset by listing everything. These semantics cannot be represented as a bounded production list without a new exact read and explicit paging state. The v1 host adapter must therefore be versioned and must not silently treat the first page as the full library.
