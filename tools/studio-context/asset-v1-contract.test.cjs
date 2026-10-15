@@ -47,15 +47,21 @@ test('foreign and duplicate summaries fail before display', () => {
   assert.throws(() => Contract.parseSearchPage(envelope({ items: [summary(), summary()], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
   const leaking = summary(); leaking.storageKey = 'internal-object-key';
   assert.throws(() => Contract.parseSearchPage(envelope({ items: [leaking], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
+  assert.throws(() => Contract.parseSearchPage(envelope({ items: [summary()], nextCursor: null,
+    storageKey: 'internal-object-key' }), A), { code: 'INVALID_RESPONSE' });
+  const tooLong = summary(); tooLong.name = 'n'.repeat(161);
+  assert.throws(() => Contract.parseSearchPage(envelope({ items: [tooLong], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
 });
 
 test('exact record maps complete lineage to Cassy component shape', () => {
-  const mapped = Contract.mapAsset(envelope({ asset: asset() }), A, 'synthetic-asset-a');
+  const record = asset(); record.description = 'First line\nSecond line';
+  const mapped = Contract.mapAsset(envelope({ asset: record }), A, 'synthetic-asset-a');
   assert.equal(mapped.id, 'synthetic-asset-a');
   assert.equal(mapped.originalVersionId, 'synthetic-version-1');
   assert.equal(mapped.versions[1].id, 'synthetic-version-2');
   assert.equal(mapped.versions[1].bytes, 18);
   assert.equal(mapped.versions[0].sha256, H1);
+  assert.equal(mapped.description, 'First line\nSecond line');
 });
 
 test('foreign, cyclic and incomplete exact records fail closed', () => {
@@ -68,6 +74,14 @@ test('foreign, cyclic and incomplete exact records fail closed', () => {
   const leaking = asset(); leaking.versions[0].storageKey = 'internal-object-key';
   assert.throws(() => Contract.mapAsset(envelope({ asset: leaking }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
   assert.throws(() => Contract.mapAsset(envelope({ asset: asset() }), A, 'synthetic-asset-other'), { code: 'INVALID_RESPONSE' });
+  const missingMarker = asset(); delete missingMarker.historyCursor;
+  assert.throws(() => Contract.mapAsset(envelope({ asset: missingMarker }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
+  const badDescription = asset(); badDescription.description = { unexpected: true };
+  assert.throws(() => Contract.mapAsset(envelope({ asset: badDescription }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
+  const badFilename = asset(); delete badFilename.versions[0].originalFilename;
+  assert.throws(() => Contract.mapAsset(envelope({ asset: badFilename }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
+  assert.throws(() => Contract.mapAsset(envelope({ asset: asset(), storageKey: 'internal-object-key' }), A,
+    'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
 });
 
 test('body digest is stable for same intent and changes for different intent', async () => {
@@ -111,5 +125,14 @@ test('renderer-supplied endpoint and path fields are rejected', async () => {
   await assert.rejects(Contract.bodyDigest('files.import-finalize', A,
     { uploadId: 'synthetic-upload-1', sha256: H1, mutationKey: 'synthetic-mutation-0006',
       destinationPath: 'synthetic-path' }), { code: 'INVALID_REQUEST' });
+});
+
+test('mutation names stay within the current Asset Model read limit', async () => {
+  const begin = { filename: 'f'.repeat(161), mediaType: 'image/png', byteLength: 16,
+    sha256: H1, mutationKey: 'synthetic-mutation-0007' };
+  await assert.rejects(Contract.bodyDigest('files.import-begin', A, begin), { code: 'INVALID_REQUEST' });
+  const metadata = { assetId: 'synthetic-asset-a', expectedRevision: 2, name: 'n'.repeat(161),
+    tags: [], description: '', section: 'Files', mutationKey: 'synthetic-mutation-0008' };
+  await assert.rejects(Contract.bodyDigest('files.metadata', A, metadata), { code: 'INVALID_REQUEST' });
 });
 

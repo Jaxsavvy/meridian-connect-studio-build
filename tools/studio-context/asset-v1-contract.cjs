@@ -10,6 +10,9 @@ module.exports = (function (Model) {
   const id = value => typeof value === 'string' && ID.test(value);
   const sha = value => typeof value === 'string' && SHA.test(value);
   const integer = value => Number.isSafeInteger(value) && value >= 1;
+  const responseText = (value, max) => {
+    if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_RESPONSE');
+  };
   function text(value, max) {
     if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_REQUEST');
     return value.normalize('NFC').trim();
@@ -25,6 +28,7 @@ module.exports = (function (Model) {
   }
   function parseSearchPage(response, projectId, limit = 50) {
     envelope(response);
+    responseKeys(response, ['contract','correlationId','items','nextCursor']);
     if (!id(projectId) || !integer(limit) || limit > 50 || !Array.isArray(response.items) ||
         response.items.length > limit || (response.items.length === 0 && response.nextCursor !== null) ||
         !(response.nextCursor === null ||
@@ -35,9 +39,10 @@ module.exports = (function (Model) {
         'preferredVersionId','preferredMediaType','preferredReviewState','updatedAt']);
       if (!object(item) || item.projectId !== projectId || !id(item.assetId) ||
           seen.has(item.assetId) || !integer(item.revision) || !id(item.originalVersionId) ||
-          !id(item.preferredVersionId) || typeof item.name !== 'string' || !item.name.trim() ||
+          !id(item.preferredVersionId) ||
           typeof item.preferredMediaType !== 'string' || !REVIEW.has(item.preferredReviewState) ||
           typeof item.updatedAt !== 'string' || !item.updatedAt) fail('INVALID_RESPONSE');
+      responseText(item.name, 160);
       seen.add(item.assetId);
     }
     return {
@@ -48,15 +53,21 @@ module.exports = (function (Model) {
   }
   function mapAsset(response, projectId, assetId) {
     envelope(response);
+    responseKeys(response, ['contract','correlationId','asset']);
     const a = response.asset;
     if (!id(projectId) || !id(assetId) || !object(a) || a.projectId !== projectId ||
         a.assetId !== assetId || !Array.isArray(a.versions) ||
-        !(a.historyCursor === null || a.historyCursor === undefined ||
+        !Object.hasOwn(a, 'historyCursor') ||
+        !(a.historyCursor === null ||
         (typeof a.historyCursor === 'string' && a.historyCursor.length > 0))) fail('INVALID_RESPONSE');
     if (a.historyCursor) fail('PAGED_HISTORY_UNSUPPORTED');
     responseKeys(a, ['assetId','projectId','revision','name','originalFilename','tags',
       'description','section','originalVersionId','preferredVersionId','versions',
       'historyCursor','provenance','metadataHistory']);
+    responseText(a.name, 160);
+    responseText(a.originalFilename, 160);
+    if (typeof a.description !== 'string' || a.description.length > 2000) fail('INVALID_RESPONSE');
+    responseText(a.section, 100);
     const mapped = {
       id: a.assetId, projectId: a.projectId, revision: a.revision, name: a.name,
       originalFilename: a.originalFilename, tags: a.tags, description: a.description,
@@ -68,6 +79,7 @@ module.exports = (function (Model) {
           'originalFilename']);
         if (!object(v) || !id(v.versionId) || !integer(v.sequence) || !integer(v.byteLength) ||
             !sha(v.sha256)) fail('INVALID_RESPONSE');
+        responseText(v.originalFilename, 160);
         return {
           id: v.versionId, assetId: v.assetId, projectId: v.projectId,
           sequence: v.sequence, originalVersionId: v.originalVersionId,
@@ -86,7 +98,7 @@ module.exports = (function (Model) {
     if (!id(projectId)) fail('INVALID_REQUEST');
     if (operation === 'files.import-begin') {
       keys(payload, ['filename','mediaType','byteLength','sha256','assetId','parentVersionId','baseRevision','mutationKey']);
-      const filename = text(payload.filename, 255);
+      const filename = text(payload.filename, 160);
       if (/[\\/]/.test(filename) || filename === '.' || filename === '..' ||
           typeof payload.mediaType !== 'string' || !/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(payload.mediaType) ||
           !integer(payload.byteLength) || !sha(payload.sha256)) fail('INVALID_REQUEST');
@@ -111,7 +123,7 @@ module.exports = (function (Model) {
           payload.description.length > 2000) fail('INVALID_REQUEST');
       const tags = payload.tags.map(tag => text(tag, 64));
       return [operation, projectId, payload.assetId, payload.expectedRevision,
-        text(payload.name, 200), tags, payload.description.normalize('NFC'), text(payload.section, 100)];
+        text(payload.name, 160), tags, payload.description.normalize('NFC'), text(payload.section, 100)];
     }
     if (operation === 'files.submit-review') {
       keys(payload, ['assetId','versionId','expectedRevision','decision','mutationKey']);
