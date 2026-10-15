@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
     console.log('DEV-020 step: renderer loaded');
     await until(window, "Boolean(document.querySelector('#projectsMasterList .project-item'))", 'project context');
     console.log('DEV-020 step: open Studio');
-    await script(window, "switchView('studio')");
+    await script(window, "window.__DEV020_TRACE__ = true; switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studioCenter:not([hidden]) .studio-campaign'))", 'studio');
     await script(window, "document.querySelector('[data-action=surface][data-value=assets]').click()");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'writable asset client');
@@ -123,6 +123,9 @@ app.whenReady().then(async () => {
       projectHeader:document.querySelector('#studio-title')?.textContent,
       assetBanner:!!document.querySelector('#studio-asset-client .sa-banner'),
       inStudio:document.body.classList.contains('view-studio'),
+      campaignPrompt:!!document.querySelector('#studio-leave-title'),
+      assetPrompt:!!document.querySelector('#studio-asset-client [aria-label="Unsaved host transition"]'),
+      projectPickerValue:document.querySelector('#studio-project-select')?.value,
     }))()`);
     console.log('DEV-020 step: Connect switch diagnostic', JSON.stringify(switchState));
     await until(window, `document.querySelector('#studio-title')?.textContent.includes('Field Notes Campaign') && Boolean(document.querySelector('#studio-asset-client .sa-banner'))`, 'Connect project switch');
