@@ -93,6 +93,12 @@ test('gate and shell use development-only loader and preserve existing standalon
   assert.match(app,/if \(!isDevelopment\) return false/);
   assert.match(app,/studio-dev-asset-mount\.js/);
   assert.match(app,/studio-assets\/view\.css/);
+  // project-workspace.js intentionally rebinds the legacy selectProject symbol.
+  // Studio must retain the original Connect handler for both initial and approved callbacks.
+  assert.match(app,/const selectStudioConnectProject = selectProject/);
+  assert.match(app,/onProjectSelect: projectId => selectStudioConnectProject\(projectId\)/);
+  assert.match(app,/guardLeave\(\(\) => selectStudioConnectProject\(projectId, \{ skipStudioGuard: true \}\)/);
+  assert.match(shell,/context\.snapshot\(\)\.projects/);
   assert.match(shell,/lifecycle\.prepareLeave/);
   assert.match(shell,/continueAfterAssetGuard/);
   assert.match(shell,/studio-asset-client-slot/);
