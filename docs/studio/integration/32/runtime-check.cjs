@@ -38,6 +38,9 @@ app.whenReady().then(async () => {
     webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:false,
       additionalArguments:['--studio-evidence-mode=development']},
   });
+  window.webContents.on('render-process-gone', (_, info) => console.error('DEV-020 renderer gone', JSON.stringify(info)));
+  window.webContents.on('unresponsive', () => console.error('DEV-020 renderer unresponsive'));
+  window.webContents.on('console-message', (_, level, message) => { if (level >= 2) console.error('DEV-020 renderer console:', message); });
   let failed=false;
   const watchdog = setTimeout(() => { console.error('DEV-020 runtime watchdog exceeded 75 seconds'); app.exit(1); }, 75000);
   try {
@@ -94,7 +97,7 @@ app.whenReady().then(async () => {
     await script(window, "switchView('overview')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]'))", 'second unsaved prompt');
     console.log('DEV-020 step: second guard appeared');
-    await script(window, `[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Discard changes and leave').click()`);
+    await script(window, `(() => { const button=[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Discard changes and leave'); if(!button)throw new Error('Discard control missing'); setTimeout(()=>button.click(),0); return true; })()`);
     await until(window, "document.body.classList.contains('view-studio') === false", 'confirmed Studio leave');
     console.log('DEV-020 step: discard-and-leave done');
 
