@@ -85,7 +85,7 @@ app.whenReady().then(async () => {
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'Studio after return');
     await script(window, "selectProject('synthetic-field-notes')");
-    await until(window, `document.querySelector('#studio-asset-client')?.textContent.includes('Field Notes Campaign')`, 'Connect project switch');
+    await until(window, `document.querySelector('#studio-title')?.textContent.includes('Field Notes Campaign') && Boolean(document.querySelector('#studio-asset-client .sa-banner'))`, 'Connect project switch');
     const project=await script(window, "window.meridianStudioContext.snapshot().project?.id");
     const scoped=await script(window, "document.querySelectorAll('#studio-asset-client ul li').length");
     if(project!=='synthetic-field-notes' || scoped!==0)throw new Error('Project isolation failed after switch');
