@@ -172,7 +172,7 @@ function initStudioUI() {
     host,
     context: window.meridianStudioContext,
     getProjects: () => projects,
-    onProjectSelect: projectId => selectStudioConnectProject(projectId),
+    onProjectSelect: projectId => { if (window.__DEV020_TRACE__) console.warn('DEV020 Studio picker callback', projectId); return selectStudioConnectProject(projectId); },
     assetMount: window.MeridianStudioAssetMount,
     assetDeps: {
       host: window.MeridianStudioAssetHost,
@@ -526,6 +526,7 @@ async function loadProjects() {
 }
 
 async function selectProject(projectId, options = {}) {
+  if (window.__DEV020_TRACE__) console.warn('DEV020 canonical selectProject',projectId,options, currentProject?.id);
   const nextProject = projects.find(p => p.id === projectId);
   if (!nextProject) return;
   if (!options.skipStudioGuard && currentProject && currentProject.id !== projectId &&
