@@ -55,14 +55,14 @@ Hashes and lengths above are shape examples, not hashes of actual files. An impl
 
 | Operation | Required input | Required success |
 | --- | --- | --- |
-| `files.import-begin` | `projectId`, `filename`, `mediaType`, `byteLength`, `sha256`, `mutationKey`; derivative also `assetId`, `parentVersionId`, `baseRevision` | `uploadId`, `maxChunkBytes`, `acceptedOffset: 0`, `expiresAt`, `requestFingerprint`. All are actor/project bound. |
+| `files.import-begin` | `projectId`, `filename`, `mediaType`, `byteLength`, `sha256`, `mutationKey`; derivative also `assetId`, `parentVersionId`, `baseRevision` | `uploadId`, `maxChunkBytes`, `acceptedOffset: 0`, `expiresAt`, `bodyDigest`. All are actor/project bound. |
 | `files.import-chunk` | `projectId`, `uploadId`, exact `offset`, bounded bytes, chunk SHA-256 | Same `uploadId`, next `acceptedOffset`. Identical repeat returns that offset; changed bytes at the offset conflict. |
 | `files.import-status` | `projectId`, `uploadId` | `acceptedOffset`, `expiresAt`, declared size/hash; no bytes or path. |
-| `files.import-finalize` | `projectId`, `uploadId`, whole-file `sha256`, same logical target and stable `mutationKey` | Full canonical record, `createdVersionId`, `requestFingerprint`; original or derivative lineage matches the begun intent. |
+| `files.import-finalize` | `projectId`, `uploadId`, whole-file `sha256`, same logical target and stable `mutationKey` | Full canonical record, `createdVersionId`, `bodyDigest`; original or derivative lineage matches the begun intent. |
 | `files.metadata` | `projectId`, `assetId`, `expectedRevision`, fields, `mutationKey` | Full canonical record with strictly newer revision, appended changed-field audit/provenance and fingerprint. |
 | `files.submit-review` | `projectId`, `assetId`, `versionId`, `expectedRevision`, `decision: "submitted"`, `mutationKey` | Full canonical record with strictly newer revision and append-only submission event for that exact version. |
 | `files.download` | `projectId`, `assetId`, `versionId` | Exact-version host-owned transfer, byte length, SHA-256, verified media type, safe suggested name. Authority is rechecked at issuance and transfer; no arbitrary destination path. |
-| `files.operation-status` | `projectId`, operation, `mutationKey`, `requestFingerprint` | `pending`, `succeeded` with same canonical result, `failed` with safe error, or `unknown`; no foreign record. |
+| `files.operation-status` | `projectId`, operation, `mutationKey`, `bodyDigest` | `pending`, `succeeded` with same canonical result, `failed` with safe error, or `unknown`; no foreign record. |
 
 The current client checks 25 MiB imports and 128 MiB downloads. Those are upper bounds for the client only. The service must publish and enforce its own per-type byte, pixel, chunk, time, and quota limits. Until then, the named bridge is unavailable. The service must reject malformed or corrupt media based on decoded content, not only file extension or magic bytes.
 
