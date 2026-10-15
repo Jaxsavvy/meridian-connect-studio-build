@@ -55,9 +55,11 @@
       assetTransitionPending = true;
       Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
         assetTransitionPending = false;
+        if (root.__DEV020_TRACE__) console.warn('DEV020 leave settled', allowed, 'same lifecycle', lifecycle === assetLifecycle, 'scope', !ticket || context.isCurrentRequest(ticket));
         if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
           // Defer host navigation until the asset prompt's DOM event has fully settled.
           if (callback) setTimeout(() => {
+            if (root.__DEV020_TRACE__) console.warn('DEV020 dispatch navigation', lifecycle === assetLifecycle, !ticket || context.isCurrentRequest(ticket));
             if (lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) callback();
           }, 0);
         }
