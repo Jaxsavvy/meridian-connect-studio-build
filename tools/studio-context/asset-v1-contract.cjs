@@ -20,6 +20,9 @@ module.exports = (function (Model) {
   function envelope(response) {
     if (!object(response) || response.contract !== CONTRACT || !id(response.correlationId)) fail('INVALID_RESPONSE');
   }
+  function responseKeys(value, allowed) {
+    if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) fail('INVALID_RESPONSE');
+  }
   function parseSearchPage(response, projectId, limit = 50) {
     envelope(response);
     if (!id(projectId) || !integer(limit) || limit > 50 || !Array.isArray(response.items) ||
@@ -28,6 +31,8 @@ module.exports = (function (Model) {
         (typeof response.nextCursor === 'string' && response.nextCursor.length > 0 && response.nextCursor.length <= 512))) fail('INVALID_RESPONSE');
     const seen = new Set();
     for (const item of response.items) {
+      responseKeys(item, ['assetId','projectId','revision','name','originalVersionId',
+        'preferredVersionId','preferredMediaType','preferredReviewState','updatedAt']);
       if (!object(item) || item.projectId !== projectId || !id(item.assetId) ||
           seen.has(item.assetId) || !integer(item.revision) || !id(item.originalVersionId) ||
           !id(item.preferredVersionId) || typeof item.name !== 'string' || !item.name.trim() ||
@@ -49,12 +54,18 @@ module.exports = (function (Model) {
         !(a.historyCursor === null || a.historyCursor === undefined ||
         (typeof a.historyCursor === 'string' && a.historyCursor.length > 0))) fail('INVALID_RESPONSE');
     if (a.historyCursor) fail('PAGED_HISTORY_UNSUPPORTED');
+    responseKeys(a, ['assetId','projectId','revision','name','originalFilename','tags',
+      'description','section','originalVersionId','preferredVersionId','versions',
+      'historyCursor','provenance','metadataHistory']);
     const mapped = {
       id: a.assetId, projectId: a.projectId, revision: a.revision, name: a.name,
       originalFilename: a.originalFilename, tags: a.tags, description: a.description,
       section: a.section, originalVersionId: a.originalVersionId,
       preferredVersionId: a.preferredVersionId,
       versions: a.versions.map(v => {
+        responseKeys(v, ['versionId','assetId','projectId','sequence','originalVersionId',
+          'parentVersionId','operation','reviewState','byteLength','sha256','mediaType',
+          'originalFilename']);
         if (!object(v) || !id(v.versionId) || !integer(v.sequence) || !integer(v.byteLength) ||
             !sha(v.sha256)) fail('INVALID_RESPONSE');
         return {
