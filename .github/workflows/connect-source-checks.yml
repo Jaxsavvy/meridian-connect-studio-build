@@ -75,3 +75,25 @@ jobs:
             echo 'Prohibited tracked path found.' >&2
             exit 1
           fi
+
+  dev020-electron-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Electron for isolated runtime evidence
+        run: npm ci --no-audit --no-fund
+      - name: Run synthetic Studio Asset Library in Electron
+        run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
+      - name: Attach synthetic runtime screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev020-synthetic-electron-evidence
+          path: docs/studio/integration/32/renders/
+          if-no-files-found: warn
