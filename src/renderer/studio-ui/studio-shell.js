@@ -55,6 +55,7 @@
       const ticket = context.beginProjectRequest();
       assetTransitionPending = true;
       Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
+        if (root.__DEV020_TRACE__) console.warn('DEV020 asset leave resolved',allowed);
         assetTransitionPending = false;
         if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
           // A confirmed host transition may re-enter guardLeave synchronously.
@@ -488,6 +489,7 @@
     });
 
     function guardLeave(callback, reason) {
+      if (root.__DEV020_TRACE__) console.warn('DEV020 guardLeave', reason, 'approved', executingApprovedTransition, 'pending', !!pendingLeave, assetTransitionPending, 'workspace dirty', viewState?.unsaved);
       if (executingApprovedTransition) return true;
       if (pendingLeave || assetTransitionPending) return false;
       if (!viewState || !viewState.unsaved) {
