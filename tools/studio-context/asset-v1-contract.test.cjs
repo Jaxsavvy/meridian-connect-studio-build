@@ -45,6 +45,8 @@ test('foreign and duplicate summaries fail before display', () => {
   const foreign = summary(); foreign.projectId = B;
   assert.throws(() => Contract.parseSearchPage(envelope({ items: [foreign], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
   assert.throws(() => Contract.parseSearchPage(envelope({ items: [summary(), summary()], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
+  const leaking = summary(); leaking.storageKey = 'internal-object-key';
+  assert.throws(() => Contract.parseSearchPage(envelope({ items: [leaking], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
 });
 
 test('exact record maps complete lineage to Cassy component shape', () => {
@@ -63,6 +65,8 @@ test('foreign, cyclic and incomplete exact records fail closed', () => {
   assert.throws(() => Contract.mapAsset(envelope({ asset: cyclic }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
   const incomplete = asset(); incomplete.historyCursor = 'more-history';
   assert.throws(() => Contract.mapAsset(envelope({ asset: incomplete }), A, 'synthetic-asset-a'), { code: 'PAGED_HISTORY_UNSUPPORTED' });
+  const leaking = asset(); leaking.versions[0].storageKey = 'internal-object-key';
+  assert.throws(() => Contract.mapAsset(envelope({ asset: leaking }), A, 'synthetic-asset-a'), { code: 'INVALID_RESPONSE' });
   assert.throws(() => Contract.mapAsset(envelope({ asset: asset() }), A, 'synthetic-asset-other'), { code: 'INVALID_RESPONSE' });
 });
 
