@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
     console.log('DEV-020 step: renderer loaded');
     await until(window, "Boolean(document.querySelector('#projectsMasterList .project-item'))", 'project context');
     console.log('DEV-020 step: open Studio');
-    await script(window, "switchView('studio')");
+    await script(window, "window.__DEV020_TRACE__ = true; switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studioCenter:not([hidden]) .studio-campaign'))", 'studio');
     await script(window, "document.querySelector('[data-action=surface][data-value=assets]').click()");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'writable asset client');
@@ -98,7 +98,15 @@ app.whenReady().then(async () => {
     await until(window, "Boolean(document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]'))", 'second unsaved prompt');
     console.log('DEV-020 step: second guard appeared');
     await script(window, `(() => { const button=[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Discard changes and leave'); if(!button)throw new Error('Discard control missing'); setTimeout(()=>button.click(),0); return true; })()`);
-    await until(window, "document.body.classList.contains('view-studio') === false", 'confirmed Studio leave');
+    await wait(220);
+    const afterDiscard = await script(window, `(() => ({
+      stillInStudio: document.body.classList.contains('view-studio'),
+      assetPrompt: !!document.querySelector('#studio-asset-client [aria-label="Unsaved host transition"]'),
+      assetDraft: document.querySelector('#studio-asset-client [data-focus=name]')?.value,
+      studioHidden: document.getElementById('studioCenter').hidden,
+    }))()`);
+    console.log('DEV-020 step: after discard', JSON.stringify(afterDiscard));
+    if(afterDiscard.stillInStudio) throw new Error('Confirmed asset discard did not navigate: '+JSON.stringify(afterDiscard));
     console.log('DEV-020 step: discard-and-leave done');
 
     await script(window, "switchView('studio')");
