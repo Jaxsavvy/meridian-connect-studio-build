@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
     console.log('DEV-020 step: renderer loaded');
     await until(window, "Boolean(document.querySelector('#projectsMasterList .project-item'))", 'project context');
     console.log('DEV-020 step: open Studio');
-    await script(window, "window.__DEV020_TRACE__ = true; switchView('studio')");
+    await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studioCenter:not([hidden]) .studio-campaign'))", 'studio');
     await script(window, "document.querySelector('[data-action=surface][data-value=assets]').click()");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'writable asset client');
@@ -111,26 +111,11 @@ app.whenReady().then(async () => {
 
     await script(window, "switchView('studio')");
     await until(window, "Boolean(document.querySelector('#studio-asset-client .sa-banner'))", 'Studio after return');
-    const beforeSwitch=await script(window, `(() => ({
-      projects:projects.map(p=>({id:p.id,name:p.name})),
-      selected:currentProject?.id,
-      context:window.meridianStudioContext.snapshot().project,
-      workspaceUnsaved:window.MeridianStudioUI?.mount && document.querySelector('#studio-leave-title')?.textContent,
-      projectOptions:[...document.querySelectorAll('#studio-project-select option')].map(p=>p.value),
-    }))()`);
-    console.log('DEV-020 step: before project switch',JSON.stringify(beforeSwitch));
     await script(window, `(() => {
-      const original=window.MeridianStudioUI.guardLeave;
-      window.MeridianStudioUI.guardLeave=(callback,reason)=>{
-        console.warn('DEV020 app guard invoked',reason);
-        const approved=original.call(window.MeridianStudioUI,()=>{
-          console.warn('DEV020 approved callback invoked',reason);
-          callback();
-        },reason);
-        console.warn('DEV020 app guard returned',approved);
-        return approved;
-      };
-      selectProject('synthetic-field-notes');
+      const selector=document.querySelector('#studio-project-select');
+      if(!selector || ![...selector.options].some(option=>option.value==='synthetic-field-notes')) throw new Error('Second accepted project missing');
+      selector.value='synthetic-field-notes';
+      selector.dispatchEvent(new Event('change',{bubbles:true}));
     })()`);
     await wait(250);
     const switchState = await script(window, `(() => ({
