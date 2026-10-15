@@ -87,7 +87,7 @@ Each case requires real service persistence and authentication unless marked cli
 | W06 | B substitutes A asset/parent/version/upload/status ID | Denied without an existence hint; no mutation. |
 | W07 | A membership revoked after begin, before finalize or download | Commit/transfer denied; no visible version or bytes. |
 | M01 | Two editors save metadata from same revision | One commit; stale editor gets `REVISION_CONFLICT` and retains draft. |
-| M02 | Metadata times out after commit | Status returns exact result for same key/fingerprint; no second audit event. |
+| M02 | Metadata times out after commit | An exact read may show changed state but does not prove that operation committed. Status for the same actor/project/operation/key/fingerprint returns its exact result; no second audit event or new-key replay. |
 | V01 | Derivative targets valid parent versus foreign/nonexistent/cyclic parent | Valid branch preserves original; invalid target denied and no sequence consumed visibly. |
 | V02 | Member submits exact version; unauthorized actor attempts approve | Submission event appended once; approval denied until DEV-011 role policy exists. |
 | V03 | Reviewer authority revoked during a future decision commit | Decision denied; prior review state and audit remain intact. |

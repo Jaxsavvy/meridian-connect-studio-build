@@ -59,12 +59,14 @@ Use stable machine codes: `AUTH_REQUIRED`, `ACCESS_DENIED` or consistent conceal
 | Existing component call | v1 host behavior |
 | --- | --- |
 | `asset.list` | Use `files.search` pages. Cassy's controller/view must represent page boundaries and partial results; it must not infer that a missing item was deleted from an incomplete page. |
-| `asset.import` | Use begin → chunks/status → finalize with one stable body-bound mutation key, then exact `files.get`. An uncertain finalize is reconciled before retry. |
-| `asset.metadata` | Use CAS metadata mutation, then exact canonical read. Preserve draft on offline/conflict; on unknown outcome reconcile before retry. |
+| `asset.import` | Use begin → chunks/status → finalize with one stable body-bound mutation key, then exact `files.get`. An uncertain finalize requires `files.operation-status` for that same key/body before any retry. |
+| `asset.metadata` | Use CAS metadata mutation, then exact canonical read. Preserve draft on offline/conflict; on unknown outcome check `files.operation-status` for the same key/body before any retry. |
 | `asset.download` | Use exact-version transfer and host-owned integrity/safe-save flow. Verify digest, length, media type, and target version. |
-| `asset.submit-review` | Submit only. Do not map it to approval. Reconcile unknown outcome and reload exact version/record. |
+| `asset.submit-review` | Submit only. Do not map it to approval. Reconcile an unknown outcome through `files.operation-status` for the same key/body, then reload the exact version/record. |
 
 Add a host-level `asset.get`/`reloadAsset` capability and explicit page state to replace the current full-list fallback. The component's five names are not HTTP routes or approved Electron IPC. Main/preload methods remain separately reviewed under Task 06 and fail closed until the restricted service passes staging acceptance. PR #33, Tyler #34, and development-only mount #35 stay independent; this draft changes none of their shared files.
+
+An exact read reports current asset state, not whether a particular timed-out mutation committed. Only an authorized `files.operation-status` result bound to actor, project, operation, key, and body digest can identify that operation's outcome. If status remains `unknown`, retain the draft/uncertainty and do not mint a new key or report success.
 
 ## Required staging proof before declaring the contract implemented
 
