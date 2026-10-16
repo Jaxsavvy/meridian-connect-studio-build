@@ -63,6 +63,16 @@ test('preview navigation is inert while standalone export links all pages', () =
   assert.match(active.exportSite().files['index.html'], /href="about.html"/);
 });
 
+test('custom accent retains readable action text at light and dark extremes', () => {
+  const active = controller();
+  active.createProject('Contrast');
+  active.updateDesign('accent', '#ffffff');
+  assert.match(active.preview(), /color:#000;background:var\(--accent\)/);
+  active.updateDesign('accent', '#000000');
+  assert.match(active.preview(), /color:#fff;background:var\(--accent\)/);
+  assert.match(active.preview(), /section-hero \.eyebrow\{color:#c7e4fb\}/);
+});
+
 test('archive filenames are portable and deleting the home page is rejected without losing redo', () => {
   const active = controller();
   active.createProject('Portable');

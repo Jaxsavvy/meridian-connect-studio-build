@@ -131,6 +131,7 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"), 1);
     await click(window, '[data-action="website-undo"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"), 2);
+    await window.webContents.executeJavaScript("document.querySelector('[data-website-panel=pages] .website-item-actions').scrollIntoView({block:'center'})");
     await capture(window, '11-page-management');
     await click(window, '.website-flow-nav [data-value="edit"]');
     await window.webContents.executeJavaScript("document.querySelector('#website-section-type').value='cta'");
@@ -140,6 +141,7 @@ app.whenReady().then(async () => {
     await click(window, '.website-section-card:first-child [data-action="website-remove-section"]');
     await click(window, '[data-action="website-undo"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-section-card').length"), 2);
+    await window.webContents.executeJavaScript("document.querySelector('.website-section-card').scrollIntoView({block:'start'})");
     await capture(window, '12-section-management');
     await click(window, '.website-flow-nav [data-value="preview"]');
     const previewPages = await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].map(o=>({id:o.value,title:o.textContent}))");
