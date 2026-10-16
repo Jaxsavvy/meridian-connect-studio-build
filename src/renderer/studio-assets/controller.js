@@ -14,14 +14,7 @@
       const asset = M.validate(input, projectId);
       const prior = this.state.assets.find(a => a.id === asset.id && a.projectId === projectId);
       // Older acknowledgements are ignored by monotonic merge; compare only records that could replace current state.
-      if (!prior || asset.revision < prior.revision) return asset;
-      if (asset.originalVersionId !== prior.originalVersionId || asset.originalFilename !== prior.originalFilename) M.fail('IMMUTABLE_VERSION_CHANGED');
-      const versions = new Map(asset.versions.map(v => [v.id,v]));
-      for (const original of prior.versions) {
-        const incoming = versions.get(original.id);
-        if (!incoming || ['assetId','projectId','originalVersionId','parentVersionId','sequence','operation','bytes','sha256','mediaType','originalFilename'].some(key => incoming[key] !== original[key])) M.fail('IMMUTABLE_VERSION_CHANGED');
-      }
-      return asset;
+      return M.assertContinuation(prior,asset);
     }
     clear() {
       this.generation++; for (const request of this.requests) request.abort(); this.requests.clear(); this.writes.clear(); this.read = null;

@@ -20,7 +20,7 @@ class PagedRead {
   finally{if(generation===this.generation)this.pending=false;}
  }
  async hydrate(assetId){const generation=this.generation,projectId=this.projectId;if(!projectId)throw Error('NO_PROJECT');
-  try{const response=await this.io.get({projectId,assetId,signal:this.scope.signal});if(generation!==this.generation)return null;const asset=Model.validate(this.io.mapAsset(response,projectId,assetId),projectId);if(asset.id!==assetId)Model.fail('INVALID_RESPONSE');const prior=this.records.get(assetId);if(!prior||prior.revision<=asset.revision)this.records.set(assetId,asset);return structuredClone(this.records.get(assetId));}
+  try{const response=await this.io.get({projectId,assetId,signal:this.scope.signal});if(generation!==this.generation)return null;const asset=Model.validate(this.io.mapAsset(response,projectId,assetId),projectId);if(asset.id!==assetId)Model.fail('INVALID_RESPONSE');const prior=this.records.get(assetId);Model.assertContinuation(prior,asset);if(!prior||prior.revision<=asset.revision)this.records.set(assetId,asset);return structuredClone(this.records.get(assetId));}
   catch(error){if(generation===this.generation)this.error=error.code||'REQUEST_FAILED';return null;}
  }
  clear(){this.reset();this.projectId=null;}
