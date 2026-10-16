@@ -57,7 +57,7 @@ async function main() {
     sourceHashes[file] = createHash('sha256').update(installed).digest('hex');
   }
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'meridian-installed-check-'));
-  const child = spawn(executable, ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9333', '--user-data-dir=' + userData], { stdio: ['ignore', 'ignore', 'ignore'] });
+  const child = spawn(executable, ['--force-renderer-accessibility', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9333', '--user-data-dir=' + userData], { stdio: ['ignore', 'ignore', 'ignore'] });
   let client;
   let spawnError;
   child.on('error', error => { spawnError = error; });
@@ -109,11 +109,18 @@ async function main() {
     await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
     assert.equal(await evaluate('document.activeElement.id'), 'login-password');
     await client.send('Accessibility.enable');
-    const accessibility = await client.send('Accessibility.getFullAXTree');
-    const names = accessibility.nodes.filter(node => !node.ignored).map(node => ({ role: node.role?.value, name: node.name?.value }));
-    for (const label of ['Username', 'Password']) assert.ok(names.some(node => node.role === 'textbox' && node.name === label), 'Missing accessible login field: ' + label);
+    let accessibility;
+    let names;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      accessibility = await client.send('Accessibility.getFullAXTree');
+      names = accessibility.nodes.filter(node => !node.ignored).map(node => ({ role: node.role?.value, name: node.name?.value }));
+      if (['Username', 'Password'].every(label => names.some(node => node.role === 'textbox' && String(node.name).trim() === label))) break;
+      await pause(100);
+    }
+    fs.writeFileSync(path.join(evidence, 'accessibility-tree.json'), JSON.stringify(accessibility, null, 2) + '\n');
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(evidence, 'installed-employee-login.png'), Buffer.from(screenshot.data, 'base64'));
+    for (const label of ['Username', 'Password']) assert.ok(names.some(node => node.role === 'textbox' && String(node.name).trim() === label), 'Missing accessible login field: ' + label);
     const results = {
       status: 'passed', platform: process.platform, release: os.release(),
       sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
