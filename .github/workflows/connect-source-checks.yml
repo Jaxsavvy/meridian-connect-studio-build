@@ -22,6 +22,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check JavaScript syntax
         run: find src -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+      - name: Exercise Studio asset v1 contract
+        run: node --test --test-isolation=none tools/studio-context/asset-v1-contract.test.cjs
       - name: Check source and packaging inputs
         run: |
           node <<'NODE'
