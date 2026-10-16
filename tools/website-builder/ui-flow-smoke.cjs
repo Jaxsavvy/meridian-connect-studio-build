@@ -173,7 +173,7 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="website-list"]');
     await click(window, '[data-action="website-open"]');
     assert.equal((await metrics(window)).currentStep, 'brief');
-    assert.equal((await metrics(window)).audience, 'Independent local businesses');
+    assert.equal((await metrics(window)).audience, 'Combined guard retained content');
 
     window.setSize(1280, 900);
     window.webContents.setZoomFactor(2);
