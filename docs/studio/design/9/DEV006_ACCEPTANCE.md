@@ -9,7 +9,7 @@ preserved. No existing PR or main branch is merged by this delivery.
 | --- | --- | --- |
 | Runnable Studio, identity and project navigation | Development gate, shared accepted context, project-centered overview and continuation routes | Node contracts; combined Electron job |
 | Nine honest tool entries | Planned requirement surfaces; local Website Builder explicitly development-only | Existing catalogue tests and renderer inspection |
-| Creative editor, save/reopen, review and recovery | Campaign scenes retain local saved edits/references; guided Website brief/pages/edit/preview; readiness screen; error/retry and unsaved guards | 120 local Node tests; dedicated real Electron workflow |
+| Creative editor, save/reopen, review and recovery | Campaign scenes retain local saved edits/references; guided Website brief/pages/edit/preview; readiness screen; error/retry and unsaved guards | 121 local/CI Node tests; Linux and Windows real Electron workflows |
 | Switch, sign-out and stale-result boundaries | Accepted project picker; existing request generations; composed Website/campaign/Asset leave decisions; forced context loss clears pending dialogs | Existing host/context tests and both Electron flows |
 | Asset component coordination | Preserved Cassy's module unchanged; host-owned synthetic mount, editor-only synthetic fixture placement and same-project scene-text copying to a local website page | Asset suite; scene copy and scene-reference regression; combined runtime |
 | Responsive, focus, accessibility, real captures | Four focused steps; keyboard modal wrapping; labels; focus restoration; 200% reflow; forced-color/reduced-motion styles and emulation; ordinary employee gate | Source and Node checks pass; CI screenshots must be inspected before final visual evidence is claimed |
@@ -29,19 +29,28 @@ preserved. No existing PR or main branch is merged by this delivery.
 
 ## Verification and remaining limits
 
-Local full relevant Node suite: **120/120 pass**, including behavior regressions
+Local full relevant Node suite: **121/121 pass**, including behavior regressions
 for internal navigation, saved scene reopen/reference retention, edits made
-during a pending save, same-project scene-to-page provenance create-storage
+during a pending save, same-project scene-to-page provenance, create-storage
 failure recovery, exact website identity during recovery and the 100-section editing limit. JavaScript syntax and whitespace checks pass.
+
+Current source `c1f5f50` also passes real Windows guided/Asset flows, actual OS
+High Contrast enable/readback/restoration, existing NSIS build/installation,
+47-file installed-source comparison, ordinary employee startup/gate, actual Tab
+input and login accessibility-tree checks. All twelve actual-OS Contrast images
+and installed login were visually inspected. This source fixes background
+workspace exposure behind login. Exact runs/results/hashes are in
+`DEV006_VERIFICATION.md` and `combined-evidence/windows-verification.json`.
 
 The dedicated `Website guided UI` workflow runs the combined source suite and
 both real isolated Electron flows. It captures overview, each Website step,
 composed Asset warning, storyboard material, review readiness, 200% zoom,
-emulated forced colors and ordinary employee Unavailable state. The latest run passed on source `9928a7f` with 120 tests and both real Electron flows; fresh warning captures and their baselines were visually inspected. The earlier full twelve-image walkthrough remains recorded separately. See `DEV006_VERIFICATION.md` for provenance, exact results and remaining limits.
+emulated forced colors and ordinary employee Unavailable state. The current run passed on source `c1f5f50` with 121 tests and both real Electron flows. Separate Windows evidence is recorded above. See `DEV006_VERIFICATION.md` for provenance, exact results and remaining limits.
 
-Actual screen-reader output, actual Windows High Contrast, installed Windows
-application behavior and live-service evidence cannot be claimed from Linux
-synthetic CI. These need suitable platform/service access and independent
-review. Backend/provider/permission/release tasks remain with their assigned
+Actual screen-reader speech and independent human review remain unverified.
+Actual OS Contrast and ordinary installed startup now have Windows evidence,
+not merely Linux emulation. Authenticated installed Studio/live-service evidence
+still needs approved platform/service access. Backend/provider/permission/release tasks remain with their assigned
 owners. Keep DEV-006 open and all existing PRs unmerged until the requested
-reviews and applicable acceptance evidence are satisfied. Board sync pending.
+reviews and applicable acceptance evidence are satisfied. The manual board
+update/readback is recorded on #9; it is no longer pending access.

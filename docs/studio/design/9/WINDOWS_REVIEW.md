@@ -8,6 +8,11 @@ duplicate issue or Project item is needed.
 
 ## Automated Windows lane
 
+Verified run: [38961539058](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539058), executable source `c1f5f50`, artifact `12072732936`.
+72 Windows tests, actual guided/Asset flows, OS Contrast/restoration and the
+installed package checks below pass. Raw record and image hashes:
+`combined-evidence/windows-verification.json`. This is not a human Narrator pass.
+
 `Windows Studio verification` runs on PR #39's combined branch. It runs
 renderer/context tests, both real shown-window Electron flows on Windows, the
 existing NSIS build without publishing, silent installation on the disposable
@@ -17,6 +22,21 @@ the checked-out source; checks the ordinary login, no remembered session, no
 development bypass, unavailable Studio gate and rejected programmatic route;
 and records actual Tab traversal plus the Chromium accessibility tree.
 
+The separate OS Contrast step uses Win32 `SPI_GETHIGHCONTRAST` /
+`SPI_SETHIGHCONTRAST` on the disposable runner, reads the enabled flag back,
+requires Electron's native OS setting and the renderer's forced-color query
+to be active **before any emulation**, then repeats the full guided flow and
+restores/readbacks the original flags in `finally`. Its captures and metrics
+are separate from normal media emulation. The raw scheme pointer returned by
+Windows is copied without freeing Windows-owned memory.
+
+Installed evidence exposed underlying workspace navigation behind login in the
+accessibility tree. The renderer now starts authenticated UI roots inert and
+keeps them inert at sign-out/login until the existing profile check succeeds.
+The installed test requires actual login fields and excludes background
+navigation. Chromium returns styled uppercase login labels, so the probe
+normalizes case for comparison while retaining the real AX tree.
+
 The CI artifact contains **evidence only**, never an installer or application
 package. It does not authorize distribution, employee enablement or release.
 Its synthetic development flow uses the existing clearly labeled fixture
@@ -24,7 +44,9 @@ preload. The installed flow uses the real main/preload, no fake login, no
 service credentials and only shipped loopback defaults.
 
 An accessibility tree is not Narrator speech. Emulated forced colors are not
-actual OS High Contrast. The ordinary installed startup check does not prove
+actual OS High Contrast; the separate OS step above is actual setting evidence,
+not acceptance of every contrast theme or human-assistive workflow.
+The ordinary installed startup check does not prove
 an authenticated installed Studio workflow; the approved service/session for
 that remains a Chair 1 integration dependency under #28/#25.
 

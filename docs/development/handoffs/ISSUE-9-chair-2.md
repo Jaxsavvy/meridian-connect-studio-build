@@ -1,5 +1,15 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 Windows verification and repository-wide task audit
+
+- Source `c1f5f507f29d69ec69ddce86d4eb7a16fafad360`: 121 relevant local/Linux CI tests; 72 Windows renderer/context tests; Linux/Windows guided and Asset Electron flows pass. Windows run `38961539058` also passes actual OS High Contrast readback/walkthrough/restoration, NSIS build/silent installation, byte equality for 47 installed source/settings files, ordinary employee gate/startup, actual Tab navigation and actual AX labels.
+- Fixed a real login-overlay accessibility defect exposed by Windows: five authenticated roots now start/stay inert until existing profile validation succeeds; sign-out/login restores inertness. No main/preload/API/auth service or packaging settings changed.
+- Downloaded artifact `12072732936`; ZIP/image/source-tree checks pass. Inspected all twelve actual-OS High Contrast captures, installed login and DEV-020 warning/baselines. Raw results and hashes: `combined-evidence/windows-verification.json`. Full source tree matches capture merge `bfb599b8`.
+- Board update completed/read back through Tyler's own account; existing #9 comment `6208191006` records it. No duplicate item or Complete transition. Private-board screenshot upload was rejected and withheld; no external upload retry/workaround is authorized.
+- Posted concrete token/slot handoff on #8 (`6208191710`); inspected #33 `80461b2` and posted scoped review `5553130995`. Disposable #33+#39 compatibility tests 143/143; no combined #33 runtime/merge claim. Full issue/PR/board/build-map/branch/docs ownership audit: `REPOSITORY_TASK_AUDIT.md`.
+- Human Narrator/independent Contrast walkthrough requested from Theecassycat on #9, with Jaxsavvy alternate coordination; no response/booking/pass inferred. Independent #34/#39 reviews and #35 correction review remain outstanding. Authenticated installed Studio and live services remain Chair 1 integration gates. All PRs remain unmerged; #9 open.
+- Test/helper failures corrected and retained in verification history. One NSIS access-violation attempt did not repeat in retry/final run; retain for Chair 1 #28 review. Publication mistake `0768bd6` omitted base tree; additive restoration `0b74bf9` restored complete prior source plus only intended test changes; no force-push, main/original-branch mutation or user work loss.
+
 ## 2026-10-16 final audit continuation
 
 - Branch `feature/tyler-dev006-combined`, PR #39; executable head `9928a7f9c9d363ac44943f1eb362916abe23ed5e`. Original branches/PRs untouched; no merge.

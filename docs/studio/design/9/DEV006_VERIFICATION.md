@@ -1,5 +1,57 @@
 # DEV-006 combined delivery verification
 
+## 2026-10-16 Windows and installed-app verification — current
+
+Verified executable source: `c1f5f507f29d69ec69ddce86d4eb7a16fafad360`.
+
+- **121/121** relevant tests pass locally and in Linux combined run
+  [38961539164](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539164); both Linux Electron flows pass. Source run
+  [38961539075](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539075) passes.
+- [Windows run 38961539058](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539058) passes **72 Windows renderer/context tests**, both actual Electron flows, **actual OS High Contrast** enable/readback/walkthrough/restoration, existing NSIS build, silent installation and actual installed employee startup/accessibility/keyboard/gate checks.
+- Installed `src/` and safe default settings match **47 files byte-for-byte**.
+  The app has no session or development bypass; Studio stays disabled/hidden,
+  synthetic modules stay unloaded and programmatic Studio routing is rejected.
+  Actual Tab input moves Username → Password. The real accessibility tree
+  contains USERNAME/PASSWORD/SIGN IN/Remember controls, not workspace navigation.
+- Windows testing exposed background navigation behind the login overlay.
+  Source fix `c1f5f50` makes the five authenticated UI roots initially inert,
+  keeps them inert at login/sign-out and releases them only after the existing
+  profile check succeeds. No auth service, bridge or permission policy changed.
+- Actual Win32 OS setting flags read **126 → 127 → 126**, with restoration
+  confirmed. Electron native High Contrast and renderer forced colors are
+  asserted before any Chromium emulation. All twelve actual-OS captures were
+  opened and inspected, along with installed login and DEV-020 baselines/warning.
+  Warning text/choices are visible; raw dirty metadata is retained. The smaller
+  normal DEV-020 image does not display its below-fold name field; the composed
+  actual-OS warning capture does visibly show that unsaved field.
+- [Artifact 12072732936](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539058/artifacts/12072732936) was downloaded; ZIP digest
+  `58114d9acbb9e31a59b3c696cb17a2e622f294e0c7f5b3bdbe8c16418e970ef1`
+  and image hashes verified. Capture merge `bfb599b8aca65f5987c2a08ff1bf82f92a46754b`
+  and source have identical tree `90d79649760d88dc8a9c0f5c755b07354d356b21`.
+  Raw metrics/hashes are retained in `combined-evidence/windows-verification.json`.
+
+**Remaining:** Narrator speech is not verified by an AX tree. Theecassycat was
+asked on #9 to confirm an independent walkthrough; Jaxsavvy was asked to supply
+an alternate if needed. No reply/booking or human pass is inferred. Independent
+#34/#39 reviews and #35 correction review remain required. Authenticated
+installed Studio still needs Chair 1's approved service/session; this ordinary
+installed login check is not that integration. No release or installer uploaded.
+The existing board update is recorded in #9 comment `6208191006`; no Complete
+transition or merge occurred. `REPOSITORY_TASK_AUDIT.md` records the broader audit.
+
+Earlier Windows test failures remain in history: an ASAR path format defect,
+incorrect case-sensitive AX expectation and unsafe native scheme-string
+marshalling in the new test helpers were corrected. One `252802d` installation
+attempt exited with `-1073741819`; its retry and the final installation succeeded.
+That intermittent installer observation is retained for Chair 1's #28 release
+verification, not silently treated as proof across Windows versions.
+An intermediate publication omitted the base tree; forward commit `0b74bf9`
+restored the full repository without rewriting history. GitHub compare confirmed
+only intended test edits remained. No original branch or main was altered.
+
+The earlier Linux-only records below are historical and do not supersede this
+newer Windows evidence or its remaining limits.
+
 ## 2026-10-16 final audit update
 
 Latest executable source: `9928a7f9c9d363ac44943f1eb362916abe23ed5e`.

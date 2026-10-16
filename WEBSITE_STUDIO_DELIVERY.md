@@ -1,5 +1,16 @@
 # Website Studio recovery and delivery
 
+## Current continuation
+
+PR #39 (`feature/tyler-dev006-combined`) is the current combined review lane.
+See `docs/studio/design/9/DEV006_VERIFICATION.md`, `WINDOWS_REVIEW.md` and the
+Chair 2 handoff for current source/Windows evidence and exact remaining gates.
+The source below records the initial #34 milestone and is retained as history.
+`npm run dev` does not provide a fake or authorized service login: the current
+synthetic Windows reviewer uses the separate command documented in
+`WINDOWS_REVIEW.md`. Do not test against production accounts or install over an
+existing employee app. All current PRs remain unmerged by user instruction.
+
 ## Repository state
 
 - Repository: `https://github.com/Jaxsavvy/meridian-connect-studio-build.git`

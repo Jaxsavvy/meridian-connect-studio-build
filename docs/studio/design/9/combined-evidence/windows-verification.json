@@ -1,0 +1,565 @@
+{
+  "sourceCommit": "c1f5f507f29d69ec69ddce86d4eb7a16fafad360",
+  "captureCommit": "bfb599b8aca65f5987c2a08ff1bf82f92a46754b",
+  "sourceAndCaptureTree": "90d79649760d88dc8a9c0f5c755b07354d356b21",
+  "treeEqualityVerifiedViaGitHub": true,
+  "runUrl": "https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539058",
+  "artifactId": 12072732936,
+  "zipSha256": "58114d9acbb9e31a59b3c696cb17a2e622f294e0c7f5b3bdbe8c16418e970ef1",
+  "windowsNodeTests": {
+    "pass": 72,
+    "fail": 0
+  },
+  "installedResults": {
+    "status": "passed",
+    "platform": "win32",
+    "release": "10.0.26100",
+    "sourceCommit": "bfb599b8aca65f5987c2a08ff1bf82f92a46754b",
+    "sourceTree": "90d79649760d88dc8a9c0f5c755b07354d356b21",
+    "installedSourceMatches": true,
+    "installedSourceHashes": {
+      "config/settings.json": "c9e4a901162c0478f08035f3cb1e3abf391a0938ba4c31e0bbbd9510923247c2",
+      "src/api.js": "1f8bb14e86be970397168ab584b90f551f232333a15dc794dbaf7b354b2708b2",
+      "src/auth.js": "153ded23107bf7e8e0391173951cb4d151226b9b21dbeabf81efb5d74c03719f",
+      "src/layout-store.js": "aeaf673b7562d7481e57505a8d1d007415f5da5db84b1536f619eefa73a93f00",
+      "src/main.js": "350fcf718b4e53e71ae98a709bcc37260c35e2d0a0e6640891f3233ffadb23e8",
+      "src/preload.js": "4f543be1272c549fee861810f06ad103730c31e52fa5bacda1e3785870e3cc3e",
+      "src/renderer/app.css": "28afa78b30052f19f6f61fb125de0f7598c7be937d84d5aae1c467000c8fad28",
+      "src/renderer/app.js": "444d17fe46a767dd9b6fe62bc78efbb4ca9a6164147487078ad522433fbf07a4",
+      "src/renderer/assets/command-hero.png": "bb03c0e00ff165b08e423ee0b7ff20061477dfd9585c6fd9c1db9edc93ba7d2e",
+      "src/renderer/assets/mark.webp": "731d4ee449a04194cb624cbac8c9593b82bbb43643c7612bb4f4b3e6e6ad3e6f",
+      "src/renderer/assets/meridian-256.png": "750e27bcd7b590163fcb434004efa3135ef6b183cdb35f4d38e9047d1857c38e",
+      "src/renderer/assets/meridian-valley-banner-v2.png": "a4f846fb1e7f7f62f872057125ff211bf35a84348b94e772bd3f293cd442e417",
+      "src/renderer/assets/meridian.ico": "8f1a3e9e08b8f09b6cf1b0648cc55518a6795cd9a2b8805d5a916afcd16b2f88",
+      "src/renderer/connect-shell.js": "1e1425c3510f30fade268c74c0d07903df53ecb20d6ba49efcb87d2f699d5687",
+      "src/renderer/fonts/inter-latin-400-normal.woff2": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc",
+      "src/renderer/fonts/inter-latin-500-normal.woff2": "f3779f1efccc4bdcdf9c0a02ab95bf6bd092ed09c48c08cedc725889edd1d19f",
+      "src/renderer/fonts/inter-latin-600-normal.woff2": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a",
+      "src/renderer/fonts/source-serif-4-latin-400-normal.woff2": "02194deb92d3975dd30e11a3824a1f1db32b48c93654e60560cb81ce8e7b5f95",
+      "src/renderer/fonts/source-serif-4-latin-600-normal.woff2": "f2b7e1cf1d277b7608231868135648f8ad8e2b58d8e97ca088bee15dc357bee7",
+      "src/renderer/index.html": "937cde979f656d9a1304214a26dde8238d0d98e4de1106b68f5cd3d2fd7da9b7",
+      "src/renderer/market-render.js": "2f70e8a4e303535799a95aca29d0d0c55ca538c1640b0b7179ceaa624daab71c",
+      "src/renderer/meridian-standard.css": "5885261dfaff72277db1850e00e96a9a76b3b8d9c013bf746ceba120bf03c153",
+      "src/renderer/messages-hub.js": "53b092bff3e5cb66c5f8dd61c9ae2bcf4b6c7f67ad5acba57b5791ab3265e29f",
+      "src/renderer/nav.js": "7ce0d16fbf9a6bce8267d0d11faecafde06c8211bbacdf2dc1fff8ebd45872f6",
+      "src/renderer/popout.html": "2e98092e85951e106ecfa2d657ac20c0c83e6d31f09592f510a8d770398237cb",
+      "src/renderer/popout.js": "47ac0062799780d4db5249bf383c2cb4b8500c3b91d481e55ca65b776ccafe1f",
+      "src/renderer/project-workspace.js": "f71bcb587d632917b088625f75e5abddef6abb5a41732f12270bb3dde35d87f9",
+      "src/renderer/storyboard.js": "88ad460ff409355b31560344fca27ed76c3f3b9cb3232c5013702e274def6a82",
+      "src/renderer/studio-asset-host.js": "038e4bb5965a8848e65ee9f0b5b48b73b130f276642072a7428ba9a56ca8f17d",
+      "src/renderer/studio-assets/controller.js": "8852dfaf0b989abe60a0540d2241676f034c3d7aa9bb093852a0e3996f652133",
+      "src/renderer/studio-assets/model.js": "28f252481c36547407711a3ada4b5c4afe0321ddeabfca9f09318f48e5e70029",
+      "src/renderer/studio-assets/service-adapter.js": "2f9be2240f24004a8f2fe12cc1ee4a34f31fa4c750b346ec321399c0219ba1b4",
+      "src/renderer/studio-assets/synthetic-service.js": "d8c98c2397b15546319c047c32a1a9decf2a80c8e7fe61beaeda710d2499b37d",
+      "src/renderer/studio-assets/view.css": "8d1e39721a1f4de3a8d3defe154c144a731acaac595143b0eb48a86557b050ec",
+      "src/renderer/studio-assets/view.js": "11d0569d2331442441822fbe6d6ed7d2afbc8e26e70c5f1fdaffcce0952f2879",
+      "src/renderer/studio-context.js": "cdc22a3e515d823f8e613d43d3144ca918fdfa25ddfa5c1f0434b7c9bb69caf5",
+      "src/renderer/studio-dev-asset-mount.js": "ebc3ed013edd91c1d4253f9b0448805d634a93853d80336b66b493f8b44af11e",
+      "src/renderer/studio-dev-asset-transport.js": "1d8a98d72d2f79028326a7b6f35a6fcd910032379978577dc3e173239eeda584",
+      "src/renderer/studio-ui/studio-fixtures.js": "9fb75a34b627a116c2eefdc1240242445fd126a5e6de687ad29d6a0fdfcf420e",
+      "src/renderer/studio-ui/studio-shell.js": "275f30867132968d5c337af5f741dfdaed8972f53d97469f4cbbc43b30cbbfdc",
+      "src/renderer/studio-ui/studio-ui.css": "1257fd0dbec3ab929416bd5861fa807a434b72d7bca7e04d26c44a17917157f4",
+      "src/renderer/studio-ui/studio-workspace.js": "3b6f9692e02dee13e98f2bd5c004549f5f69984d7a46239588f70f501eb6f6e7",
+      "src/renderer/studio-ui/website-builder.js": "250e77ddc77cf2a661523b75414b6c13b8abee71875b90b5943db90b8689aad7",
+      "src/renderer/voice.js": "c9a1b3cabbb527a3690721a4304d8c969bfba0328fa33e70b4cfa4d11cca5263",
+      "src/studio-assets/native-runner.js": "121107b17b7fa369a205070ae1e5eafbf7e9f97f7ad09e9553b6cf4c5ba26156",
+      "src/studio-assets/png.js": "558b5025b8083293ac68b97bd2d85c37317c06d30d31024091b9245cc9492543",
+      "src/studio-assets/upscale-worker.js": "61e53d822a86f76948ab6f57e38a1de02507dc7dc3813f6b0a9394fb35f4f641"
+    },
+    "installer": "Actual existing NSIS installer, silent install on disposable Windows runner",
+    "employee": {
+      "ready": true,
+      "loginVisible": true,
+      "studioDisabled": true,
+      "studioHidden": true,
+      "syntheticLoaded": false,
+      "development": false,
+      "session": null,
+      "devLoginHidden": true,
+      "backgroundInert": true
+    },
+    "programmaticStudioRouteRejected": true,
+    "keyboard": "Actual Tab input moved Username to Password",
+    "accessibility": [
+      {
+        "role": "RootWebArea",
+        "name": "Meridian Connect"
+      },
+      {
+        "role": "generic",
+        "name": ""
+      },
+      {
+        "role": "generic",
+        "name": ""
+      },
+      {
+        "role": "image",
+        "name": "Meridian Mark"
+      },
+      {
+        "role": "heading",
+        "name": "MERIDIAN CONNECT"
+      },
+      {
+        "role": "paragraph",
+        "name": ""
+      },
+      {
+        "role": "generic",
+        "name": ""
+      },
+      {
+        "role": "paragraph",
+        "name": ""
+      },
+      {
+        "role": "StaticText",
+        "name": "MERIDIAN "
+      },
+      {
+        "role": "strong",
+        "name": ""
+      },
+      {
+        "role": "StaticText",
+        "name": "Remote Employee Workspace Client"
+      },
+      {
+        "role": "LabelText",
+        "name": ""
+      },
+      {
+        "role": "textbox",
+        "name": "USERNAME"
+      },
+      {
+        "role": "LabelText",
+        "name": ""
+      },
+      {
+        "role": "textbox",
+        "name": "PASSWORD"
+      },
+      {
+        "role": "LabelText",
+        "name": ""
+      },
+      {
+        "role": "button",
+        "name": "SIGN IN"
+      },
+      {
+        "role": "StaticText",
+        "name": "Remote client connects via Cloudflare Access to Command on Jax's PC."
+      },
+      {
+        "role": "LineBreak",
+        "name": "\n"
+      },
+      {
+        "role": "StaticText",
+        "name": "Employee accounts: "
+      },
+      {
+        "role": "code",
+        "name": ""
+      },
+      {
+        "role": "StaticText",
+        "name": ", "
+      },
+      {
+        "role": "code",
+        "name": ""
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "StaticText",
+        "name": "CONNECT"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "StaticText",
+        "name": "USERNAME"
+      },
+      {
+        "role": "generic",
+        "name": ""
+      },
+      {
+        "role": "StaticText",
+        "name": "PASSWORD"
+      },
+      {
+        "role": "generic",
+        "name": ""
+      },
+      {
+        "role": "checkbox",
+        "name": "Remember me on this workstation"
+      },
+      {
+        "role": "StaticText",
+        "name": "Remember me on this workstation"
+      },
+      {
+        "role": "StaticText",
+        "name": "SIGN IN"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "StaticText",
+        "name": "cassy.goodell"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "StaticText",
+        "name": "tyler.jones"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      },
+      {
+        "role": "InlineTextBox"
+      }
+    ],
+    "limits": [
+      "No authenticated installed Studio flow: approved synthetic service/session unavailable.",
+      "Accessibility tree is not Narrator speech verification.",
+      "Forced-color emulation in guided flow is not actual OS High Contrast verification.",
+      "No production release, installer distribution or live service acceptance."
+    ]
+  },
+  "actualHighContrastResults": {
+    "status": "passed",
+    "osHighContrast": {
+      "required": true,
+      "enabled": true
+    },
+    "media": {
+      "reducedMotion": true,
+      "forcedColors": true
+    },
+    "employeeGate": {
+      "disabled": true,
+      "hidden": true,
+      "syntheticLoaded": false
+    },
+    "lastMetrics": {
+      "visiblePanels": [
+        "preview"
+      ],
+      "currentStep": "preview",
+      "focusedId": "website-preview-title",
+      "usableHeight": true,
+      "focusedHeadingVisible": true,
+      "fits": true,
+      "unlabeledControls": 0,
+      "saveText": "Saved in this appLocal to this app on this device. Team sync is not connected.",
+      "audience": "Combined guard retained content",
+      "frameSandbox": ""
+    },
+    "verified": [
+      "four panels",
+      "focus after navigation",
+      "modal keyboard wrapping",
+      "unsaved edits retained",
+      "phone width",
+      "sandbox preserved",
+      "dirty list guard",
+      "save/list/reopen",
+      "Website/Assets composed guards",
+      "synthetic scene references",
+      "scene-to-page provenance",
+      "unavailable authoritative handoff",
+      "all steps at 200%",
+      "emulated forced colors/reduced motion",
+      "employee gate"
+    ]
+  },
+  "osSettingReadback": {
+    "mechanism": "Win32 SPI_SETHIGHCONTRAST, not Chromium media emulation",
+    "status": "passed",
+    "restored": true,
+    "enabledFlags": 127,
+    "originalFlags": 126,
+    "restoredFlags": 126
+  },
+  "normalGuidedResults": {
+    "status": "passed",
+    "osHighContrast": {
+      "required": false,
+      "enabled": false
+    },
+    "media": {
+      "reducedMotion": true,
+      "forcedColors": true
+    },
+    "employeeGate": {
+      "disabled": true,
+      "hidden": true,
+      "syntheticLoaded": false
+    },
+    "lastMetrics": {
+      "visiblePanels": [
+        "preview"
+      ],
+      "currentStep": "preview",
+      "focusedId": "website-preview-title",
+      "usableHeight": true,
+      "focusedHeadingVisible": true,
+      "fits": true,
+      "unlabeledControls": 0,
+      "saveText": "Saved in this appLocal to this app on this device. Team sync is not connected.",
+      "audience": "Combined guard retained content",
+      "frameSandbox": ""
+    },
+    "verified": [
+      "four panels",
+      "focus after navigation",
+      "modal keyboard wrapping",
+      "unsaved edits retained",
+      "phone width",
+      "sandbox preserved",
+      "dirty list guard",
+      "save/list/reopen",
+      "Website/Assets composed guards",
+      "synthetic scene references",
+      "scene-to-page provenance",
+      "unavailable authoritative handoff",
+      "all steps at 200%",
+      "emulated forced colors/reduced motion",
+      "employee gate"
+    ]
+  },
+  "assetRuntimeResults": {
+    "provenance": {
+      "commit": "bfb599b8aca65f5987c2a08ff1bf82f92a46754b",
+      "tree": "90d79649760d88dc8a9c0f5c755b07354d356b21",
+      "trackedSourceClean": true,
+      "runId": "4eee87c4-a5ba-47bf-853f-2148b82de7f9",
+      "startedAt": "2026-10-16T20:21:28.177Z"
+    },
+    "warningEvidence": {
+      "provenance": {
+        "commit": "bfb599b8aca65f5987c2a08ff1bf82f92a46754b",
+        "tree": "90d79649760d88dc8a9c0f5c755b07354d356b21",
+        "trackedSourceClean": true,
+        "runId": "4eee87c4-a5ba-47bf-853f-2148b82de7f9",
+        "startedAt": "2026-10-16T20:21:28.177Z"
+      },
+      "expectedWarning": {
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata"
+      },
+      "beforeCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 474.234375,
+          "y": 307,
+          "width": 462.53125,
+          "height": 105
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 479.234375,
+              "y": 361,
+              "width": 111.03125,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 600.265625,
+              "y": 361,
+              "width": 208.796875,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1008,
+          "height": 655,
+          "devicePixelRatio": 1
+        }
+      },
+      "afterCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 474.234375,
+          "y": 307,
+          "width": 462.53125,
+          "height": 105
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 479.234375,
+              "y": 361,
+              "width": 111.03125,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 600.265625,
+              "y": 361,
+              "width": 208.796875,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1008,
+          "height": 655,
+          "devicePixelRatio": 1
+        }
+      },
+      "hashes": {
+        "normal": "598887d062f8ab7cd2256481b96270adeefb808da31329d4966bc63cdf860f72",
+        "selected": "215fd7529ae3283402380263b8fe19c25e4baac83e6e89726bad0c327c071ac5",
+        "warning": "e4b027532a031c6c7a0a419537fe47c7e2c102df3ee5fd57bb85479ea1ad74f9"
+      },
+      "image": {
+        "width": 1008,
+        "height": 655
+      },
+      "capturedAt": "2026-10-16T20:21:29.895Z",
+      "manualVisualReview": "PENDING: inspect actual warning pixels; distinct hashes alone are insufficient"
+    },
+    "initial": {
+      "banner": "SYNTHETIC DEVELOPMENT ONLY \u2014 memory-only assets. No production service or Upscayl is connected.",
+      "localProjectSelector": false,
+      "localSignout": false,
+      "upscaleEnabled": false,
+      "devOnly": true
+    },
+    "retained": true,
+    "project": "synthetic-field-notes",
+    "scoped": 0,
+    "zoom": {
+      "zoom": 2,
+      "documentFits": true,
+      "assetFits": true
+    },
+    "revoked": {
+      "selected": null,
+      "retainedRevokedOption": false
+    },
+    "signoutRetained": true,
+    "signedOut": {
+      "selected": null,
+      "acceptedProjects": 0
+    }
+  },
+  "imageSha256": {
+    "docs/studio/integration/32/renders/asset-project-switch.png": "62cca36fb80db3aae94915f86140553abfdbd46e7497729301ffaa096e466f0b",
+    "docs/studio/integration/32/renders/asset-selected-clean-1440.png": "215fd7529ae3283402380263b8fe19c25e4baac83e6e89726bad0c327c071ac5",
+    "docs/studio/integration/32/renders/asset-view-1440.png": "598887d062f8ab7cd2256481b96270adeefb808da31329d4966bc63cdf860f72",
+    "docs/studio/integration/32/renders/asset-view-200pct.png": "3bfad340879bab850d3d917ecfef7bc9bf2d0b1f16cebcc8a74fb0a1136f44b5",
+    "docs/studio/integration/32/renders/unsaved-asset-leave.png": "e4b027532a031c6c7a0a419537fe47c7e2c102df3ee5fd57bb85479ea1ad74f9",
+    "test-output/windows-high-contrast/00-project-overview.png": "d2426eb4daa6c00b6431c29db22eed3bf41dc0281673281c2ea42d11eaecab15",
+    "test-output/windows-high-contrast/01-brief-1440.png": "99bf8d44d08da37edafcea0fa7a79bac39c30f12a99fbeb9dc945e9ea7cd49f4",
+    "test-output/windows-high-contrast/02-edit-1440.png": "ab542998dbaae92b802a271d7cfeaba133482cd6a2b4f48222ca2bf028fcda61",
+    "test-output/windows-high-contrast/02-pages-1440.png": "35d3bf9ada5bd727b09b7dd68335c33aa9a61b518234b989560e77abf5b69e25",
+    "test-output/windows-high-contrast/02-preview-1440.png": "b7d1d0e9618a495d9b6f25958cbf36719e6b9f1a06977ad58fc72da2d7ebf5f5",
+    "test-output/windows-high-contrast/03-phone-preview.png": "184fb17dfce9200f1f84c63bfde50448fcf988b5aa45f3bbc42aa217624c9626",
+    "test-output/windows-high-contrast/04-preview-200pct.png": "909424ba7041063cda86ccd65ea93ee30abfb0c49e55d7da224543d1229bf34d",
+    "test-output/windows-high-contrast/05-composed-asset-warning.png": "b28c2137c924653d0e3347daa875cc7baded1081322b164d58ed15b915de56f1",
+    "test-output/windows-high-contrast/06-storyboard-material.png": "c3651424cc7283bb808510faa85f9f2b17bfa4b6f95f31ff4397c97961ae62e4",
+    "test-output/windows-high-contrast/07-review-handoff.png": "231afa14219a5d1f39ad0c83705388b11be6ff511193524407d78d66a6aa3850",
+    "test-output/windows-high-contrast/08-emulated-forced-colors.png": "157db3389bdcbb54d647c73545d8e8afa6da64485b2eab34c9bfb20847624169",
+    "test-output/windows-high-contrast/09-employee-unavailable.png": "c2369d88b0054d3e970de1f914e761119fa4f242764de536dc3162fe54951b87",
+    "test-output/windows-installed/installed-employee-login.png": "0f93478635f5d9f8bf374ff08090b5bf1aacd52cc1891765b11554747d228c55",
+    "ui-flow-evidence/00-project-overview.png": "f114bc86c8383f8e8d332736f3561ba3950ae84f1d9a404cb7bf0f0edd813d03",
+    "ui-flow-evidence/01-brief-1440.png": "12c56f188e6107342bd08b7a889454a37849e559c43aea485e6b7ab5a5cffcf0",
+    "ui-flow-evidence/02-edit-1440.png": "6bf7d6d7a672f91fd9ffa4dbdb5da90363cd0443f3f1129af66b6efc41c922dc",
+    "ui-flow-evidence/02-pages-1440.png": "f9538c7262f317b8911d0813b576dd23710bc276861927cae6b8d588ea2d4f44",
+    "ui-flow-evidence/02-preview-1440.png": "13e4d1d112aeee1b3adc417a00fb7325282f7e4eef6c837eefaca7e90565cd42",
+    "ui-flow-evidence/03-phone-preview.png": "1259643a0394539e04821f0dbfe35ba2409f0f5361106c58cde4141211d6d97c",
+    "ui-flow-evidence/04-preview-200pct.png": "ebcfbb00ed1bbf87358be847606d92e447ee7252107f15f53b1ba19248920dc6",
+    "ui-flow-evidence/05-composed-asset-warning.png": "442da49c6e277f3cf3584e80998e53c2a0b41dc1933d87bbaba35b9c76810864",
+    "ui-flow-evidence/06-storyboard-material.png": "3d799feaa29262e84f46609473e5ce6c67cec651a1c539276e15a505a762982f",
+    "ui-flow-evidence/07-review-handoff.png": "2ff804595be08729fa996af42f1dcb3cabe259e3cbba46eb69205dc2197f665f",
+    "ui-flow-evidence/08-emulated-forced-colors.png": "fa2e0159068cf15cabd0156079327abdc471a8d37faeef68e1ebe48901096d06",
+    "ui-flow-evidence/09-employee-unavailable.png": "1098bd803ca47094cdf27238f76699c7141100e4b2f2499767b4fdb096336ee5"
+  },
+  "manualVisualReview": {
+    "reviewer": "Codex",
+    "inspected": "All 12 actual-OS High Contrast captures, installed login and DEV-020 normal/selected/warning images",
+    "result": "OS-mode focus, fields, reflow/preview and warning choices visible. Installed login capture matches normal app. Normal DEV-020 warning sentence/choices visible; dirty field is confirmed by raw metrics, not visible in that smaller capture. Actual-OS composed warning also visibly includes the dirty Display name. Hashes match and warning differs from both baselines.",
+    "notClaimed": [
+      "Narrator speech",
+      "independent human acceptance",
+      "authenticated installed Studio",
+      "all Windows versions/themes",
+      "release/distribution"
+    ]
+  }
+}

@@ -1,5 +1,16 @@
 # Website Studio capability audit
 
+## Current delivery record
+
+The table below is the historical foundation audit, not a current task-completion
+claim. Combined DEV-006 work and current evidence are in
+`docs/studio/design/9/DEV006_ACCEPTANCE.md`, `DEV006_VERIFICATION.md`,
+`WINDOWS_REVIEW.md` and `REPOSITORY_TASK_AUDIT.md` on PR #39. Preview device
+controls, mounted synthetic Assets, composed leave guards and same-project
+synthetic scene-text copying have since landed. Page/section reorder/delete,
+rich text/global components, whole-site UI export and live service/provider
+integration are not silently marked complete by that verification.
+
 Audit baseline: `main` at `29a0df6` on 2026-10-14 PDT. This document distinguishes source evidence from runtime and external-service evidence.
 
 | Capability | Status | Evidence and limit |

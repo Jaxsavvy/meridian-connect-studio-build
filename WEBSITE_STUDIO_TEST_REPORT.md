@@ -1,5 +1,17 @@
 # Website Studio verification report
 
+## 2026-10-16 current combined Windows delivery
+
+Source `c1f5f50` on PR #39 passes 121 relevant local/Linux CI tests and 72
+Windows renderer/context tests, both platform Electron flows, actual OS High
+Contrast/restoration, NSIS build/silent installation, exact 47-file installed
+source comparison and ordinary employee login/accessibility/keyboard/Studio
+gate checks. Artifact `12072732936` was downloaded and inspected. Exact source,
+run URLs, hashes, failures/corrections and remaining human/service limits are
+in `docs/studio/design/9/DEV006_VERIFICATION.md`. Narrator speech, independent
+reviews and authenticated installed Studio remain unverified. All original PRs
+remain unmerged. The records below are earlier milestones, not current blockers.
+
 ## 2026-10-15 final corrected-evidence inputs
 
 Combined current inputs #34 `38c093f` + #35 `647bb9e` passed **108/108 relevant Node tests** using the prior full command plus `docs/studio/integration/32/capture-guard.test.cjs`. Includes 14 Builder and five capture-guard tests. Neither input changed `src` since the agreed prior shared-file resolution; reused that resolution in a separate disposable checkout. Source syntax and staged whitespace passed. Local combined tree: `70079433cd43f8ebd775fcf670de0526581a7526`. No combined source pushed or combined Electron runtime rerun claimed.
