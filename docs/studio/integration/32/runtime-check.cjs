@@ -75,7 +75,9 @@ app.whenReady().then(async () => {
   for (const name of ['unsaved-asset-leave.png', 'warning-capture.json', 'runtime-results.json']) {
     await rm(join(evidence, name), { force: true });
   }
-  execFileSync('git', ['diff', '--quiet', 'HEAD', '--', 'src', 'docs/studio/integration/32', 'docs/studio/design/9/runtime-preload.cjs'], { cwd: root });
+  // Generated PNG/JSON evidence can be refreshed without making the tested
+  // source dirty. Check executable inputs, not the captures they generate.
+  execFileSync('git', ['diff', '--quiet', 'HEAD', '--', 'src', 'docs/studio/integration/32/*.cjs', 'docs/studio/design/9/runtime-preload.cjs'], { cwd: root });
   execFileSync('git', ['ls-files', '--error-unmatch', 'docs/studio/integration/32/runtime-check.cjs', 'docs/studio/integration/32/capture-guard.cjs'], { cwd: root, stdio: 'pipe' });
   const provenance = {
     commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
