@@ -1,0 +1,60 @@
+{
+  "name": "meridian-connect",
+  "productName": "Meridian Connect",
+  "version": "0.2.12",
+  "description": "Meridian Connect desktop client for team members",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.meridian.connect",
+    "productName": "Meridian Connect",
+    "artifactName": "Meridian-Connect-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/meridian.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Meridian Connect",
+      "include": "build/installer.nsh"
+    },
+    "extraResources": [
+      {
+        "from": "assets/meridian.ico",
+        "to": "meridian.ico"
+      }
+    ],
+    "files": [
+      "src/**/*",
+      "config/settings.json",
+      "assets/meridian.ico",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://127.0.0.1:7871/connect/updates"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  }
+}

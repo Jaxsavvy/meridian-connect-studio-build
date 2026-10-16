@@ -1,0 +1,80 @@
+{
+  "schema": "meridian.board-handoff.v1",
+  "issueUrl": "https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/3",
+  "events": {
+    "dev001a-building-observation-20261012": {
+      "eventId": "dev001a-building-observation-20261012",
+      "expected": "Building",
+      "target": "Building",
+      "reason": "Verified owner prototype start",
+      "itemId": "PVTI_lAHODSEV684Bmo45zhAH0kA",
+      "outcome": "confirmed",
+      "mode": "observation",
+      "actor": "Jaxsavvy",
+      "verifiedAt": "2026-10-13T01:56:46.390Z"
+    }
+  },
+  "sessions": {
+    "dev001a-session-20261012": {
+      "eventId": "dev001a-session-20261012",
+      "branch": "feature/studio-integration",
+      "commit": "cd6bf77cd30265e056b72b32b53e49463abf7f40",
+      "summary": "Isolated owner-run board sync prototype and verified Building observation",
+      "checks": "Eight mock tests passed; syntax checks passed; live DEV-001 inspect and idempotent observation passed",
+      "nextAction": "Review local diff and decide whether to commit and open a feature-branch PR",
+      "blockers": "Live status mutation remains mock-tested only",
+      "recordedAt": "2026-10-13T01:57:40.759Z",
+      "observedStatus": "Building",
+      "itemId": "PVTI_lAHODSEV684Bmo45zhAH0kA",
+      "actor": "Jaxsavvy"
+    },
+    "dev001a-final-review-20261012": {
+      "eventId": "dev001a-final-review-20261012",
+      "branch": "feature/studio-integration",
+      "commit": "cd6bf77cd30265e056b72b32b53e49463abf7f40",
+      "summary": "Final local prototype review and verified DEV-001 Building state",
+      "checks": "Nine mock tests and all syntax checks passed; live inspect, Building observation, and identical retry passed",
+      "nextAction": "Owner reviews staged diff and decides whether to commit and open a feature-branch PR",
+      "blockers": "Status mutation remains mock-tested; use a disposable item before rollout",
+      "recordedAt": "2026-10-13T01:58:58.190Z",
+      "observedStatus": "Building",
+      "itemId": "PVTI_lAHODSEV684Bmo45zhAH0kA",
+      "actor": "Jaxsavvy"
+    },
+    "dev001a-pr14-review-handoff-20261013": {
+      "eventId": "dev001a-pr14-review-handoff-20261013",
+      "branch": "feature/studio-integration",
+      "commit": "19f8034b3e787b115b6fdb11b9e5f19af0276b67",
+      "summary": "Draft PR #14 submitted for DEV-001A and DEV-004; DEV-001 is in Review",
+      "checks": "26 synthetic tests, JavaScript syntax, and diff whitespace passed after current main merge; Project Review read back",
+      "nextAction": "Owner reviews PR #14; test status mutation only on a separately approved disposable item",
+      "blockers": "Live utility mutation and Studio runtime remain unverified",
+      "recordedAt": "2026-10-13T04:26:11.845Z",
+      "observedStatus": "Review",
+      "itemId": "PVTI_lAHODSEV684Bmo45zhAH0kA",
+      "actor": "Jaxsavvy"
+    }
+  },
+  "lastTask": {
+    "actor": "Jaxsavvy",
+    "issue": {
+      "id": "I_kwDOVFeyxM8AAAABWkp78g",
+      "number": 3,
+      "url": "https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/3",
+      "title": "DEV-001 — Owner — Automatic Development Board Synchronization",
+      "state": "OPEN"
+    },
+    "project": {
+      "id": "PVT_kwHODSEV684Bmo45",
+      "number": 1,
+      "title": "meridian development command"
+    },
+    "itemId": "PVTI_lAHODSEV684Bmo45zhAH0kA",
+    "fields": {
+      "Chair": "Chair 1 — Owner",
+      "Priority": "P1 — High",
+      "Module": "Infrastructure & QA",
+      "Status": "Review"
+    }
+  }
+}
