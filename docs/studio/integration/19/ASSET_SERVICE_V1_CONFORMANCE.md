@@ -98,7 +98,7 @@ Each case requires real service persistence and authentication unless marked cli
 | V01 | Derivative targets valid parent versus foreign/nonexistent/cyclic parent | Valid branch preserves original; invalid target denied and no sequence consumed visibly. |
 | V02 | Member submits exact version; another member attempts approval; owner with project membership approves | Submission event appended once; other member denied; owner approval records exact version and provenance once. An identical retry returns the first result, while changed intent conflicts. |
 | V03 | Owner loses project membership before or during approval commit | Decision denied if revocation wins first; prior review state and audit remain intact. A serialized approval that commits first remains auditable. |
-| D01 | Byte stream is interrupted or digest/length/media differs from descriptor | Download fails closed; no completed destination file. |
+| D01 | Byte stream is interrupted or digest/length/media differs from descriptor | Save fails closed with no completed destination file. Transfer status remains actor-bound and unconfirmed until the host verifies and acknowledges an atomic save; an uncertain receipt can be reconciled without inventing success. |
 | D02 | Export grant or membership revocation before byte transfer | Transfer denied or stopped if revocation wins first; no reusable public grant. Owner export requires the same explicit grant. |
 | O01 | Concurrent SQLite writers and staging restart | No duplicate sequence, partial visible asset, or lost committed audit; retry/lock behavior measured. |
 

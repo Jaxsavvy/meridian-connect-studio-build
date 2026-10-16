@@ -45,6 +45,8 @@ Until Cassy's component adopts a wider limit, v1 display names and original file
 
 The current synthetic component limit is 25 MiB import and 128 MiB download; these are client checks only. The first service implementation must publish independently enforced byte/chunk/media limits before bridge wiring. No large file is copied through a generic renderer-selected IPC request. The Connect main process owns any OS save dialog, temporary download, digest verification, and atomic rename. A renderer path or suggested filename is never a destination grant.
 
+A completed socket write is not proof that the host saved a verified file. The restricted service should issue an actor/project-bound transfer ID and expose an actor-bound status with no bytes. The Connect host should confirm a saved outcome only after checking length, SHA-256, media type, and atomic save. If the stream or confirmation is interrupted, the host reconciles that transfer ID and reports uncertainty until it can prove the save; it must not claim success from a send event. Any save receipt is host-only and requires separate main/preload review.
+
 ## Authorization and error policy
 
 | Action | Minimum authority check |
@@ -64,7 +66,7 @@ Use stable machine codes: `AUTH_REQUIRED`, `ACCESS_DENIED` or consistent conceal
 | `asset.list` | Use `files.search` pages. Cassy's controller/view must represent page boundaries and partial results; it must not infer that a missing item was deleted from an incomplete page. |
 | `asset.import` | Use begin → chunks/status → finalize with one stable body-bound mutation key, then exact `files.get`. An uncertain finalize requires `files.operation-status` for that same key/body before any retry. |
 | `asset.metadata` | Use CAS metadata mutation, then exact canonical read. Preserve draft on offline/conflict; on unknown outcome check `files.operation-status` for the same key/body before any retry. |
-| `asset.download` | Use exact-version transfer and host-owned integrity/safe-save flow. Verify digest, length, media type, and target version. |
+| `asset.download` | Use exact-version transfer and host-owned integrity/safe-save flow. Verify digest, length, media type, and target version; confirm or reconcile the transfer outcome before reporting a completed save. |
 | `asset.submit-review` | Submit only. Do not map it to approval. Reconcile an unknown outcome through `files.operation-status` for the same key/body, then reload the exact version/record. |
 
 Add a host-level `asset.get`/`reloadAsset` capability and explicit page state to replace the current full-list fallback. A limited preview needs its own reviewed client and host operation; `asset.download` cannot serve preview bytes. The component's five names are not HTTP routes or approved Electron IPC. Main/preload methods remain separately reviewed under Task 06 and fail closed until the restricted service passes staging acceptance. PR #33, Tyler #34, and development-only mount #35 stay independent; this draft changes none of their shared files.
