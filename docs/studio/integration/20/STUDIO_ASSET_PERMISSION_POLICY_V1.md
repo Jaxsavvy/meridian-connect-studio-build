@@ -20,15 +20,19 @@ All grants default to denied. The owner administers grants through a separately 
 
 | Action | Required server decision |
 | --- | --- |
-| Search, exact read, version descriptor, download | Active session, active project membership, exact project/asset/version ownership, and `asset.read` grant. Download checks again at transfer time. |
+| Search, exact record read, version descriptor | Active session, active project membership, exact project/asset/version ownership, and `asset.read` grant. A descriptor never includes complete version bytes or a reusable byte URL. |
 | Import begin/chunk/finalize | The same scope plus `asset.import`; recheck before finalizing bytes and lineage. |
 | Metadata edit | The same scope plus `asset.metadata`, exact asset, and expected revision checked at commit. |
 | Review submission | The same scope plus `review.submit`, exact version and expected revision. Submission creates an event; it never approves. |
 | Review approval | Current owner principal, active membership in the asset's project, exact submitted version and expected revision, with a commit-time recheck. Self-approval by that owner principal is allowed and recorded. |
-| Export | Active session, exact approved version, project scope, and explicit `asset.export` grant. Recheck immediately before transfer; no renderer-selected path or reusable public URL. Owner grant requirement is pending. |
+| Full-byte download/export | Active session, exact approved version, project scope, and explicit `asset.export` grant. Recheck immediately before transfer; no renderer-selected path or reusable public URL. Owner grant requirement is pending. |
 | Grant administration | Current owner principal only, checked again in the transaction that changes a person's project access or action grants. |
 
 An approval must record the approver, submitter, exact version, decision, time, asset revision, and whether it was self-approval. Export must record the actor, exact approved version, grant used, time, and transfer outcome. A revoked grant must not be resurrected by a retry key, cached capability manifest, queued job, or previously issued download descriptor. Approval and export remain **Unavailable** until this policy is implemented and tested in the restricted service.
+
+## Preview and export integration gate
+
+The current Asset Library UI calls the same `asset.download` method for image preview and for its "Download selected version" action. Both paths receive complete version bytes in the renderer. If a read-only preview path returns those bytes, a person can save them without the export action, so the service cannot truthfully enforce the explicit export grant. Before mounting a live adapter, separate preview from full-byte transfer. A preview must use a separately authorized, bounded presentation artifact that does not return the complete version bytes; its access and fidelity require an owner decision. Any path returning complete version bytes is an export and must enforce the approved-version and `asset.export` rules. Cassy's component and the Connect host need a reviewed contract change; this draft does not edit her branch or approve a new route.
 
 ## Isolated acceptance cases
 
@@ -40,5 +44,6 @@ Use disposable projects and synthetic A/B identities. No customer files, paid pr
 4. Expired session, removed project membership, revoked action grant, substituted asset/version ID, or an attempted renderer-supplied owner claim fails closed with no cross-project existence hint.
 5. A draft or changes-requested version cannot be exported as approved. Retrying a failed or uncertain export cannot bypass current authorization or create a false successful audit event.
 6. Simultaneous grant revocation and approval/export attempts serialize to an auditable result; no action commits after the relevant authority is gone.
+7. A member with `asset.read` but no `asset.export` cannot obtain complete version bytes through preview, download, a descriptor, a cached response, or a retry. A preview response, if enabled later, is a separately authorized bounded artifact.
 
 The existing client and 81-check unmounted Studio Files stage do not establish these cases. In that stage, approval/export are still disabled and its grant callback is synthetic. DEV-010 #19, DEV-011 #20, and the master queue #11 remain open; Studio Assets stay Unavailable until restricted-service and Connect integration evidence passes.

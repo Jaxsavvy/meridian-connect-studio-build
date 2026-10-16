@@ -16,7 +16,8 @@
 
 ## Work and limits
 
-- `docs/studio/integration/20/STUDIO_ASSET_PERMISSION_POLICY_V1.md` records the action matrix, server checks, audit fields, revocation timing, and six synthetic A/B acceptance scenarios.
+- `docs/studio/integration/20/STUDIO_ASSET_PERMISSION_POLICY_V1.md` records the action matrix, server checks, audit fields, revocation timing, and seven synthetic A/B acceptance scenarios.
+- Cross-check against the current Asset Library found that image preview and "Download selected version" both call `asset.download` and receive complete version bytes in the renderer. This must be split before a live mount; otherwise a read grant bypasses the intended export grant. Preview artifact rules await an owner decision.
 - The owner decisions do not enable approval, export, or any new bridge. No customer data, credentials, provider calls, live database change, service restart, merge, or deployment occurred.
 - Document structure and `git diff --check` were checked locally. No runtime test is claimed for a documentation-only policy draft.
 - The separate private Studio Files stage passes 81 synthetic checks, but its grant callback is test-only and approval/export remain disabled. The active Team Hub database has no Studio Files tables. Loaded process bytes remain unverified.
@@ -24,5 +25,5 @@
 ## Next actions
 
 1. Resolve the pending owner export-grant detail and update the policy note and issue checkpoint.
-2. Reconcile the owner-approved policy with DEV-010's draft `studio.files.v1` contract and Cassy's review, without editing her branch.
+2. Reconcile the owner-approved policy with DEV-010's draft `studio.files.v1` contract and Cassy's review, including a separate preview/full-byte export contract, without editing her branch.
 3. Implement and test grants, approval, export, revocation and audit in an isolated restricted service. Keep Studio Assets Unavailable and Project status Building until those checks pass.
