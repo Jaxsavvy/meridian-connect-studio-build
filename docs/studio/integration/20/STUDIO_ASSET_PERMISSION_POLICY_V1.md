@@ -9,6 +9,7 @@ Status: owner decisions recorded for review on 2026-10-15. This is a public-safe
 | Project access administration | Only the owner's authenticated account may add or remove a person's Studio project access or action grants. |
 | Asset approval | Only the owner's authenticated account may approve a submitted asset version in a project where that account has active membership. The owner may approve their own submission. |
 | Asset export | A project member needs an explicit `asset.export` grant to export an approved version. Whether the owner account also requires that grant is pending one owner answer. |
+| Limited preview | A project member without an export grant may view a separately authorized, reduced-fidelity preview. The preview does not provide complete version bytes. |
 
 These decisions do not make every project member a reviewer, do not turn submission into approval, and do not make download an export grant. They do not authorize production activation or a client-side permission toggle.
 
@@ -21,6 +22,7 @@ All grants default to denied. The owner administers grants through a separately 
 | Action | Required server decision |
 | --- | --- |
 | Search, exact record read, version descriptor | Active session, active project membership, exact project/asset/version ownership, and `asset.read` grant. A descriptor never includes complete version bytes or a reusable byte URL. |
+| Limited preview | Active session, active project membership, exact asset/version scope, and `asset.read` grant. Return only a service-produced, bounded, reduced-fidelity presentation artifact; recheck access when delivering it. Unsupported media types remain unavailable for preview. |
 | Import begin/chunk/finalize | The same scope plus `asset.import`; recheck before finalizing bytes and lineage. |
 | Metadata edit | The same scope plus `asset.metadata`, exact asset, and expected revision checked at commit. |
 | Review submission | The same scope plus `review.submit`, exact version and expected revision. Submission creates an event; it never approves. |
@@ -32,7 +34,7 @@ An approval must record the approver, submitter, exact version, decision, time, 
 
 ## Preview and export integration gate
 
-The current Asset Library UI calls the same `asset.download` method for image preview and for its "Download selected version" action. Both paths receive complete version bytes in the renderer. If a read-only preview path returns those bytes, a person can save them without the export action, so the service cannot truthfully enforce the explicit export grant. Before mounting a live adapter, separate preview from full-byte transfer. A preview must use a separately authorized, bounded presentation artifact that does not return the complete version bytes; its access and fidelity require an owner decision. Any path returning complete version bytes is an export and must enforce the approved-version and `asset.export` rules. Cassy's component and the Connect host need a reviewed contract change; this draft does not edit her branch or approve a new route.
+The current Asset Library UI calls the same `asset.download` method for image preview and for its "Download selected version" action. Both paths receive complete version bytes in the renderer. If a read-only preview path returns those bytes, a person can save them without the export action, so the service cannot truthfully enforce the explicit export grant. Before mounting a live adapter, separate preview from full-byte transfer. The owner permits members without an export grant to view a limited preview. The service must produce a bounded, reduced-fidelity presentation artifact without complete version bytes; the exact rendition limits require implementation review. A preview can still be captured from the screen, so the export grant governs transfer of complete version bytes. Any path returning complete version bytes is an export and must enforce the approved-version and `asset.export` rules. Cassy's component and the Connect host need a reviewed contract change; this draft does not edit her branch or approve a new route.
 
 ## Isolated acceptance cases
 
@@ -44,6 +46,6 @@ Use disposable projects and synthetic A/B identities. No customer files, paid pr
 4. Expired session, removed project membership, revoked action grant, substituted asset/version ID, or an attempted renderer-supplied owner claim fails closed with no cross-project existence hint.
 5. A draft or changes-requested version cannot be exported as approved. Retrying a failed or uncertain export cannot bypass current authorization or create a false successful audit event.
 6. Simultaneous grant revocation and approval/export attempts serialize to an auditable result; no action commits after the relevant authority is gone.
-7. A member with `asset.read` but no `asset.export` cannot obtain complete version bytes through preview, download, a descriptor, a cached response, or a retry. A preview response, if enabled later, is a separately authorized bounded artifact.
+7. A member with `asset.read` but no `asset.export` can obtain a limited preview but cannot obtain complete version bytes through preview, download, a descriptor, a cached response, or a retry. The preview is a separately authorized bounded rendition; revoking membership or read access denies subsequent preview transfer.
 
 The existing client and 81-check unmounted Studio Files stage do not establish these cases. In that stage, approval/export are still disabled and its grant callback is synthetic. DEV-010 #19, DEV-011 #20, and the master queue #11 remain open; Studio Assets stay Unavailable until restricted-service and Connect integration evidence passes.
