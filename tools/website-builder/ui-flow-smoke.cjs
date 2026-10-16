@@ -1,11 +1,12 @@
 'use strict';
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, nativeTheme } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const root = join(__dirname, '../..');
-const evidence = join(root, 'ui-flow-evidence');
+const evidence = process.env.MERIDIAN_UI_FLOW_EVIDENCE || join(root, 'ui-flow-evidence');
+const requireOSHighContrast = process.env.MERIDIAN_REQUIRE_OS_HIGH_CONTRAST === '1';
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -59,6 +60,10 @@ async function metrics(window) {
 app.whenReady().then(async () => {
   let window;
   try {
+    if (requireOSHighContrast) {
+      assert.equal(process.platform, 'win32');
+      assert.equal(nativeTheme.shouldUseHighContrastColors, true, 'Actual Windows High Contrast must be enabled before launch');
+    }
     await fs.mkdir(evidence, { recursive: true });
     app.setPath('userData', await fs.mkdtemp(join(tmpdir(), 'meridian-ui-flow-')));
     window = new BrowserWindow({
@@ -70,6 +75,7 @@ app.whenReady().then(async () => {
       },
     });
     await window.loadFile(join(root, 'src/renderer/index.html'));
+    if (requireOSHighContrast) assert.equal(await window.webContents.executeJavaScript("matchMedia('(forced-colors: active)').matches"), true, 'Actual OS colors must reach the renderer before any emulation');
     await waitFor(window, '#projectsMasterList .project-item');
     await pause(500);
     await window.webContents.executeJavaScript("switchView('studio')");
@@ -213,7 +219,7 @@ app.whenReady().then(async () => {
     const employeeGate = await employee.webContents.executeJavaScript(`({disabled:document.querySelector('#nav-studio-link').disabled,hidden:document.querySelector('#studioCenter').hidden,syntheticLoaded:[...document.scripts].some(s=>s.src.includes('studio-ui/studio-shell.js'))})`);
     assert.equal(employeeGate.disabled,true); assert.equal(employeeGate.hidden,true); assert.equal(employeeGate.syntheticLoaded,false);
     await capture(employee,'09-employee-unavailable'); employee.destroy();
-    await fs.writeFile(join(evidence, 'results.json'), JSON.stringify({ status: 'passed', media, employeeGate, lastMetrics: await metrics(window), verified: ['four panels', 'focus after navigation', 'modal keyboard wrapping', 'unsaved edits retained', 'phone width', 'sandbox preserved', 'dirty list guard', 'save/list/reopen', 'Website/Assets composed guards', 'synthetic scene references', 'scene-to-page provenance', 'unavailable authoritative handoff', 'all steps at 200%', 'emulated forced colors/reduced motion', 'employee gate'] }, null, 2));
+    await fs.writeFile(join(evidence, 'results.json'), JSON.stringify({ status: 'passed', osHighContrast: { required: requireOSHighContrast, enabled: nativeTheme.shouldUseHighContrastColors }, media, employeeGate, lastMetrics: await metrics(window), verified: ['four panels', 'focus after navigation', 'modal keyboard wrapping', 'unsaved edits retained', 'phone width', 'sandbox preserved', 'dirty list guard', 'save/list/reopen', 'Website/Assets composed guards', 'synthetic scene references', 'scene-to-page provenance', 'unavailable authoritative handoff', 'all steps at 200%', 'emulated forced colors/reduced motion', 'employee gate'] }, null, 2));
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);
   } catch (error) {

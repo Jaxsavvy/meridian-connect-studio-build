@@ -28,6 +28,8 @@ jobs:
         run: node_modules/.bin/electron.cmd tools/website-builder/ui-flow-smoke.cjs
       - name: Real Windows Asset lifecycle and warning capture
         run: node_modules/.bin/electron.cmd docs/studio/integration/32/runtime-check.cjs
+      - name: Actual OS High Contrast walkthrough and restoration
+        run: ./tools/website-builder/windows-high-contrast.ps1
       - name: Build existing NSIS package without publishing
         run: npm run build -- --config.directories.output="$env:RUNNER_TEMP/meridian-package"
       - name: Install only on disposable runner
@@ -54,4 +56,5 @@ jobs:
             ui-flow-evidence/
             docs/studio/integration/32/renders/
             test-output/windows-installed/
+            test-output/windows-high-contrast/
           if-no-files-found: warn
