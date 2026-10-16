@@ -1,5 +1,14 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 evening PR #34 / #35 follow-up
+
+- Resumed from handoff `288e1d6` while preserving the later Builder fix `8115f7d`. Live #34 head is `8115f7de1f97876a291ef6deb38c23ba0421501d`; live #35 head is unchanged at `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Both remain open and unmerged; #34 has no submitted reviews from requested reviewers Jaxsavvy / Theecassycat.
+- #35 belongs to Jaxsavvy / Chair 1, not Tyler or Cassy. Posted exact synthetic dirty-metadata/leave reproduction and required capture/metrics/hash/manual-pixel evidence in [the PR conversation](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/35#issuecomment-6206716771). No replacement image or capture-guard commit was available to verify. Follow-up review `5542337955` records that Tyler's CHANGES_REQUESTED remains unresolved; no approval or dismissal submitted.
+- Separate disposable checkout composed current #34/#35, resolving only `app.js` and `studio-shell.js` according to the agreed loader, project-selection, mounted Assets and sequenced leave-guard plan. No combined source was pushed. Local combined tree: `89ef6fde5f71ebc422666041e63a9b1bdd49d4c4`.
+- Combined tests: 103/103 relevant Node tests, including 14/14 Builder tests. All source JavaScript syntax, workflow source/packaging-input assertions, prohibited tracked paths and whitespace checks passed. This supersedes the older 91-test source result for these two current PR heads. It does not cover later PR #33/#36 changes or Jaxsavvy's separate `feature/owner-studio-ui-flow` commit `d0d7c99`.
+- Runtime limit: Electron, Xvfb and a display server are absent in this environment. No new combined runtime/capture, dependency install, installer or visual verification claimed. GitHub source checks are green on both heads; #35's historical smoke remains green but does not verify corrected pixels or the new combined tree.
+- Next actors: Jaxsavvy must correct #35's capture and anti-stale guard, run the isolated runtime and publish exact evidence; Tyler then visually re-reviews it. Jaxsavvy and Theecassycat must submit the requested #34 reviews. Keep #34 unmerged until both reviews are satisfied and #35 correction is verified. No changes to other chairs' branches; board sync remains pending.
+
 ## 2026-10-15 Website history and export correction
 
 - Continuing PR #34 from `288e1d6` on `feature/tyler-website-studio-ui`, assigned issue #9 / Chair 2. Only the Builder model, focused tests, this handoff and verification report changed.

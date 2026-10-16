@@ -1,5 +1,13 @@
 # Website Studio verification report
 
+## 2026-10-15 evening current-head integration check
+
+Exact input heads: PR #34 `8115f7de1f97876a291ef6deb38c23ba0421501d` plus PR #35 `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Disposable local resolution of the two shared-file conflicts produced tree `89ef6fde5f71ebc422666041e63a9b1bdd49d4c4`; no combined code was pushed. Both development loaders, accepted-project selection, writable Asset lifecycle and Website controller were retained, sequencing Website save/discard before the Asset guard.
+
+`node --test tools/website-builder/website-builder.test.cjs tools/studio-context/*.test.cjs tools/board-sync/board-sync.test.mjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/assets/8/*.test.cjs` passed **103/103**, including **14/14** Builder tests. All `src/**/*.js` syntax, workflow source/packaging-input assertions, prohibited tracked paths and whitespace checks passed. The count differs from the previous source run because DEV-020 contributes its transport/mount cases. Later PR #33/#36 work and the owner's separate UI-flow branch are excluded.
+
+Combined Electron/capture verification was not possible: Electron, Xvfb and a display server are absent. No fresh screenshots, dependency installation, packaging build or visual signoff claimed. #35 head remains unchanged with no corrected warning capture; Tyler's requested-changes review remains unresolved. Jaxsavvy owns that evidence correction; Jaxsavvy and Theecassycat still owe #34 reviews. Both PRs remain unmerged.
+
 ## 2026-10-15 model correction
 
 Three new regression cases reproduced failures in page-selection history, redo retention and export filename collisions before the fix. Undo/redo now retains the matching page selection; rejected edits retain redo; a new website cannot undo into a previous website; home and Index pages cannot overwrite the same exported file.
