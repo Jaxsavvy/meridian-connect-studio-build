@@ -1,5 +1,13 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 completed combined implementation / review handoff
+
+- Published combined PR #39 (`feature/tyler-dev006-combined`), preserving #34 `7f8a2b0`, #35 `647bb9e` and #37 `d0d7c99` in history. Original PRs remain open/unmerged and their branches unchanged. Verified source: `396137468c1043aea0c658c9be4418ac774195c0`.
+- Local and CI relevant Node suite 118/118 passed. Combined guided Electron and DEV-020 lifecycle/capture commands both passed in run `38846745481`; source checks passed in run `38846745315`. Downloaded artifact `12023392691`, verified archive/image hashes and actual source tree, and inspected twelve guided captures plus Asset warning/zoom captures.
+- Fixed all actionable issues found in the pass: dirty internal navigation, composed leave decisions, scene save/reopen/reference retention, newer edits during save, create failure feedback, same-project synthetic scene-to-page provenance, session-only handoff labeling, handoff spacing, usable 200% navigation/focus and editor scroll retention.
+- `docs/studio/design/9/DEV006_VERIFICATION.md` and `combined-evidence/` retain exact evidence and boundaries. No remaining known failing automated check. Review must assess the exact combined implementation; no self-approval or merge.
+- Remaining acceptance/access limits: Jaxsavvy/Theecassycat independent review, actual screen-reader/Windows High Contrast/installed-app evidence using suitable Windows access, and pending board sync. Live service/provider/permission/publishing work remains outside the UI implementation scope. DEV-006 stays open under the user's keep-unmerged instruction.
+
 ## 2026-10-15 combined interface implementation
 
 - Separate branch `feature/tyler-dev006-combined` composes #34 `7f8a2b0`, #35 `647bb9e` and #37 `d0d7c99`; all original PRs remain unmerged. Exact shared-file plan posted on #34 before editing. Preserved accepted project handler, both development loaders, mounted Asset lifecycle, guided Website flow and all prior fixes.
