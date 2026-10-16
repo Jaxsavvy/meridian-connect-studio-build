@@ -240,6 +240,16 @@ app.whenReady().then(async () => {
     })()`);
     await click(window, '[data-action="surface"][data-value="website"]');
     await waitFor(window, '#studio-asset-client [aria-label="Unsaved host transition"]');
+    const warningVisible = await window.webContents.executeJavaScript(`(() => {
+      const warning=document.querySelector('#studio-asset-client [aria-label="Unsaved host transition"]');warning.scrollIntoView({block:'center'});
+      const bounds=warning.getBoundingClientRect(),workspace=document.querySelector('.studio-workspace').getBoundingClientRect();
+      return {text:warning.textContent,visible:bounds.top>=workspace.top && bounds.bottom<=innerHeight,
+        controls:[...warning.querySelectorAll('button')].map(button=>({text:button.textContent,disabled:button.disabled}))};
+    })()`);
+    assert.equal(warningVisible.visible,true,'Actual composed warning must fit before capture');
+    assert.match(warningVisible.text,/Unsaved asset metadata/);
+    assert.deepEqual(warningVisible.controls.map(control=>control.text),['Keep editing','Discard changes and leave']);
+    assert.ok(warningVisible.controls.every(control=>!control.disabled));
     await capture(window, '05-composed-asset-warning');
     if (compositionMode) {
       await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"] button').focus()");
