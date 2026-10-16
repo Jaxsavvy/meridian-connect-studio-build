@@ -8,6 +8,7 @@
 
   const SCHEMA = 'meridian.website-project.v1';
   const SECTION_TYPES = new Set(['hero', 'content', 'features', 'cta']);
+  const FONTS = Object.freeze({ 'system-ui': 'system-ui,sans-serif', serif: 'Georgia,serif', monospace: 'ui-monospace,monospace' });
 
   function copy(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -28,7 +29,10 @@
     }[character]));
   }
 
-  function pageFilename(page) { return `${page.slug || 'index'}.html`; }
+  function pageFilename(page) {
+    const slug = page.slug || 'index';
+    return `${/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(slug) ? 'page-' : ''}${slug}.html`;
+  }
 
   function validateProject(input, expectedProjectId, expectedWebsiteId) {
     if (!input || input.schema !== SCHEMA || typeof input.id !== 'string' || !input.id) throw new Error('Invalid website project.');
@@ -40,7 +44,7 @@
     const filenames = new Set();
     for (const page of input.pages) {
       if (!page || typeof page.id !== 'string' || !page.id || pageIds.has(page.id)) throw new Error('Website page identity is invalid.');
-      if (!/^([a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(page.slug || '') || slugs.has(page.slug || '')) throw new Error('Website page slug is invalid.');
+      if (typeof page.slug !== 'string' || page.slug.length > 120 || !/^([a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(page.slug) || slugs.has(page.slug)) throw new Error('Website page slug is invalid.');
       if (!Array.isArray(page.sections) || page.sections.length > 100) throw new Error('Website page sections are invalid.');
       if (filenames.has(pageFilename(page))) throw new Error('Each page needs a unique export filename.');
       filenames.add(pageFilename(page));
@@ -164,15 +168,19 @@
     };
   }
 
-  function renderPage(project, pageId) {
+  function renderPage(project, pageId, { preview = false } = {}) {
     const page = project.pages.find(item => item.id === pageId) || project.pages[0];
-    const accent = /^#[0-9a-f]{6}$/i.test(project.design.accent) ? project.design.accent : '#1f6fd6';
-    const navigation = project.pages.map(item => `<a href="${item.slug ? `${escapeHtml(item.slug)}.html` : 'index.html'}"${item.id === page.id ? ' aria-current="page"' : ''}>${escapeHtml(item.title)}</a>`).join('');
+    const accent = /^#[0-9a-f]{6}$/i.test(project.design?.accent) ? project.design.accent : '#1f6fd6';
+    const font = Object.hasOwn(FONTS, project.design?.font) ? FONTS[project.design.font] : FONTS['system-ui'];
+    const navigation = project.pages.map(item => {
+      const current = item.id === page.id ? ' aria-current="page"' : '';
+      return preview ? `<span${current}>${escapeHtml(item.title)}</span>` : `<a href="${escapeHtml(pageFilename(item))}"${current}>${escapeHtml(item.title)}</a>`;
+    }).join('');
     const sections = page.sections.map(section => {
       const action = section.action ? `<a class="action" href="#contact">${escapeHtml(section.action)}</a>` : '';
       return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1><p>${escapeHtml(section.body)}</p>${action}</div></section>`;
     }).join('');
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 system-ui,sans-serif}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{display:flex;flex-wrap:wrap;gap:18px}nav a{color:#29415f;text-decoration:none}nav a[aria-current]{color:var(--accent);font-weight:700}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:var(--accent);font-weight:800;letter-spacing:.1em;text-transform:uppercase}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:#fff;background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{display:flex;flex-wrap:wrap;gap:18px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:var(--accent);font-weight:700}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:var(--accent);font-weight:800;letter-spacing:.1em;text-transform:uppercase}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:#fff;background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
   }
 
   function exportSite(project) {
@@ -180,6 +188,42 @@
     const files = {};
     for (const page of project.pages) files[pageFilename(page)] = renderPage(project, page.id);
     return { name: `${safeId(project.name, 'website')}-site`, files };
+  }
+
+  // ZIP STORE: no dependencies, scripts, external resources or filesystem access.
+  // Only validated page filenames are included. UTF-8 flag and CRC-32 are standard ZIP.
+  function exportArchive(project) {
+    const bundle = exportSite(project);
+    const encoder = new TextEncoder();
+    const entries = Object.entries(bundle.files).map(([name, html]) => ({ name: encoder.encode(name), body: encoder.encode(html) }));
+    const localSize = entries.reduce((size, entry) => size + 30 + entry.name.length + entry.body.length, 0);
+    const centralSize = entries.reduce((size, entry) => size + 46 + entry.name.length, 0);
+    if (localSize + centralSize + 22 > 64 * 1024 * 1024) throw new Error('Website download exceeds the 64 MiB local export limit.');
+    const bytes = new Uint8Array(localSize + centralSize + 22);
+    const view = new DataView(bytes.buffer);
+    const u16 = (at, value) => view.setUint16(at, value, true);
+    const u32 = (at, value) => view.setUint32(at, value, true);
+    let offset = 0;
+    let central = localSize;
+    for (const entry of entries) {
+      let crc = 0xffffffff;
+      for (const byte of entry.body) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+      }
+      crc = (crc ^ 0xffffffff) >>> 0;
+      u32(offset, 0x04034b50); u16(offset + 4, 20); u16(offset + 6, 0x0800);
+      u16(offset + 12, 33); // Deterministic DOS date: 1980-01-01.
+      u32(offset + 14, crc); u32(offset + 18, entry.body.length); u32(offset + 22, entry.body.length); u16(offset + 26, entry.name.length);
+      bytes.set(entry.name, offset + 30); bytes.set(entry.body, offset + 30 + entry.name.length);
+      u32(central, 0x02014b50); u16(central + 4, 20); u16(central + 6, 20); u16(central + 8, 0x0800); u16(central + 14, 33);
+      u32(central + 16, crc); u32(central + 20, entry.body.length); u32(central + 24, entry.body.length); u16(central + 28, entry.name.length); u32(central + 42, offset);
+      bytes.set(entry.name, central + 46);
+      offset += 30 + entry.name.length + entry.body.length;
+      central += 46 + entry.name.length;
+    }
+    u32(central, 0x06054b50); u16(central + 8, entries.length); u16(central + 10, entries.length); u32(central + 12, centralSize); u32(central + 16, localSize);
+    return { name: `${bundle.name}.zip`, bytes };
   }
 
   function createController({ storage, onChange = () => {}, now = () => new Date().toISOString(), idFactory } = {}) {
@@ -255,6 +299,49 @@
     function updateBrief(field, value) {
       if (!['audience', 'goal', 'tone', 'offer'].includes(field)) return false;
       return mutate(project => { project.brief[field] = cleanText(value); }, 'Brief updated. Save to keep this change.');
+    }
+
+    function updateDesign(field, value) {
+      if (!['accent', 'font'].includes(field)) return false;
+      return mutate(project => {
+        if (field === 'accent' ? !/^#[0-9a-f]{6}$/i.test(value) : !Object.hasOwn(FONTS, value)) throw new Error('Choose a supported font or a six-digit hex color.');
+        project.design = { ...project.design, [field]: value };
+      }, 'Website-wide style updated. Save to keep this change.');
+    }
+
+    function moveItem(items, id, direction) {
+      const index = items.findIndex(item => item.id === id);
+      const target = index + direction;
+      if (![1, -1].includes(direction) || index < 0 || target < 0 || target >= items.length) throw new Error('That item cannot move further in this direction.');
+      [items[index], items[target]] = [items[target], items[index]];
+    }
+
+    function movePage(id, direction) {
+      return mutate(project => moveItem(project.pages, id, direction), 'Page order updated.');
+    }
+
+    function removePage(id) {
+      return mutate(project => {
+        const index = project.pages.findIndex(page => page.id === id);
+        if (index < 0) throw new Error('Page was not found.');
+        if (project.pages.length === 1) throw new Error('Keep at least one page in the website.');
+        if (!project.pages[index].slug) throw new Error('Keep the home page. Its content can be edited or its sections removed.');
+        project.pages.splice(index, 1);
+        if (state.selectedPageId === id) state.selectedPageId = project.pages[Math.min(index, project.pages.length - 1)].id;
+      }, 'Page removed. Undo restores it. Existing page URLs are unchanged.');
+    }
+
+    function moveSection(id, direction) {
+      return mutate(project => moveItem(project.pages.find(page => page.id === state.selectedPageId).sections, id, direction), 'Section order updated.');
+    }
+
+    function removeSection(id) {
+      return mutate(project => {
+        const sections = project.pages.find(page => page.id === state.selectedPageId).sections;
+        const index = sections.findIndex(section => section.id === id);
+        if (index < 0) throw new Error('Section was not found.');
+        sections.splice(index, 1);
+      }, 'Section removed. Undo restores it.');
     }
 
     function addPage(title) {
@@ -370,11 +457,16 @@
       }
     }
 
-    return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, addPage, addScenePage, selectPage,
-      updatePage, addSection, updateSection, save, undo, redo, close, discard,
-      preview() { return state.project ? renderPage(state.project, state.selectedPageId) : ''; },
-      exportSite() { return state.project ? exportSite(state.project) : null; } });
+    return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
+      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, save, undo, redo, close, discard,
+      preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
+      exportSite() { return state.project ? exportSite(state.project) : null; },
+      exportArchive() {
+        if (!state.project) return null;
+        try { return exportArchive(state.project); }
+        catch (error) { state = { ...state, error: error.message, status: 'Website download failed. Your edits are unchanged.' }; emit(); return null; }
+      } });
   }
 
-  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, renderPage, exportSite, validateProject });
+  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, renderPage, exportSite, exportArchive, validateProject });
 });

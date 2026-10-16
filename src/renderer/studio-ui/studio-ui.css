@@ -648,6 +648,14 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-section-list { margin-top: 18px; }
 .website-section-card { align-items: stretch; flex-direction: column; }
 .website-section-card > div:first-child { display: flex; align-items: center; gap: 10px; }
+.website-item-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.website-item-actions button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.website-global-styles { grid-column:1/-1; min-width:0; margin:0; padding:16px; border:1px solid var(--studio-line); border-radius:10px; }
+.website-global-styles legend { padding:0 8px; font-weight:700; }
+.website-global-styles p,.website-panel > p { color:var(--studio-muted); line-height:1.6; overflow-wrap:anywhere; }
+.website-global-styles input[type="color"] { width:100%; max-width:160px; min-height:44px; padding:4px; }
+.website-preview > .studio-section-heading { flex-wrap:wrap; }
+.website-preview .studio-field { min-width:0; }
 .website-preview iframe {
   width: 100%;
   min-height: 560px;

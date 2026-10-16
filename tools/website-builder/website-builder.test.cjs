@@ -4,6 +4,117 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createMemoryStorage, createRepository, createController, renderPage, exportSite } = require('../../src/renderer/studio-ui/website-builder.js');
 
+test('page and section management is bounded, undoable, and keeps selection valid', () => {
+  const active = controller();
+  active.createProject('Manage site');
+  const home = active.snapshot().selectedPageId;
+  active.addPage('Services');
+  const services = active.snapshot().selectedPageId;
+  assert.equal(active.movePage(services, -1), true);
+  assert.equal(active.snapshot().project.pages[0].id, services);
+  assert.equal(active.movePage(services, -1), false);
+  assert.equal(active.removePage(services), true);
+  assert.equal(active.snapshot().selectedPageId, home);
+  active.undo();
+  assert.equal(active.snapshot().selectedPageId, services);
+  active.redo();
+  assert.equal(active.removePage(home), false, 'Keep at least one page');
+  active.undo();
+  assert.equal(active.snapshot().project.pages.length, 2, 'Rejected deletion retains redo/history');
+  active.selectPage(home);
+  const sections = active.snapshot().project.pages.find(p => p.id === home).sections;
+  assert.equal(active.moveSection(sections[1].id, -1), true);
+  assert.equal(active.removeSection(sections[0].id), true);
+  active.undo();
+  assert.deepEqual(active.snapshot().project.pages.find(p => p.id === home).sections.map(s => s.id), [sections[1].id, sections[0].id]);
+  assert.equal(active.removeSection('missing'), false);
+  assert.equal(active.moveSection(sections[1].id, 2), false);
+  active.save();
+  active.openProject(active.snapshot().project.id);
+  assert.equal(active.snapshot().project.pages.find(p => p.id === home).sections[0].id, sections[1].id);
+});
+
+test('safe global styles persist, undo, and apply to every exported page', () => {
+  const active = controller();
+  active.createProject('Styled site');
+  active.addPage('About');
+  assert.equal(active.updateDesign('accent', '#16715a'), true);
+  assert.equal(active.updateDesign('font', 'serif'), true);
+  for (const html of Object.values(active.exportSite().files)) {
+    assert.match(html, /--accent:#16715a/);
+    assert.match(html, /Georgia/);
+  }
+  assert.equal(active.updateDesign('font', 'serif; background:url(https://bad)'), false);
+  assert.equal(active.updateDesign('accent', '#fff; color:red'), false);
+  active.undo();
+  assert.equal(active.snapshot().project.design.font, 'system-ui');
+  active.redo();
+  active.save();
+  active.openProject(active.snapshot().project.id);
+  assert.equal(active.snapshot().project.design.font, 'serif');
+});
+
+test('preview navigation is inert while standalone export links all pages', () => {
+  const active = controller();
+  active.createProject('Preview site');
+  active.addPage('About');
+  assert.match(active.preview(), /<span aria-current="page">About<\/span>/);
+  assert.doesNotMatch(active.preview(), /href="(?:index|about)\.html"/);
+  assert.match(active.exportSite().files['index.html'], /href="about.html"/);
+});
+
+test('archive filenames are portable and deleting the home page is rejected without losing redo', () => {
+  const active = controller();
+  active.createProject('Portable');
+  const home = active.snapshot().selectedPageId;
+  active.addPage('CON');
+  active.addPage('page-con');
+  assert.deepEqual(Object.keys(active.exportSite().files), ['index.html', 'page-con.html', 'page-con-2.html']);
+  active.undo();
+  assert.equal(active.removePage(home), false);
+  assert.equal(active.redo(), true);
+  const invalid = active.snapshot().project;
+  invalid.pages[1].slug = 'a'.repeat(121);
+  assert.throws(() => exportSite(invalid), /slug is invalid/);
+});
+
+test('whole-site ZIP has correct UTF-8 content, CRCs, central directory and safe names', () => {
+  const active = controller();
+  active.createProject('Café site');
+  active.addPage('About Us');
+  active.updateSection(active.snapshot().project.pages[1].sections[0].id, 'body', 'Café ☕ — synthetic');
+  const archive = active.exportArchive();
+  const data = Buffer.from(archive.bytes);
+  const expected = active.exportSite().files;
+  const names = [];
+  let offset = 0;
+  function crc32(bytes) {
+    let value = 0xffffffff;
+    for (const byte of bytes) { value ^= byte; for (let bit = 0; bit < 8; bit++) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0); }
+    return (value ^ 0xffffffff) >>> 0;
+  }
+  while (data.readUInt32LE(offset) === 0x04034b50) {
+    assert.equal(data.readUInt16LE(offset + 6), 0x0800);
+    assert.equal(data.readUInt16LE(offset + 8), 0);
+    const size = data.readUInt32LE(offset + 18);
+    const nameLength = data.readUInt16LE(offset + 26);
+    const name = data.subarray(offset + 30, offset + 30 + nameLength).toString('utf8');
+    const body = data.subarray(offset + 30 + nameLength, offset + 30 + nameLength + size);
+    assert.equal(body.toString('utf8'), expected[name]);
+    assert.equal(data.readUInt32LE(offset + 14), crc32(body));
+    names.push(name);
+    offset += 30 + nameLength + size;
+  }
+  assert.deepEqual(names, Object.keys(expected));
+  assert.equal(data.readUInt32LE(offset), 0x02014b50);
+  const end = data.length - 22;
+  assert.equal(data.readUInt32LE(end), 0x06054b50);
+  assert.equal(data.readUInt16LE(end + 10), 2);
+  assert.equal(data.readUInt32LE(end + 16), offset);
+  assert.match(archive.name, /^[a-z0-9-]+\.zip$/);
+  assert.equal(active.snapshot().dirty, true, 'Download must not pretend to save the project');
+});
+
 const meridianProject = { id: 'project-alpha', name: 'Synthetic Alpha' };
 
 function controller(storage = createMemoryStorage(), id = 'one') {

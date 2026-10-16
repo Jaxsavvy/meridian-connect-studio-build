@@ -115,6 +115,59 @@ app.whenReady().then(async () => {
       }
       await capture(window, '02-' + step + '-1440');
     }
+    // Actual renderer controls and a real Electron download, not model-only evidence.
+    await click(window, '.website-flow-nav [data-value="brief"]');
+    await window.webContents.executeJavaScript(`(() => {
+      const accent=document.querySelector('#website-design-accent'); accent.value='#16715a'; accent.dispatchEvent(new Event('change',{bubbles:true}));
+      const font=document.querySelector('#website-design-font'); font.value='serif'; font.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
+    await capture(window, '10-global-styles');
+    await click(window, '.website-flow-nav [data-value="pages"]');
+    await window.webContents.executeJavaScript("document.querySelector('#website-page-name').value='Services'");
+    await click(window, '[data-action="website-add-page"]');
+    await click(window, '[data-action="website-move-page-up"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page span').textContent"), 'Services');
+    await click(window, '[data-action="website-remove-page"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"), 1);
+    await click(window, '[data-action="website-undo"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"), 2);
+    await capture(window, '11-page-management');
+    await click(window, '.website-flow-nav [data-value="edit"]');
+    await window.webContents.executeJavaScript("document.querySelector('#website-section-type').value='cta'");
+    await click(window, '[data-action="website-add-section"]');
+    await click(window, '.website-section-card:last-child [data-action="website-move-section-up"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-section-card .studio-pill').textContent"), 'cta');
+    await click(window, '.website-section-card:first-child [data-action="website-remove-section"]');
+    await click(window, '[data-action="website-undo"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-section-card').length"), 2);
+    await capture(window, '12-section-management');
+    await click(window, '.website-flow-nav [data-value="preview"]');
+    const previewPages = await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].map(o=>({id:o.value,title:o.textContent}))");
+    for (const page of previewPages) {
+      await window.webContents.executeJavaScript(`(() => { const control=document.querySelector('#website-preview-page'); control.value=${JSON.stringify(page.id)}; control.dispatchEvent(new Event('change',{bubbles:true})); })()`);
+      const preview = await window.webContents.executeJavaScript("({html:document.querySelector('.website-preview iframe').srcdoc,sandbox:document.querySelector('.website-preview iframe').getAttribute('sandbox'),focused:document.activeElement.id})");
+      assert.equal(preview.sandbox, '');
+      assert.ok(preview.html.includes('<title>' + page.title));
+      assert.ok(preview.html.includes('--accent:#16715a'));
+      assert.ok(preview.html.includes('Georgia,serif'));
+      assert.ok(!/href=\"(?:index|services)\\.html\"/.test(preview.html));
+    }
+    const download = new Promise((resolve, reject) => {
+      const timer=setTimeout(()=>reject(Error('ZIP download timed out')),15000);
+      window.webContents.session.once('will-download', (_event,item) => {
+        const target=join(evidence,'synthetic-website.zip'); item.setSavePath(target);
+        item.once('done',(_event,state)=>{clearTimeout(timer);state==='completed'?resolve({target,name:item.getFilename()}):reject(Error('ZIP download '+state));});
+      });
+    });
+    await click(window, '[data-action="website-export-archive"]');
+    const downloaded=await download;
+    const zip=await fs.readFile(downloaded.target);
+    assert.equal(zip.readUInt32LE(0),0x04034b50);
+    assert.equal(zip.readUInt16LE(zip.length-12),2);
+    assert.match(zip.toString('utf8'),/href="services.html"/);
+    assert.match(zip.toString('utf8'),/href="index.html"/);
+    await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
+    await capture(window, '13-multipage-preview');
     await click(window, '[data-action="website-device"][data-value="phone"]');
     assert.equal((await metrics(window)).frameSandbox, '');
     const phoneWidth = await window.webContents.executeJavaScript("document.querySelector('.website-preview iframe').getBoundingClientRect().width");
