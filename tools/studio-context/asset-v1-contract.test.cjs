@@ -168,7 +168,15 @@ test('mutation names stay within the current Asset Model read limit', async () =
   const begin = { filename: 'f'.repeat(161), mediaType: 'image/png', byteLength: 16,
     sha256: H1, mutationKey: 'synthetic-mutation-0007' };
   await assert.rejects(Contract.bodyDigest('files.import-begin', A, begin), { code: 'INVALID_REQUEST' });
+  assert.equal(typeof await Contract.bodyDigest('files.import-begin', A,
+    { ...begin, filename: '😀'.repeat(80) }), 'string');
+  for (const filename of ['😀'.repeat(81), 'e\u0301'.repeat(81)]) {
+    await assert.rejects(Contract.bodyDigest('files.import-begin', A,
+      { ...begin, filename }), { code: 'INVALID_REQUEST' });
+  }
   const metadata = { assetId: 'synthetic-asset-a', expectedRevision: 2, name: 'n'.repeat(161),
     tags: [], description: '', section: 'Files', mutationKey: 'synthetic-mutation-0008' };
   await assert.rejects(Contract.bodyDigest('files.metadata', A, metadata), { code: 'INVALID_REQUEST' });
+  await assert.rejects(Contract.bodyDigest('files.metadata', A,
+    { ...metadata, name: '😀'.repeat(81) }), { code: 'INVALID_REQUEST' });
 });

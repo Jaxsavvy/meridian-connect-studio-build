@@ -29,7 +29,7 @@ Existing generic Team Hub project Files have session and project-membership chec
 
 The canonical service record maps to Cassy's current component names: `assetId` → `id`, `versionId` → version `id`, `baseRevision` → component `revision`. The adapter must validate that every version belongs to the same asset/project, has unique sequence and ID, and reaches the original without cycles. It must not rewrite an already loaded immutable version. Metadata and review history require separate bounded paging or an explicit service snapshot marker when the full history exceeds a response limit; a truncated history may never be called complete.
 
-Until Cassy's component adopts a wider limit, v1 display names and original filenames are capped at 160 characters on both mutation and read. An exact record must explicitly include `historyCursor: null` when its history is complete; a missing marker cannot be interpreted as complete.
+Until Cassy's component adopts a wider limit, v1 display names and original filenames are capped at 160 JavaScript UTF-16 code units on both mutation and read. Count the submitted value before NFC normalization and trimming, matching the current Asset Model, and reject any final value outside the same bound. An exact record must explicitly include `historyCursor: null` when its history is complete; a missing marker cannot be interpreted as complete.
 
 ## Mutation and transfer contract
 
