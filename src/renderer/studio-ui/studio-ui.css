@@ -708,6 +708,10 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-builder :is(h3,input,textarea,button) { scroll-margin-top:18px; }
 @media (max-width:1040px) { .website-flow-nav { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:700px) {
+  .studio-local-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:stretch; gap:4px; }
+  .studio-local-nav__item { min-width:0; padding:8px; justify-content:center; }
+  .studio-local-nav__item small { display:none; }
+  .studio-local-nav__item span { overflow-wrap:anywhere; }
   .website-brief-panel { grid-template-columns:minmax(0,1fr); }
   .website-flow-nav button { padding:12px; gap:8px; }
   .website-flow-nav small { display:none; }

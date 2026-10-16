@@ -43,6 +43,8 @@ async function metrics(window) {
     visiblePanels: [...document.querySelectorAll('[data-website-panel]')].filter(panel => !panel.hidden && getComputedStyle(panel).display !== 'none').map(panel => panel.dataset.websitePanel),
     currentStep: document.querySelector('.website-flow-nav [aria-current="step"]')?.dataset.value,
     focusedId: document.activeElement?.id,
+    usableHeight: document.querySelector('.studio-workspace').clientHeight >= innerHeight * .5,
+    focusedHeadingVisible: (() => { const h=document.activeElement?.getBoundingClientRect(); const w=document.querySelector('.studio-workspace').getBoundingClientRect(); return h && h.top >= w.top && h.bottom <= w.bottom; })(),
     fits: ['.studio-workspace', '.studio-main', '.website-builder'].every(selector => {
       const el = document.querySelector(selector);
       return el && el.scrollWidth <= el.clientWidth + 1;
@@ -89,6 +91,7 @@ app.whenReady().then(async () => {
       assert.deepEqual(result.visiblePanels, [step]);
       assert.equal(result.currentStep, step);
       assert.equal(result.focusedId, heading);
+      assert.equal(result.focusedHeadingVisible, true);
       assert.equal(result.audience, 'Independent local businesses');
       assert.match(result.saveText, /Unsaved changes/);
       assert.equal(result.fits, true);
@@ -181,6 +184,8 @@ app.whenReady().then(async () => {
     for (const step of ['brief', 'pages', 'edit', 'preview']) {
       await click(window, '.website-flow-nav [data-value="' + step + '"]');
       assert.equal((await metrics(window)).fits, true, '200% fit: ' + step);
+      assert.equal((await metrics(window)).usableHeight, true, '200% usable editor height: ' + step);
+      assert.equal((await metrics(window)).focusedHeadingVisible, true, '200% focused heading visible: ' + step);
     }
     await capture(window, '04-preview-200pct');
     window.webContents.debugger.attach('1.3');

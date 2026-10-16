@@ -425,7 +425,7 @@
       requestAnimationFrame(() => {
         const heading = host.querySelector('[data-website-panel="' + step + '"] h3');
         heading?.focus({ preventScroll: true });
-        host.querySelector('.website-flow-nav')?.scrollIntoView({ block: 'nearest' });
+        heading?.scrollIntoView({ block: 'start' });
       });
     }
 
