@@ -34,7 +34,8 @@ jobs:
             docs/studio/assets/8/view.test.cjs \
             docs/studio/assets/8/native.test.cjs \
             docs/studio/assets/8/worker.test.cjs \
-            docs/studio/design/9/studio-workspace.test.cjs
+            docs/studio/design/9/studio-workspace.test.cjs \
+            docs/studio/integration/32/capture-guard.test.cjs
       - name: Check source and packaging inputs
         run: |
           node <<'NODE'

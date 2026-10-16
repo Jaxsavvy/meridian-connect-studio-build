@@ -1,5 +1,13 @@
 # DEV-020 — Chair 1 final implementation handoff
 
+## 2026-10-15 PR #35 evidence correction follow-up
+
+- User explicitly authorized scoped correction on `feature/dev-020-asset-mount`, starting from verified head `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Read Tyler's reviews and reproduction comment before editing. No app, Builder, shared shell, Asset component, backend or packaging changes.
+- Added testable capture guard and integrated it in the real synthetic Electron harness: actual dirty metadata and project check, connected/visible/in-viewport warning text and choices before/after capture, shown-window frame flushing, two baseline SHA-256 comparisons, clean-source HEAD/tree/run provenance, and removal of stale warning output. Existing Keep editing/Discard checks now explicitly cover retained project and cleared draft. Metrics require manual pixel review; distinct hashes do not establish it.
+- Five guard tests plus existing source/contract suite pass 85/85; harness/helper/test syntax and whitespace checked. Workflow source suite includes the new tests; the existing Electron job will exercise the guarded capture on push.
+- Local runtime/capture unavailable: Electron, Xvfb and display server absent. No replacement PNG or visual verification claimed locally. Exact display-supported command, output files and manual acceptance steps are in `docs/studio/integration/32/CAPTURE_VERIFICATION.md`.
+- Preserve PR #34 Builder fix `8115f7d` and handoff `38c093f` on their existing branch; neither was reset, replaced or merged here. Both PRs remain unmerged. Tyler's requested-changes review remains pending successful capture and actual visual re-review; #34 still needs Jaxsavvy and Theecassycat reviews. Board synchronization remains pending.
+
 - **Issue:** [DEV-020 #32](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/32)
 - **PR:** [#35](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/35), branch `feature/dev-020-asset-mount`, base `main` at `29a0df69c1b1497c85f671daddc3b8aaa979cc8a`.
 - **Current status:** Scoped development integration implemented and verified; ready for code review / shared-file merge coordination. **Not production-ready, not merged, not released.**
