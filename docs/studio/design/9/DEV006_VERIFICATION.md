@@ -1,5 +1,35 @@
 # DEV-006 combined delivery verification
 
+## 2026-10-16 final audit update
+
+Latest executable source: `9928a7f9c9d363ac44943f1eb362916abe23ed5e`.
+A fresh source/acceptance/review/log audit reproduced and fixed two remaining
+Builder defects: recovery now rejects a different website ID in primary,
+backup and pending records, and adding sections stops at 100 before an edit
+could make the page unsaveable. Regression tests failed before the fixes and
+pass afterward; rejected edits still preserve redo and the page remains saveable.
+
+- Local relevant suite: **120/120 pass**, syntax and whitespace pass.
+- [Fresh combined run 38848984940](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38848984940): 120 tests and both actual Electron workflows pass.
+- [Fresh source run 38848984965](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38848984965): success; no failed steps.
+- [Artifact 12023783785](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38848984940/artifacts/12023783785): downloaded ZIP digest `bb4070e39663fc826e0cae36463ef92108864ed1ae968c27e14a49e65eee5798` verified.
+- GitHub metadata confirms capture merge `ef1cca50f9ecebac19fe6027ecb447cb9e2aa94c` and source share tree `042ec6f13e26ea5fde6aef7cc3418db65ce0678f`.
+- Fresh composed warning and DEV-020 warning were opened and visually inspected alongside both DEV-020 baselines: actual warning, both choices and dirty Display name are visible; baseline images omit the warning. Raw hashes match the images and differ. Raw results and all image hashes are preserved in `combined-evidence/final-audit.json`; earlier evidence below remains historical.
+
+Live readback found no submitted #39 reviews or new requested work. Jaxsavvy
+and Theecassycat must independently review the combined change; either must
+independently review #35's correction (the correcting agent cannot self-approve).
+Both #34 reviews remain required. Tyler should arrange the remaining Windows
+screen-reader/High Contrast/installed-app checks with a Windows tester and sync
+the Project board once accessible. No PR was merged or issue closed.
+
+Build logs retain dependency deprecation and Actions Node-runtime notices;
+these are not failed checks. Dependency/packaging upgrades need Chair 1
+coordination and separate validation. This focused UI correction changes no
+package, lockfile, main/preload/API, Asset implementation or release settings.
+
+The previous full visual walkthrough and its limits follow.
+
 Review: [PR #39](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/39).
 Verified executable source: `396137468c1043aea0c658c9be4418ac774195c0`.
 The branch preserves original PR #34/#35/#37 source histories and all prior

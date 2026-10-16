@@ -1,5 +1,13 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 final audit continuation
+
+- Branch `feature/tyler-dev006-combined`, PR #39; executable head `9928a7f9c9d363ac44943f1eb362916abe23ed5e`. Original branches/PRs untouched; no merge.
+- Reproduced/fixed exact website-ID mismatch during recovery and the missing 100-section edit cap. Two meaningful regressions fail on the preceding code and pass on the fix, including backup recovery, rejection of all mismatched candidates, redo preservation and successful save at the limit.
+- Relevant tests 120/120 local and CI; source run `38848984965` and combined Electron run `38848984940` pass. Downloaded artifact `12023783785`; archive/hash/source-tree checks and manual inspection of both actual warning captures against clean baselines pass. See final-audit.json and DEV006_VERIFICATION.md.
+- No new #39 reviews or requests. Jaxsavvy and Theecassycat: independent #39/#34 reviews; either: independent #35 correction review. Tyler: arrange Windows platform evidence and board readback when access exists. Chair 1: dependency/Actions deprecation maintenance coordination, separately from this renderer task. DEV-006 remains open; all PRs remain unmerged; no self-approval.
+
+
 ## 2026-10-15 completed combined implementation / review handoff
 
 - Published combined PR #39 (`feature/tyler-dev006-combined`), preserving #34 `7f8a2b0`, #35 `647bb9e` and #37 `d0d7c99` in history. Original PRs remain open/unmerged and their branches unchanged. Verified source: `396137468c1043aea0c658c9be4418ac774195c0`.
