@@ -147,7 +147,42 @@
       }).filter(Boolean).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     }
 
-    return Object.freeze({ save, open, list });
+    function checkpointKey(id) { return `meridian.website-checkpoints.${scope}.${encodeURIComponent(String(id))}`; }
+    function readCheckpoints(id) {
+      const raw = storage.getItem(checkpointKey(id));
+      if (!raw) return [];
+      if (raw.length > 6 * 1024 * 1024) throw new Error('Checkpoint history exceeds the local size limit.');
+      const record = JSON.parse(raw);
+      if (record.schema !== 'meridian.website-checkpoints.v1' || record.meridianProjectId !== meridianProjectId || record.websiteId !== id || !Array.isArray(record.checkpoints) || record.checkpoints.length > 10) throw new Error('Checkpoint history identity or format is invalid.');
+      const ids = new Set();
+      return record.checkpoints.map(item => {
+        if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.label !== 'string' || item.label.length > 120 || typeof item.createdAt !== 'string') throw new Error('Checkpoint metadata is invalid.');
+        ids.add(item.id);
+        const project = validateProject(item.project, meridianProjectId, id);
+        if (!Number.isSafeInteger(project.revision) || project.revision < 0 || typeof project.name !== 'string' || !project.brief || !project.design || ['audience','goal','tone','offer'].some(field => typeof project.brief[field] !== 'string') || project.pages.some(page => typeof page.title !== 'string' || page.sections.some(section => !/^[a-zA-Z0-9_-]+$/.test(section.id) || ['heading','body','action'].some(field => typeof section[field] !== 'string')))) throw new Error('Checkpoint draft fields are invalid.');
+        return { id: item.id, label: item.label, createdAt: item.createdAt, project };
+      });
+    }
+    function checkpointMeta(item) { return { id: item.id, label: item.label, createdAt: item.createdAt, revision: item.project.revision, pageCount: item.project.pages.length }; }
+    function listCheckpoints(id) { return readCheckpoints(id).map(checkpointMeta).reverse(); }
+    function saveCheckpoint(project, { id, label, createdAt }) {
+      const persisted = open(project.id);
+      if (!persisted || JSON.stringify(persisted) !== JSON.stringify(project)) throw new Error('Website changed elsewhere. Reopen it before making a checkpoint.');
+      const checkpoints = readCheckpoints(project.id);
+      if (checkpoints.length >= 10) throw new Error('The 10-checkpoint limit is reached. Existing checkpoints are kept.');
+      if (checkpoints.some(item => item.id === id)) throw new Error('Checkpoint identity already exists.');
+      checkpoints.push({ id, label: cleanText(label || `Saved revision ${project.revision}`, 120), createdAt, project: copy(project) });
+      const serialized = JSON.stringify({ schema: 'meridian.website-checkpoints.v1', meridianProjectId, websiteId: project.id, checkpoints });
+      if (serialized.length > 6 * 1024 * 1024) throw new Error('Checkpoint history exceeds the local size limit.');
+      storage.setItem(checkpointKey(project.id), serialized);
+      return checkpoints.map(checkpointMeta).reverse();
+    }
+    function checkpointProject(websiteId, checkpointId) {
+      const checkpoint = readCheckpoints(websiteId).find(item => item.id === checkpointId);
+      if (!checkpoint) throw new Error('Checkpoint was not found for this website.');
+      return copy(checkpoint.project);
+    }
+    return Object.freeze({ save, open, list, listCheckpoints, saveCheckpoint, checkpointProject });
   }
 
   function initialProject({ id, meridianProjectId, name, now }) {
@@ -239,16 +274,24 @@
     let history = [];
     let future = [];
     let counter = 0;
+    let checkpoints = [];
     const makeId = idFactory || (prefix => `${prefix}-${Date.now().toString(36)}-${(++counter).toString(36)}`);
 
     function emit() { onChange(snapshot()); }
-    function snapshot() { return copy(state); }
+    function snapshot() { return copy({ ...state, checkpoints }); }
     function refreshList() { state.projects = repository ? repository.list() : []; }
+    function refreshCheckpoints() {
+      checkpoints = [];
+      if (!repository || !state.project) return;
+      try { checkpoints = repository.listCheckpoints(state.project.id); }
+      catch (error) { state = { ...state, error: `Checkpoint history unavailable: ${error.message}`, status: 'The website opened; its checkpoint history needs attention.' }; }
+    }
 
     function selectContext(project) {
       contextProject = project && project.id ? { id: String(project.id), name: cleanText(project.name, 160) } : null;
       repository = contextProject ? createRepository(storage, contextProject.id) : null;
       history = []; future = [];
+      checkpoints = [];
       state = contextProject
         ? { phase: 'list', projects: repository.list(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
         : { phase: 'no-context', projects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
@@ -267,6 +310,7 @@
       history = []; future = [];
       refreshList();
       state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Website project created and saved locally.' };
+      checkpoints = [];
       emit();
       return true;
     }
@@ -278,6 +322,7 @@
         if (!project) throw new Error('Website project was not found.');
         history = []; future = [];
         state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Saved website project reopened.' };
+        refreshCheckpoints();
         emit(); return true;
       } catch (error) {
         state = { ...state, error: error.message, status: 'Website project could not be opened.' }; emit(); return false;
@@ -431,6 +476,45 @@
       }
     }
 
+    function createCheckpoint(label) {
+      if (!repository || !state.project) return false;
+      try {
+        if (state.dirty) throw new Error('Save this website before making a checkpoint.');
+        checkpoints = repository.saveCheckpoint(state.project, { id: makeId('checkpoint'), label, createdAt: now() });
+        state = { ...state, error: null, status: 'Saved checkpoint created on this device. It is not an approved revision.' };
+        emit(); return true;
+      } catch (error) { state = { ...state, error: error.message, status: 'Checkpoint was not created. The website and existing checkpoints are unchanged.' }; emit(); return false; }
+    }
+
+    function restoreCheckpoint(id) {
+      if (!repository || !state.project) return false;
+      try {
+        if (state.dirty) throw new Error('Save or discard current edits before restoring a checkpoint.');
+        const restored = repository.checkpointProject(state.project.id, id);
+        return mutate(project => {
+          const revision = project.revision, createdAt = project.createdAt;
+          for (const key of Object.keys(project)) delete project[key];
+          Object.assign(project, restored, { revision, createdAt });
+          if (!project.pages.some(page => page.id === state.selectedPageId)) state.selectedPageId = project.pages[0].id;
+        }, 'Checkpoint restored as an unsaved draft. Undo returns to the previous draft; Save project keeps this version.');
+      } catch (error) { state = { ...state, error: `Checkpoint restore failed: ${error.message}`, status: 'Checkpoint was not restored. Current work is unchanged.' }; emit(); return false; }
+    }
+
+    function readiness() {
+      const project = state.project;
+      const hasText = value => typeof value === 'string' && Boolean(value.trim());
+      return {
+        websiteOpen: Boolean(project), canApprove: false, canPublish: false,
+        checks: [
+          { id: 'saved', label: 'No unsaved website edits', passed: Boolean(project && !state.dirty) },
+          { id: 'brief', label: 'Audience, goal, tone and offer filled in', passed: Boolean(project && ['audience','goal','tone','offer'].every(field => typeof project.brief?.[field] === 'string' && project.brief[field].trim())) },
+          { id: 'content', label: 'Every page has a title and nonempty section content', passed: Boolean(project && project.pages.every(page => hasText(page.title) && page.sections.length && page.sections.every(section => hasText(section.heading) && hasText(section.body)))) },
+          { id: 'home', label: 'Home export entry exists', passed: Boolean(project && project.pages.some(page => !page.slug)) },
+        ],
+        limit: 'Authoritative review, approval and publish services are not connected. Local checks never grant authority.',
+      };
+    }
+
     function undo() {
       if (!history.length || !state.project) return false;
       future.push({ project: copy(state.project), selectedPageId: state.selectedPageId });
@@ -446,7 +530,7 @@
     function close() {
       if (state.dirty) return false;
       refreshList();
-      state = { ...state, phase: 'list', project: null, selectedPageId: null, status: 'Website project list opened.' }; emit(); return true;
+      state = { ...state, phase: 'list', project: null, selectedPageId: null, status: 'Website project list opened.' }; checkpoints = []; emit(); return true;
     }
 
     function discard() {
@@ -464,7 +548,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, save, undo, redo, close, discard,
+      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, save, createCheckpoint, restoreCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {

@@ -172,6 +172,46 @@ app.whenReady().then(async () => {
     assert.match(zip.toString('utf8'),/href="index.html"/);
     await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
     await capture(window, '13-multipage-preview');
+    // Device-local checkpoints and real storage-failure recovery; no service approval.
+    await click(window,'[data-action="website-save"]');
+    await window.webContents.executeJavaScript("document.querySelector('#website-checkpoint-label').value='Before local review'");
+    await click(window,'[data-action="website-checkpoint-create"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),1);
+    const checkpointFailure = await window.webContents.executeJavaScript(`(() => {
+      const original=Storage.prototype.setItem;
+      try {
+        Storage.prototype.setItem=function(key,value){if(key.startsWith('meridian.website-checkpoints.'))throw Error('Synthetic checkpoint quota');return original.call(this,key,value);};
+        document.querySelector('[data-action=website-checkpoint-create]').click();
+        return {error:document.querySelector('.website-builder .studio-inline-error').textContent,count:document.querySelectorAll('[data-action=website-checkpoint-restore]').length};
+      } finally { Storage.prototype.setItem=original; }
+    })()`);
+    assert.match(checkpointFailure.error,/Synthetic checkpoint quota/);assert.equal(checkpointFailure.count,1);
+    await window.webContents.executeJavaScript("document.querySelector('#website-checkpoint-label').value='Retry checkpoint'");
+    await click(window,'[data-action="website-checkpoint-create"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
+    await window.webContents.executeJavaScript("document.querySelector('.website-checkpoints').scrollIntoView({block:'center'})");
+    await capture(window,'15-local-checkpoints');
+    await click(window,'.website-flow-nav [data-value="brief"]');
+    await window.webContents.executeJavaScript(`(() => { const field=document.querySelector('#website-brief-audience');field.value='Changed after checkpoint';field.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+    const saveFailure = await window.webContents.executeJavaScript(`(() => {
+      const original=Storage.prototype.setItem;
+      try {
+        Storage.prototype.setItem=function(key,value){if(key.startsWith('meridian.website.')&&!key.endsWith('.pending')&&!key.endsWith('.backup')&&!key.endsWith('.index'))throw Error('Synthetic primary quota');return original.call(this,key,value);};
+        document.querySelector('[data-action=website-save]').click();
+        return {error:document.querySelector('.website-builder .studio-inline-error').textContent,audience:document.querySelector('#website-brief-audience').value,dirty:document.querySelector('.website-save-state').textContent};
+      } finally { Storage.prototype.setItem=original; }
+    })()`);
+    assert.match(saveFailure.error,/Synthetic primary quota/);assert.equal(saveFailure.audience,'Changed after checkpoint');assert.equal(saveFailure.dirty,'Action needs attention');
+    await window.webContents.executeJavaScript("document.querySelector('.website-builder .studio-inline-error').scrollIntoView({block:'center'})");
+    await capture(window,'16-website-save-failure');
+    await click(window,'[data-action="website-save"]');
+    await click(window,'.website-flow-nav [data-value="preview"]');
+    await click(window,'[data-action="website-checkpoint-restore"]');
+    assert.equal((await metrics(window)).audience,'Independent local businesses');
+    assert.match((await metrics(window)).saveText,/Unsaved changes/);
+    await click(window,'[data-action="website-undo"]');assert.equal((await metrics(window)).audience,'Changed after checkpoint');
+    await click(window,'[data-action="website-redo"]');assert.equal((await metrics(window)).audience,'Independent local businesses');
+    await fs.writeFile(join(evidence,'checkpoint-review.json'),JSON.stringify({status:'passed',checkpointCount:2,checkpointFailure,saveFailure,restoredAsUnsaved:true,undoRedo:true,limits:'Device-local synthetic draft snapshots, never authoritative review or approval'},null,2));
     await click(window, '[data-action="website-device"][data-value="phone"]');
     assert.equal((await metrics(window)).frameSandbox, '');
     const phoneWidth = await window.webContents.executeJavaScript("document.querySelector('.website-preview iframe').getBoundingClientRect().width");
@@ -289,6 +329,7 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="surface"][data-value="handoff"]');
     await waitFor(window, '#studio-handoff-title');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-surface=handoff] button:disabled').length"), 3);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-readiness]').length"),4);
     await capture(window, '07-review-handoff');
     await click(window, '[data-action="surface"][data-value="website"]');
     await click(window, '[data-action="website-save"]');
@@ -297,6 +338,7 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="website-open"]');
     assert.equal((await metrics(window)).currentStep, 'brief');
     assert.equal((await metrics(window)).audience, 'Combined guard retained content');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
 
     window.setSize(1280, 900);
     window.webContents.setZoomFactor(2);

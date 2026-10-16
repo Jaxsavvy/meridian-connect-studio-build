@@ -372,10 +372,11 @@
       return `<section class="studio-surface studio-section" data-surface="handoff" aria-labelledby="studio-handoff-title">
         <span class="studio-kicker">Review &amp; handoff · development only</span><h2 id="studio-handoff-title">Check what is ready to hand over</h2>
         <dl><div><dt>Project</dt><dd>${escapeHtml(state.project.name)}</dd></div><div><dt>Campaign draft</dt><dd>${state.unsaved ? 'Unsaved changes' : escapeHtml(state.saveState)} · synthetic session memory</dd></div><div><dt>Website</dt><dd>${websiteState && websiteState.project ? escapeHtml(websiteState.project.name) + (websiteState.dirty ? ' · Unsaved changes' : websiteStoragePersistent ? ' · Saved locally' : ' · Session only') : 'No website open'}</dd></div></dl>
+        ${renderWebsiteReadiness()}
         <h3>Before sending for review</h3><ul><li>Save the local website and synthetic draft.</li><li>Inspect each page in Preview and verify source references.</li><li>Have an authorized reviewer accept the exact revision through the approved service when it is connected.</li></ul>
         <p role="note">Review submission, approval, approved-version export and publishing are unavailable. Reviewer policy and authoritative revision services are not connected. The synthetic decision queue is a UI demonstration.</p>
         <div class="studio-local-actions"><button type="button" class="studio-button studio-button--secondary" disabled>Submit to reviewer — unavailable</button><button type="button" class="studio-button studio-button--secondary" disabled>Approve revision — unavailable</button><button type="button" class="studio-button studio-button--secondary" disabled>Publish website — unavailable</button></div>
-        <p>Preview downloads remain local draft HTML, not approved publication.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="website">Open website workspace</button>
+        <p>Preview HTML/ZIP downloads remain local drafts, not approved publication.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="website">Open website workspace</button>
       </section>`;
     }
 
@@ -430,6 +431,21 @@
       });
     }
 
+    function renderWebsiteReadiness() {
+      const ready = website.readiness();
+      return `<section class="website-local-readiness" aria-labelledby="website-readiness-title"><h3 id="website-readiness-title">Local draft checks — not approval</h3>
+        ${ready.websiteOpen ? `<ul>${ready.checks.map(check => `<li data-readiness="${check.id}"><strong>${check.passed ? 'Checked' : 'Needs attention'}:</strong> ${escapeHtml(check.label)}</li>`).join('')}</ul>` : '<p>Open a website to check its local draft.</p>'}
+        <p>${escapeHtml(ready.limit)}</p></section>`;
+    }
+
+    function renderWebsiteCheckpoints(state) {
+      return `<section class="website-checkpoints" aria-labelledby="website-checkpoints-title"><h3 id="website-checkpoints-title" tabindex="-1">Saved checkpoints on this device</h3>
+        <p>Save the project first. A checkpoint keeps a local draft snapshot, not an approved version. Up to 10 checkpoints are kept; existing ones are never automatically removed. ${websiteStoragePersistent ? 'No team sync or service backup.' : 'Session-only storage: checkpoints will be lost when this window reloads.'}</p>
+        <div class="website-add-row"><label class="studio-field"><span>Checkpoint label</span><input id="website-checkpoint-label" maxlength="120" placeholder="Before review" data-focus-key="website-checkpoint-label"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-create" ${state.dirty || state.checkpoints.length >= 10 ? 'disabled' : ''}>Create saved checkpoint</button></div>
+        <p>Save or discard current edits before restoring. Restore creates an unsaved draft; Undo reverses it. The saved primary stays unchanged until Save project.</p>
+        ${state.checkpoints.length ? `<ol>${state.checkpoints.map(checkpoint => `<li><div><strong>${escapeHtml(checkpoint.label)}</strong><span>Saved revision ${checkpoint.revision} · ${checkpoint.pageCount} pages · ${escapeHtml(checkpoint.createdAt)}</span></div><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-restore" data-value="${attr(checkpoint.id)}" ${state.dirty ? 'disabled' : ''}>Restore ${escapeHtml(checkpoint.label)}</button></li>`).join('')}</ol>` : '<p>No saved checkpoints for this website.</p>'}</section>`;
+    }
+
     function renderWebsiteStyles(project) {
       return `<fieldset class="website-global-styles"><legend>Website-wide style</legend><p>Applies to every page. Check text contrast in preview.</p>
         <div class="studio-field"><label for="website-design-accent">Accent color</label><input type="color" id="website-design-accent" value="${attr(/^#[0-9a-f]{6}$/i.test(project.design?.accent) ? project.design.accent : '#1f6fd6')}" data-website-design="accent" data-focus-key="website-design-accent"></div>
@@ -473,8 +489,8 @@
       const project = state.project;
       const stepIndex = websiteSteps.findIndex(item => item.id === websiteStep);
       const step = websiteSteps[stepIndex];
-      const saveLabel = state.error ? 'Save needs attention' : state.dirty ? 'Unsaved changes' : websiteStoragePersistent ? 'Saved in this app' : 'Session only';
-      const saveHelp = state.error ? 'Your current edits remain here. Try saving again before leaving.' : websiteStoragePersistent ? 'Local to this app on this device. Team sync is not connected.' : 'Storage is unavailable. Keep this window open; session changes will be lost on reload.';
+      const saveLabel = state.error ? 'Action needs attention' : state.dirty ? 'Unsaved changes' : websiteStoragePersistent ? 'Saved in this app' : 'Session only';
+      const saveHelp = state.error ? 'Your current edits remain here. Review the action message and try again.' : websiteStoragePersistent ? 'Local to this app on this device. Team sync is not connected.' : 'Storage is unavailable. Keep this window open; session changes will be lost on reload.';
 
       const page = project.pages.find(item => item.id === state.selectedPageId) || project.pages[0];
       return `<div class="studio-surface website-builder" data-surface="website">
@@ -492,7 +508,7 @@
             <div class="website-page-settings"><div class="studio-field"><label for="website-page-title">Page title</label><input id="website-page-title" value="${attr(page.title)}" data-website-page="title" data-focus-key="website-page-title"></div><div class="studio-field"><label for="website-page-slug">URL slug</label><input id="website-page-slug" value="${attr(page.slug)}" data-website-page="slug" data-focus-key="website-page-slug"></div></div>
             <div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong></div>${renderWebsiteSectionActions(section, index, page.sections.length)}<div class="studio-field"><label for="website-${section.id}-heading">Heading</label><input id="website-${section.id}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div><div class="studio-field"><label for="website-${section.id}-body">Body</label><textarea id="website-${section.id}-body" rows="4" data-website-section="${attr(section.id)}" data-field="body" data-focus-key="website-${attr(section.id)}-body">${escapeHtml(section.body)}</textarea></div><div class="studio-field"><label for="website-${section.id}-action">Action label</label><input id="website-${section.id}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div></article>`).join('')}</div>
           </section>
-          <section class="website-panel website-preview" data-website-panel="preview" ${websiteStep === 'preview' ? '' : 'hidden'} aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title" tabindex="-1">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(root.MeridianWebsiteBuilder.pageFilename(page))}</button><button type="button" class="studio-button studio-button--secondary" data-action="website-export-archive">Download whole website (.zip)</button></div>${renderWebsitePreviewSelector(project, page)}<div class="website-device-bar" role="group" aria-label="Preview width">${[['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([id, label]) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-device" data-value="${id}" aria-pressed="${websiteDevice === id}">${label}</button>`).join('')}<span>${websiteDevice === 'desktop' ? 'Fits the workspace' : websiteDevice === 'tablet' ? '768 px target · fits available space' : '375 px target · fits available space'}</span></div><div class="website-preview-stage"><iframe class="website-device-${websiteDevice}" title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></div></section>
+          <section class="website-panel website-preview" data-website-panel="preview" ${websiteStep === 'preview' ? '' : 'hidden'} aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title" tabindex="-1">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(root.MeridianWebsiteBuilder.pageFilename(page))}</button><button type="button" class="studio-button studio-button--secondary" data-action="website-export-archive">Download whole website (.zip)</button></div>${renderWebsitePreviewSelector(project, page)}<div class="website-device-bar" role="group" aria-label="Preview width">${[['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([id, label]) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-device" data-value="${id}" aria-pressed="${websiteDevice === id}">${label}</button>`).join('')}<span>${websiteDevice === 'desktop' ? 'Fits the workspace' : websiteDevice === 'tablet' ? '768 px target · fits available space' : '375 px target · fits available space'}</span></div><div class="website-preview-stage"><iframe class="website-device-${websiteDevice}" title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></div>${renderWebsiteCheckpoints(state)}</section>
         </div>
         <footer class="website-flow-footer"><span>${escapeHtml(page.title)} · ${project.pages.length} page${project.pages.length === 1 ? '' : 's'} in this website</span><div>${stepIndex > 0 ? `<button type="button" class="studio-button studio-button--secondary" data-action="website-step" data-value="${websiteSteps[stepIndex - 1].id}">Back to ${websiteSteps[stepIndex - 1].label}</button>` : ''}${stepIndex < websiteSteps.length - 1 ? `<button type="button" class="studio-button studio-button--primary" data-action="website-step" data-value="${websiteSteps[stepIndex + 1].id}">Continue to ${websiteSteps[stepIndex + 1].label}</button>` : '<button type="button" class="studio-button studio-button--primary" data-action="website-step" data-value="edit">Return to editing</button>'}</div></footer></div>`;
     }
@@ -631,6 +647,14 @@
       else if (action === 'website-save') website.save();
       else if (action === 'website-undo') website.undo();
       else if (action === 'website-redo') website.redo();
+      else if (action === 'website-checkpoint-create') {
+        website.createCheckpoint(host.querySelector('#website-checkpoint-label')?.value || '');
+        host.querySelector('#website-checkpoints-title')?.focus({ preventScroll: true });
+      }
+      else if (action === 'website-checkpoint-restore') {
+        website.restoreCheckpoint(value);
+        host.querySelector('#website-checkpoints-title')?.focus({ preventScroll: true });
+      }
       else if (action === 'website-export-archive') {
         const archive = website.exportArchive();
         if (!archive) return;

@@ -656,6 +656,14 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-global-styles input[type="color"] { width:100%; max-width:160px; min-height:44px; padding:4px; }
 .website-preview > .studio-section-heading { flex-wrap:wrap; }
 .website-preview .studio-field { min-width:0; }
+.website-checkpoints,.website-local-readiness { margin-top:24px; padding:18px; border:1px solid var(--studio-line); border-radius:10px; min-width:0; }
+.website-checkpoints p,.website-local-readiness p { color:var(--studio-muted); line-height:1.6; }
+.website-checkpoints ol { padding:0; list-style:none; }
+.website-checkpoints li { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--studio-line); }
+.website-checkpoints li > div { min-width:0; flex:1 1 220px; overflow-wrap:anywhere; }
+.website-checkpoints li span { display:block; font-size:12px; color:var(--studio-muted); }
+.website-checkpoints button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.website-local-readiness li { margin-block:8px; overflow-wrap:anywhere; }
 .website-preview iframe {
   width: 100%;
   min-height: 560px;

@@ -127,6 +127,74 @@ test('whole-site ZIP has correct UTF-8 content, CRCs, central directory and safe
 
 const meridianProject = { id: 'project-alpha', name: 'Synthetic Alpha' };
 
+test('saved local checkpoints survive restart and restore only as undoable unsaved drafts', () => {
+  const storage = createMemoryStorage();
+  const active = controller(storage, 'checkpoints'); active.createProject('Checkpoint site');
+  active.updateBrief('goal','First goal');
+  assert.equal(active.createCheckpoint('Too early'), false);
+  active.save(); assert.equal(active.createCheckpoint('First draft'), true);
+  const checkpoint = active.snapshot().checkpoints[0];
+  active.updateBrief('goal','Second goal'); active.save();
+  const revision=active.snapshot().project.revision;
+  const restarted=controller(storage,'reopen'); restarted.openProject(active.snapshot().project.id);
+  assert.equal(restarted.snapshot().checkpoints[0].label,'First draft');
+  assert.equal(restarted.restoreCheckpoint(checkpoint.id),true);
+  assert.equal(restarted.snapshot().project.brief.goal,'First goal');
+  assert.equal(restarted.snapshot().project.revision,revision);
+  assert.equal(restarted.snapshot().dirty,true);
+  assert.equal(createRepository(storage,meridianProject.id).open(active.snapshot().project.id).brief.goal,'Second goal','Restore must not write primary');
+  restarted.undo(); assert.equal(restarted.snapshot().project.brief.goal,'Second goal');
+  restarted.redo(); assert.equal(restarted.snapshot().project.brief.goal,'First goal');
+});
+
+test('checkpoint restore cannot overwrite dirty edits or cross website/project identity', () => {
+  const storage=createMemoryStorage();const active=controller(storage,'scope');active.createProject('First');active.createCheckpoint('Clean');
+  const checkpoint=active.snapshot().checkpoints[0],websiteId=active.snapshot().project.id;
+  active.updateBrief('goal','Keep dirty');assert.equal(active.restoreCheckpoint(checkpoint.id),false);assert.equal(active.snapshot().project.brief.goal,'Keep dirty');
+  active.save();active.createProject('Other');assert.equal(active.restoreCheckpoint(checkpoint.id),false);assert.deepEqual(active.snapshot().checkpoints,[]);
+  const key=`meridian.website-checkpoints.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(websiteId)}`;
+  const history=JSON.parse(storage.getItem(key));history.checkpoints[0].project.meridianProjectId='foreign';storage.setItem(key,JSON.stringify(history));
+  assert.equal(active.openProject(websiteId),true,'Corrupt history must not prevent primary website opening');
+  assert.deepEqual(active.snapshot().checkpoints,[]);
+  assert.equal(active.restoreCheckpoint(checkpoint.id),false);
+  assert.match(active.snapshot().error,/checkpoint/i);
+});
+
+test('checkpoint storage failure leaves saved primary and edits unchanged', () => {
+  const base=createMemoryStorage();let fail=false;const storage={...base,setItem(key,value){if(fail&&key.startsWith('meridian.website-checkpoints.'))throw Error('Checkpoint quota');base.setItem(key,value);}};
+  const active=controller(storage,'quota');active.createProject('Quota');active.createCheckpoint('Before');
+  const before=active.snapshot().project;fail=true;assert.equal(active.createCheckpoint('Failed'),false);
+  assert.deepEqual(active.snapshot().project,before);assert.equal(active.snapshot().dirty,false);
+  assert.equal(active.snapshot().checkpoints.length,1);assert.match(active.snapshot().error,/Checkpoint quota/);
+});
+
+test('local readiness never grants review, approval or publish authority', () => {
+  const active=controller();active.createProject('Readiness');
+  assert.equal(active.readiness().canPublish,false);assert.equal(active.readiness().canApprove,false);
+  assert.equal(active.readiness().checks.find(check=>check.id==='brief').passed,false);
+  for(const field of ['audience','goal','tone','offer']) active.updateBrief(field,'Synthetic answer');
+  active.save();const ready=active.readiness();assert.ok(ready.checks.every(check=>check.passed));
+  assert.equal(ready.canPublish,false);assert.equal(ready.canApprove,false);assert.match(ready.limit,/service/i);
+  active.selectContext({id:'project-beta',name:'Beta'});assert.equal(active.readiness().websiteOpen,false);
+});
+
+test('checkpoint bounds keep existing history and never pollute primary-index recovery', () => {
+  const storage=createMemoryStorage(),active=controller(storage,'bounded');active.createProject('Bounded');
+  for(let index=0;index<10;index++) assert.equal(active.createCheckpoint(`Checkpoint ${index}`),true);
+  const before=active.snapshot().checkpoints;
+  assert.equal(active.createCheckpoint('Eleventh'),false);assert.deepEqual(active.snapshot().checkpoints,before);
+  storage.setItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`,'{broken');
+  assert.equal(createRepository(storage,meridianProject.id).list().length,1);
+  active.close();assert.deepEqual(active.snapshot().checkpoints,[]);
+});
+
+test('stale window cannot checkpoint a newer saved primary from another window', () => {
+  const storage=createMemoryStorage(),first=controller(storage,'first');first.createProject('Shared local site');
+  const second=controller(storage,'second');second.openProject(first.snapshot().project.id);second.updateBrief('goal','Newer window');second.save();
+  assert.equal(first.createCheckpoint('Stale'),false);assert.match(first.snapshot().error,/changed elsewhere/);
+  assert.equal(createRepository(storage,meridianProject.id).open(first.snapshot().project.id).brief.goal,'Newer window');
+});
+
 function controller(storage = createMemoryStorage(), id = 'one') {
   let sequence = 0;
   const value = createController({
