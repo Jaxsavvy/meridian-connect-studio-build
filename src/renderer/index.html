@@ -11,7 +11,7 @@
 </head>
 <body class="home-view">
 
-  <a class="studio-skip" href="#main-workspace">Skip to main workspace</a>
+  <a class="studio-skip" href="#main-workspace" data-authenticated-ui inert>Skip to main workspace</a>
 
   <!-- ====================================================================
        1. LOGIN VIEW (Overlaid before authentication)
@@ -61,7 +61,7 @@
   <!-- ====================================================================
        2. COMMAND SIDEBAR RAIL (Persistent left navigation)
        ==================================================================== -->
-  <aside class="side-nav" aria-label="Meridian Side Navigation">
+  <aside class="side-nav" aria-label="Meridian Side Navigation" data-authenticated-ui inert>
     <div class="nav-kicker">REMOTE SYSTEM // CONNECT</div>
     <div class="nav-brand" id="brand-home-btn" title="Meridian Connect Workspace">
       <img src="assets/mark.webp" alt="Meridian Mark">
@@ -145,7 +145,7 @@
   <!-- ====================================================================
        4. MAIN DECK SURFACE
        ==================================================================== -->
-  <section class="log">
+  <section class="log" data-authenticated-ui inert>
     <!-- 42 glinting atmospheric bokeh particles -->
     <div class="bokeh-field" id="bokehField" aria-hidden="true"></div>
 
@@ -597,7 +597,7 @@
   <!-- ====================================================================
        5. MODALS (Quick Search Ctrl+K & Settings)
        ==================================================================== -->
-  <div id="quick-search-modal" class="modal-overlay" style="display: none;">
+  <div id="quick-search-modal" class="modal-overlay" style="display: none;" data-authenticated-ui inert>
     <div class="quick-search-card">
       <div class="quick-search-input-wrap">
         <span class="search-icon">⌕</span>
@@ -615,7 +615,7 @@
     </div>
   </div>
 
-  <div id="settings-modal" class="modal-overlay" style="display: none;">
+  <div id="settings-modal" class="modal-overlay" style="display: none;" data-authenticated-ui inert>
     <div class="settings-card">
       <h2>Client Settings</h2>
       <p>Configure the Meridian Connect workstation client and server routing.</p>

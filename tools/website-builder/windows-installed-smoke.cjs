@@ -90,7 +90,8 @@ async function main() {
         syntheticLoaded: [...document.scripts].some(s => s.src.includes('studio-ui/studio-shell.js')),
         development: window.meridian ? await window.meridian.isDevMode() : null,
         session: window.meridian ? await window.meridian.getCurrentUser() : null,
-        devLoginHidden: !document.querySelector('#dev-bypass-box') || getComputedStyle(document.querySelector('#dev-bypass-box')).display === 'none'
+        devLoginHidden: !document.querySelector('#dev-bypass-box') || getComputedStyle(document.querySelector('#dev-bypass-box')).display === 'none',
+        backgroundInert: [...document.querySelectorAll('[data-authenticated-ui]')].every(node => node.inert)
       }))()`);
       if (state.ready && state.loginVisible && state.studioDisabled) break;
       await pause(100);
@@ -99,6 +100,7 @@ async function main() {
     assert.equal(state.development, false);
     assert.equal(state.session, null);
     assert.equal(state.devLoginHidden, true);
+    assert.equal(state.backgroundInert, true);
     assert.equal(state.studioDisabled, true);
     assert.equal(state.studioHidden, true);
     assert.equal(state.syntheticLoaded, false);
@@ -114,13 +116,14 @@ async function main() {
     for (let attempt = 0; attempt < 80; attempt += 1) {
       accessibility = await client.send('Accessibility.getFullAXTree');
       names = accessibility.nodes.filter(node => !node.ignored).map(node => ({ role: node.role?.value, name: node.name?.value }));
-      if (['Username', 'Password'].every(label => names.some(node => node.role === 'textbox' && String(node.name).trim() === label))) break;
+      if (['username', 'password'].every(label => names.some(node => node.role === 'textbox' && String(node.name).trim().toLowerCase() === label))) break;
       await pause(100);
     }
     fs.writeFileSync(path.join(evidence, 'accessibility-tree.json'), JSON.stringify(accessibility, null, 2) + '\n');
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(evidence, 'installed-employee-login.png'), Buffer.from(screenshot.data, 'base64'));
-    for (const label of ['Username', 'Password']) assert.ok(names.some(node => node.role === 'textbox' && String(node.name).trim() === label), 'Missing accessible login field: ' + label);
+    for (const label of ['username', 'password']) assert.ok(names.some(node => node.role === 'textbox' && String(node.name).trim().toLowerCase() === label), 'Missing accessible login field: ' + label);
+    assert.equal(names.some(node => node.role === 'button' && node.name === 'Overview'), false, 'Background navigation must not be exposed behind login');
     const results = {
       status: 'passed', platform: process.platform, release: os.release(),
       sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),

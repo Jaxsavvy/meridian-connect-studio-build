@@ -185,7 +185,12 @@ function initStudioUI() {
   });
 }
 
+function setAuthenticatedUIEnabled(enabled) {
+  for (const node of document.querySelectorAll('[data-authenticated-ui]')) node.inert = !enabled;
+}
+
 function showLogin() {
+  setAuthenticatedUIEnabled(false);
   currentUser = null;
   currentMe = null;
   currentProject = null;
@@ -196,6 +201,7 @@ function showLogin() {
   if (idleTimer) clearInterval(idleTimer);
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('login-password').value = '';
+  document.getElementById('login-username')?.focus?.();
 }
 
 async function enterApp(user) {
@@ -216,6 +222,7 @@ async function enterApp(user) {
     return;
   }
   currentMe = Object.assign({}, user, meRes.data, { displayName: meRes.data.name || user.displayName });
+  setAuthenticatedUIEnabled(true);
 
   // Update profile in sidebar & header
   const initial = currentMe.displayName ? currentMe.displayName.charAt(0).toUpperCase() : 'U';
