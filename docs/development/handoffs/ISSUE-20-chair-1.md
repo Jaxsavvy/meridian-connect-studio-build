@@ -11,13 +11,13 @@
 
 - Only the owner's authenticated account may administer a person's Studio project access and action grants.
 - Only that account may approve a submitted Studio asset version, including its own submission, and it must have active membership in that project.
-- Exporting an approved version requires an explicit per-project `asset.export` grant for a member.
+- Exporting an approved version requires an explicit per-project `asset.export` grant for every account, including the owner, plus active project membership.
 - A project member without an export grant may view a limited, reduced-fidelity preview, separately authorized by the service; full version bytes remain an export.
-- One detail remains pending: whether the owner also needs an explicit export grant. The policy note marks this clearly; it is not inferred from a UI role.
+- All owner decisions requested for this policy are recorded; the owner has no implicit approval membership or export-grant exception.
 
 ## Work and limits
 
-- `docs/studio/integration/20/STUDIO_ASSET_PERMISSION_POLICY_V1.md` records the action matrix, server checks, audit fields, revocation timing, and seven synthetic A/B acceptance scenarios.
+- `docs/studio/integration/20/STUDIO_ASSET_PERMISSION_POLICY_V1.md` records the action matrix, server checks, audit fields, revocation timing, and eight synthetic A/B acceptance scenarios.
 - Preview and full-byte export need separate reviewed service and client operations before a live mount. The owner permits a limited preview; rendition limits still need implementation review.
 - The owner decisions do not enable approval, export, or any new bridge. No customer data, credentials, provider calls, live database change, service restart, merge, or deployment occurred.
 - Document structure and `git diff --check` were checked locally. No runtime test is claimed for a documentation-only policy draft.
@@ -25,6 +25,5 @@
 
 ## Next actions
 
-1. Resolve the pending owner export-grant detail and update the policy note and issue checkpoint.
-2. Reconcile the owner-approved policy with DEV-010's draft `studio.files.v1` contract and Cassy's review, including a separate preview/full-byte export contract, without editing her branch.
-3. Implement and test grants, approval, export, revocation and audit in an isolated restricted service. Keep Studio Assets Unavailable and Project status Building until those checks pass.
+1. Reconcile the owner-approved policy with DEV-010's draft `studio.files.v1` contract and Cassy's review, including a separate preview/full-byte export contract, without editing her branch.
+2. Implement and test grants, approval, export, revocation and audit in an isolated restricted service. Keep Studio Assets Unavailable and Project status Building until those checks pass.
