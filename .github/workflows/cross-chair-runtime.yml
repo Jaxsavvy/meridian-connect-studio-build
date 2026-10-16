@@ -1,0 +1,69 @@
+name: Cross-chair runtime verification
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  cross-chair-runtime:
+    if: github.head_ref == 'feature/tyler-dev006-combined'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: combined
+    env:
+      MERIDIAN_EXPECTED_UI_HEAD: ${{ github.event.pull_request.head.sha }}
+      MERIDIAN_ASSET_COMPOSITION: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: combined
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 3fab5ef500f7e321d4bab23b6dacdb87abc4a6d4
+          path: asset-input
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Compose only inside disposable checkout and record exact inputs
+        run: node tools/studio-context/compose-runtime.cjs
+      - run: npm ci --no-audit --no-fund
+      - name: Composed source regressions
+        run: node --test tools/website-builder/*.test.cjs tools/studio-context/*.test.cjs tools/board-sync/*.test.mjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/assets/8/*.test.cjs docs/studio/integration/32/capture-guard.test.cjs
+      - name: Linux actual guided UI and Asset lifecycle
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a node_modules/.bin/electron --no-sandbox tools/website-builder/ui-flow-smoke.cjs
+          timeout --signal=TERM --kill-after=5s 95s xvfb-run -a node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
+      - name: Windows actual guided UI and Asset lifecycle
+        if: runner.os == 'Windows'
+        run: |
+          node_modules/.bin/electron.cmd tools/website-builder/ui-flow-smoke.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node_modules/.bin/electron.cmd docs/studio/integration/32/runtime-check.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual OS High Contrast on composed Windows source
+        if: runner.os == 'Windows'
+        run: ./tools/website-builder/windows-high-contrast.ps1
+      - name: Preserve evidence only, not dependencies or executables
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-chair-${{ runner.os }}
+          retention-days: 14
+          path: |
+            combined/test-output/composition/
+            combined/ui-flow-evidence/
+            combined/docs/studio/integration/32/renders/
+            combined/test-output/windows-high-contrast/
+          if-no-files-found: warn

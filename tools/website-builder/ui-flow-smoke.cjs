@@ -7,6 +7,7 @@ const { tmpdir } = require('node:os');
 const root = join(__dirname, '../..');
 const evidence = process.env.MERIDIAN_UI_FLOW_EVIDENCE || join(root, 'ui-flow-evidence');
 const requireOSHighContrast = process.env.MERIDIAN_REQUIRE_OS_HIGH_CONTRAST === '1';
+const compositionMode = process.env.MERIDIAN_ASSET_COMPOSITION === '1';
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -209,6 +210,30 @@ app.whenReady().then(async () => {
     })()`);
     await click(window, '#studio-asset-client ul li button');
     await waitFor(window, '#studio-asset-client [data-focus="name"]');
+    if (compositionMode) {
+      const tokens = await window.webContents.executeJavaScript(`(() => {
+        const host=document.querySelector('#studio-asset-client');const field=host.querySelector('[data-focus=name]');
+        return {color:getComputedStyle(host).color,panel:getComputedStyle(host).backgroundColor,border:getComputedStyle(field).borderTopColor,font:getComputedStyle(host).fontFamily,
+          forcedColors:matchMedia('(forced-colors:active)').matches,continuationHelper:typeof StudioAssetModel.assertContinuation,
+          resultCount:[...host.querySelectorAll('[role=status]')].some(el=>el.textContent==='1 matching asset.')};
+      })()`);
+      assert.equal(tokens.continuationHelper,'function');
+      assert.equal(tokens.resultCount,true);
+      if (!tokens.forcedColors) {
+        assert.equal(tokens.color,'rgb(242, 246, 251)');
+        assert.equal(tokens.panel,'rgb(14, 27, 46)');
+        assert.equal(tokens.border,'rgb(166, 181, 202)');
+      }
+      assert.match(tokens.font,/Inter/);
+      await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [data-focus=name]').focus()");
+      window.webContents.sendInputEvent({type:'keyDown',keyCode:'Tab'});
+      window.webContents.sendInputEvent({type:'keyUp',keyCode:'Tab'});
+      await pause(80);
+      assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.focus'),'tags');
+      await fs.writeFile(join(evidence,'composition-tokens.json'),JSON.stringify(tokens,null,2));
+      await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [data-focus=name]').scrollIntoView({block:'center'})");
+      await capture(window,'14-composed-asset-tokens');
+    }
     await window.webContents.executeJavaScript(`(() => {
       const input=document.querySelector('#studio-asset-client [data-focus="name"]');
       input.value='UNSAVED COMBINED ASSET'; input.dispatchEvent(new Event('input',{bubbles:true}));
@@ -216,6 +241,17 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="surface"][data-value="website"]');
     await waitFor(window, '#studio-asset-client [aria-label="Unsaved host transition"]');
     await capture(window, '05-composed-asset-warning');
+    if (compositionMode) {
+      await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"] button').focus()");
+      window.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});
+      window.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});
+      await until(window,"!document.querySelector('#studio-asset-client [aria-label=\"Unsaved host transition\"]')");
+      assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.focus'),'name');
+      assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [data-focus=name]').value"),'UNSAVED COMBINED ASSET');
+      await click(window,'[data-action="surface"][data-value="website"]');
+      await waitFor(window,'#studio-asset-client [aria-label="Unsaved host transition"]');
+      await fs.writeFile(join(evidence,'composition-keyboard.json'),JSON.stringify({actualTab:'name to tags',actualEscape:'inline warning cancelled, dirty value retained, focus name',source:'Pinned composition manifest in test-output/composition/inputs.json',limits:'Not Narrator speech; not a modal/inert claim'},null,2));
+    }
     await window.webContents.executeJavaScript("[...document.querySelectorAll('#studio-asset-client button')].find(x=>x.textContent==='Keep editing').click()");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-asset-client [data-focus=name]').value"), 'UNSAVED COMBINED ASSET');
     await click(window, '[data-action="surface"][data-value="website"]');
