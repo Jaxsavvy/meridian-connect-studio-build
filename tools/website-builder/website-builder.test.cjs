@@ -207,3 +207,31 @@ test('Index pages cannot overwrite the home file and conflicting imported record
   invalid.pages[1].slug = 'index';
   assert.throws(() => exportSite(invalid), /filename/i);
 });
+
+test('scene-to-page copies only same-project synthetic text and preserves its source through save/reopen', () => {
+  const active = controller(); active.createProject('Scene site');
+  const scene = { projectId: meridianProject.id, sceneId: 'scene-proof', title: 'Proof', notes: '<script>untrusted notes</script>' };
+  assert.equal(active.addScenePage({ ...scene, projectId: 'other-project' }), false);
+  assert.equal(active.snapshot().project.pages.length, 1);
+  assert.equal(active.addScenePage(scene), true);
+  assert.equal(active.snapshot().dirty, true);
+  assert.match(active.preview(), /&lt;script&gt;/);
+  assert.equal(active.save(), true);
+  const id = active.snapshot().project.id;
+  active.openProject(id);
+  const page = active.snapshot().project.pages[1];
+  assert.equal(page.source.sceneId, 'scene-proof');
+  assert.equal(page.source.projectId, meridianProject.id);
+  const invalid = active.snapshot().project;
+  invalid.pages[1].source.projectId = 'other-project';
+  assert.throws(() => exportSite(invalid), /source does not match/);
+});
+
+test('failed website creation reports an error without crashing the local workspace', () => {
+  const storage = createMemoryStorage();
+  const active = controller(storage);
+  storage.setItem = () => { throw new Error('Local storage full'); };
+  assert.equal(active.createProject('Cannot create'), false);
+  assert.equal(active.snapshot().project, null);
+  assert.match(active.snapshot().error, /Local storage full/);
+});

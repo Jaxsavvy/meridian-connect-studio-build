@@ -43,6 +43,7 @@
       if (!Array.isArray(page.sections) || page.sections.length > 100) throw new Error('Website page sections are invalid.');
       if (filenames.has(pageFilename(page))) throw new Error('Each page needs a unique export filename.');
       filenames.add(pageFilename(page));
+      if (page.source && (page.source.kind !== 'synthetic-storyboard' || page.source.projectId !== expectedProjectId || typeof page.source.sceneId !== 'string' || !page.source.sceneId)) throw new Error('Website page source does not match this project.');
       pageIds.add(page.id);
       slugs.add(page.slug || '');
       for (const section of page.sections) {
@@ -207,7 +208,11 @@
       if (!contextProject) return false;
       const id = makeId('website');
       const project = initialProject({ id, meridianProjectId: contextProject.id, name, now: now() });
-      repository.save(project);
+      try { repository.save(project); }
+      catch (error) {
+        state = { ...state, error: error.message || 'Website creation failed.', status: 'Website could not be created. Existing projects are unchanged.' };
+        emit(); return false;
+      }
       history = []; future = [];
       refreshList();
       state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Website project created and saved locally.' };
@@ -254,6 +259,7 @@
     function addPage(title) {
       const label = cleanText(title || 'New page', 120);
       return mutate(project => {
+        if (project.pages.length >= 50) throw new Error('This website already has 50 pages.');
         const base = safeId(label, 'page');
         let slug = base; let suffix = 2;
         while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) slug = `${base}-${suffix++}`;
@@ -261,6 +267,22 @@
         project.pages.push({ id, title: label, slug, sections: [{ id: makeId('section'), type: 'content', heading: label, body: 'Add the content this page needs.', action: '' }] });
         state.selectedPageId = id;
       }, `${label} added to the sitemap.`);
+    }
+
+    function addScenePage(scene) {
+      if (!contextProject || !scene || scene.projectId !== contextProject.id || typeof scene.sceneId !== 'string' || !scene.sceneId) return false;
+      return mutate(project => {
+        if (project.pages.length >= 50) throw new Error('This website already has 50 pages.');
+        const title = cleanText(scene.title || 'Storyboard scene', 120);
+        const base = safeId(title, 'scene');
+        let slug = base; let suffix = 2;
+        while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) slug = `${base}-${suffix++}`;
+        const id = makeId('page');
+        project.pages.push({ id, title, slug,
+          source: { kind: 'synthetic-storyboard', projectId: contextProject.id, sceneId: scene.sceneId },
+          sections: [{ id: makeId('section'), type: 'content', heading: title, body: cleanText(scene.notes, 8000), action: '' }] });
+        state.selectedPageId = id;
+      }, 'Synthetic scene copied to a local page. Save the website to keep it.');
     }
 
     function selectPage(id) {
@@ -346,7 +368,7 @@
       }
     }
 
-    return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, addPage, selectPage,
+    return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, addPage, addScenePage, selectPage,
       updatePage, addSection, updateSection, save, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; } });

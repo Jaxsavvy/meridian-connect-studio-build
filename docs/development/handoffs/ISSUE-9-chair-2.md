@@ -1,5 +1,12 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 combined interface implementation
+
+- Separate branch `feature/tyler-dev006-combined` composes #34 `7f8a2b0`, #35 `647bb9e` and #37 `d0d7c99`; all original PRs remain unmerged. Exact shared-file plan posted on #34 before editing. Preserved accepted project handler, both development loaders, mounted Asset lifecycle, guided Website flow and all prior fixes.
+- Completed project-centered continuation/readiness UI; editor-only synthetic asset references; same-project synthetic scene-text copying into an open website page with provenance; review/handoff screen with unavailable authoritative submission/approval/publishing. Fixed internal Website navigation bypass, campaign save/reopen/reference retention and pending-save acknowledgement masking newer edits. Added create-storage failure recovery.
+- Local relevant Node suite 117/117 passed, plus syntax/whitespace. Dedicated guided CI now exercises both combined Electron flows, keyboard, Website/Asset guards, scene-to-page, handoff, 200% zoom, accessibility media emulation and employee gate. Actual runtime/visual outcomes still require the published run's evidence; no claim made before inspection.
+- Acceptance matrix and precise external/platform limits: `docs/studio/design/9/DEV006_ACCEPTANCE.md`. Backend/provider/review policy integrations remain separately assigned; no live data, paid services, bridge/API or release changes. Actual screen-reader, Windows High Contrast and installed-app evidence require appropriate access. Independent PR reviews remain outstanding; do not close #9 or merge existing PRs.
+
 ## 2026-10-15 corrected-evidence integration readback
 
 - Current input heads: #34 `38c093fe4691a2add2c7d9761aa266cc1353403a`; #35 `647bb9e0391f9188fdf1022b5cea30c258011350`. Both open and unmerged. Builder fix `8115f7d` preserved. No reviews from #34's requested reviewers Jaxsavvy or Theecassycat have been submitted.

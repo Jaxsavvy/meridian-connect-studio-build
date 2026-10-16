@@ -169,3 +169,28 @@ test('primary action blue meets WCAG AA contrast for normal white text', () => {
   }
   assert.ok(contrast([255, 255, 255], [31, 111, 214]) >= 4.5);
 });
+
+test('saved synthetic scene edits and placed references survive reopening the scene', async () => {
+  const { workspace } = await readyWorkspace();
+  workspace.updateEditor('title', 'Revised opening');
+  workspace.selectAsset('asset-ridge'); workspace.placeSelectedAsset();
+  assert.equal(await workspace.saveDraft(), true);
+  workspace.selectScene('scene-proof'); workspace.selectScene('scene-opening');
+  assert.equal(workspace.snapshot().editor.title, 'Revised opening');
+  assert.deepEqual(workspace.snapshot().editor.assetIds, ['asset-ridge']);
+  assert.equal(workspace.snapshot().data.assets[0].version, 'v1');
+  workspace.destroy();
+});
+
+test('an earlier save acknowledgement cannot mark newer scene edits as saved', async () => {
+  let finish;
+  const adapter = { load: project => Promise.resolve(createProjectFixture(project)), save: payload => new Promise(resolve => { finish = () => resolve({ ...payload, savedAt: new Date(0).toISOString() }); }) };
+  const { workspace } = await readyWorkspace(adapter);
+  workspace.updateEditor('notes', 'Earlier edit'); const saving = workspace.saveDraft();
+  workspace.updateEditor('notes', 'Newer edit'); finish();
+  assert.equal(await saving, true);
+  assert.equal(workspace.snapshot().editor.notes, 'Newer edit');
+  assert.equal(workspace.snapshot().unsaved, true);
+  assert.equal(workspace.snapshot().data.scenes[0].note, 'Earlier edit');
+  workspace.destroy();
+});

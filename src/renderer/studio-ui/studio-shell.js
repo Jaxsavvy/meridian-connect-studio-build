@@ -17,7 +17,7 @@
     return String(value || '').toLocaleLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
   }
 
-  function mount({ host, context, getProjects, onProjectSelect }) {
+  function mount({ host, context, getProjects, onProjectSelect, assetMount = null, assetDeps = null }) {
     if (!host || !context || !root.MeridianStudioWorkspace || !root.MeridianStudioFixtures || !root.MeridianWebsiteBuilder) {
       throw new TypeError('Studio shell dependencies are unavailable.');
     }
@@ -28,21 +28,45 @@
     let viewState = null;
     let announcementTimer = null;
     let dialogReturnFocus = null;
+    let assetTransitionPending = false;
+    let executingApprovedTransition = false;
+    let assetLifecycle = null;
+    let assetContainer = null;
     const adapter = root.MeridianStudioFixtures.createSyntheticAdapter();
     let websiteState = null;
     let websiteContextId = null;
     let websiteStorage;
+    let websiteStoragePersistent = false;
+    let websiteStep = 'brief';
+    let websiteProjectId = null;
+    let websiteDevice = 'desktop';
+    const websiteSteps = [
+      { id: 'brief', label: 'Brief', hint: 'Define the audience and outcome' },
+      { id: 'pages', label: 'Pages', hint: 'Organize the site' },
+      { id: 'edit', label: 'Edit', hint: 'Shape the selected page' },
+      { id: 'preview', label: 'Preview', hint: 'Check and download a page' },
+    ];
     try {
       websiteStorage = root.localStorage;
       const probe = 'meridian.website.storage.probe';
       websiteStorage.setItem(probe, '1');
       websiteStorage.removeItem(probe);
+      websiteStoragePersistent = true;
     } catch (_) {
       websiteStorage = root.MeridianWebsiteBuilder.createMemoryStorage();
     }
     const website = root.MeridianWebsiteBuilder.createController({
       storage: websiteStorage,
-      onChange(next) { websiteState = next; render(); },
+      onChange(next) {
+        const nextId = next.project && next.project.id;
+        if (nextId !== websiteProjectId) {
+          websiteProjectId = nextId || null;
+          websiteStep = 'brief';
+          websiteDevice = 'desktop';
+        }
+        websiteState = next;
+        render();
+      },
     });
     const workspace = root.MeridianStudioWorkspace.createWorkspace({
       context,
@@ -51,6 +75,8 @@
         viewState = next;
         const nextProjectId = next.project && next.project.id;
         if (nextProjectId !== websiteContextId) {
+          pendingLeave = null;
+          dialogReturnFocus = null;
           websiteContextId = nextProjectId || null;
           website.selectContext(next.project);
         }
@@ -58,8 +84,38 @@
       },
     });
 
+    if (assetMount && assetDeps) {
+      assetContainer = document.createElement('div');
+      assetContainer.id = 'studio-asset-client';
+      assetLifecycle = assetMount.mount({ container: assetContainer, context, deps: assetDeps });
+    }
+
+    function continueAfterAssetGuard(callback) {
+      if (assetTransitionPending) return;
+      if (!assetLifecycle) { if (callback) callback(); return; }
+      const lifecycle = assetLifecycle;
+      const ticket = context.beginProjectRequest();
+      assetTransitionPending = true;
+      Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
+        assetTransitionPending = false;
+        if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
+          // A confirmed host transition may re-enter guardLeave synchronously.
+          // The approval is valid only for that callback, never a later navigation.
+          if (callback) setTimeout(() => {
+            if (lifecycle !== assetLifecycle || (ticket && !context.isCurrentRequest(ticket))) return;
+            executingApprovedTransition = true;
+            try { callback(); } finally { executingApprovedTransition = false; }
+          }, 0);
+        }
+      }).catch(error => {
+        assetTransitionPending = false;
+        console.error('Studio Asset Library transition failed.', error);
+      });
+    }
+
     function projects() {
-      const items = typeof getProjects === 'function' ? getProjects() : [];
+      // Use only the accepted Connect context list: cached panel data may contain revoked projects.
+      const items = context.snapshot().projects;
       return Array.isArray(items) ? items.filter(item => item && item.id && item.name) : [];
     }
 
@@ -112,8 +168,9 @@
       const items = [
         ['operations', 'Operations', 'Production overview'],
         ['editor', 'Campaign editor', 'Synthetic first slice'],
-        ['assets', 'Asset Library', 'Read-only interaction preview'],
-        ['website', 'Website Builder', 'Persistent local projects'],
+        ['assets', 'Asset Library', assetLifecycle ? 'Writable synthetic development client' : 'Read-only interaction preview'],
+        ['website', 'Website Builder', 'Website projects'],
+          ['handoff', 'Review & handoff', 'Readiness and service boundaries'],
         ['states', 'States', 'Recovery patterns'],
       ];
       return `<nav class="studio-local-nav" aria-label="Studio workspace"${modalOpen ? ' inert aria-hidden="true"' : ''}>
@@ -200,6 +257,14 @@
       const campaign = data.campaign;
       const reviewed = data.decisions.find(item => item.id === state.reviewedDecisionId);
       return `<div class="studio-surface" data-surface="operations">
+        <section class="studio-section" aria-labelledby="studio-current-work-title">
+          <div class="studio-section-heading"><div><span class="studio-kicker">Selected project</span><h2 id="studio-current-work-title">Continue your work</h2></div><p>Website drafts stay on this device. Campaign scenes and assets are synthetic.</p></div>
+          <div class="studio-decision-grid">
+            <article class="studio-decision"><h3>Website projects</h3><p>${websiteState ? websiteState.projects.length : 0} local website projects in this project.</p><button type="button" class="studio-button studio-button--primary" data-action="surface" data-value="website">${websiteState && websiteState.project ? 'Continue website' : 'Create or reopen website'}</button></article>
+            <article class="studio-decision"><h3>Storyboard draft</h3><p>${data.scenes.length} synthetic scenes. Save a scene before copying its content into an open website.</p><button type="button" class="studio-button studio-button--secondary" data-action="continue-campaign">Continue storyboard draft</button></article>
+            <article class="studio-decision"><h3>Review readiness</h3><p>${data.decisions.filter(item => item.state === 'Needs review').length} synthetic decisions awaiting a choice.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="handoff">Review handoff readiness</button></article>
+          </div>
+        </section>
         <section class="studio-campaign" aria-labelledby="studio-campaign-title">
           <div class="studio-campaign__copy">
             <span class="studio-kicker">Active campaign · ${escapeHtml(campaign.status)}</span>
@@ -210,9 +275,9 @@
           <div class="studio-progress" aria-label="Campaign assembly ${campaign.progress} percent complete">
             <div class="studio-progress__ring" style="--progress:${campaign.progress * 3.6}deg"><strong>${campaign.progress}%</strong><span>assembly</span></div>
             <dl>
-              <div><dt>Scenes</dt><dd>${campaign.scenes}</dd></div>
-              <div><dt>Assets</dt><dd>${campaign.assets}</dd></div>
-              <div><dt>Decisions</dt><dd>${campaign.decisions}</dd></div>
+              <div><dt>Scenes</dt><dd>${data.scenes.length}</dd></div>
+              <div><dt>Synthetic assets</dt><dd>${data.assets.length}</dd></div>
+              <div><dt>Decisions</dt><dd>${data.decisions.length}</dd></div>
             </dl>
           </div>
         </section>
@@ -230,7 +295,7 @@
 
           <section class="studio-section" aria-labelledby="studio-assets-preview-title">
             <div class="studio-section-heading"><div><span class="studio-kicker">Recent assets</span><h2 id="studio-assets-preview-title">Project material</h2></div>
-              <button type="button" class="studio-text-action" data-action="surface" data-value="assets" aria-label="View all ${campaign.assets} project assets">View all ${campaign.assets}</button></div>
+              <button type="button" class="studio-text-action" data-action="surface" data-value="assets">Open project Asset Library</button></div>
             <div class="studio-asset-preview-grid">
               ${data.assets.slice(0, 4).map(asset => `<article class="studio-asset-preview">
                 <div class="studio-asset-art studio-asset-art--${attr(asset.tone)}" role="img" aria-label="Abstract synthetic preview for ${attr(asset.name)}"><span aria-hidden="true">${escapeHtml(asset.version)}</span></div>
@@ -292,7 +357,25 @@
           </section>
         </div>
         ${state.saveState === 'Error' ? `<div class="studio-inline-error" role="alert"><div><strong>Save failed.</strong><p>${escapeHtml(state.error)} Your edits remain in this window.</p></div><button type="button" class="studio-button studio-button--primary" data-action="save">Retry save</button></div>` : ''}
+        <section class="studio-section" aria-labelledby="studio-scene-material-title"><div class="studio-section-heading"><div><span class="studio-kicker">Storyboard material · synthetic only</span><h3 id="studio-scene-material-title">Stage a reference, then place it</h3></div><p>These fixture references are separate from the mounted Asset Library. Originals and versions stay unchanged.</p></div>
+          <div class="studio-filter-group">${data.assets.map(asset => `<button type="button" class="studio-button studio-button--secondary" data-action="asset-select" data-value="${attr(asset.id)}" aria-pressed="${asset.id === state.selectedAssetId}">${escapeHtml(asset.name)} · ${escapeHtml(asset.version)}</button>`).join('')}</div>
+          <p>${(state.editor.assetIds || []).length} synthetic references placed in this scene.</p>
+          <button type="button" class="studio-button studio-button--secondary" data-action="asset-place" ${state.selectedAssetId ? '' : 'disabled'}>Place selected synthetic reference</button>
+          <button type="button" class="studio-button studio-button--secondary" data-action="scene-to-website" ${websiteState && websiteState.project ? '' : 'disabled'}>Copy scene into open website</button>
+          <p>Open or create a website first. This copies scene text into a new local page with its source scene recorded; no media service or live storyboard is connected.</p>
+        </section>
       </div>`;
+    }
+
+    function renderHandoff(state) {
+      return `<section class="studio-surface studio-section" data-surface="handoff" aria-labelledby="studio-handoff-title">
+        <span class="studio-kicker">Review &amp; handoff · development only</span><h2 id="studio-handoff-title">Check what is ready to hand over</h2>
+        <dl><div><dt>Project</dt><dd>${escapeHtml(state.project.name)}</dd></div><div><dt>Campaign draft</dt><dd>${state.unsaved ? 'Unsaved changes' : escapeHtml(state.saveState)} · synthetic session memory</dd></div><div><dt>Website</dt><dd>${websiteState && websiteState.project ? escapeHtml(websiteState.project.name) + (websiteState.dirty ? ' · Unsaved changes' : ' · Saved locally') : 'No website open'}</dd></div></dl>
+        <h3>Before sending for review</h3><ul><li>Save the local website and synthetic draft.</li><li>Inspect each page in Preview and verify source references.</li><li>Have an authorized reviewer accept the exact revision through the approved service when it is connected.</li></ul>
+        <p role="note">Review submission, approval, approved-version export and publishing are unavailable. Reviewer policy and authoritative revision services are not connected. The synthetic decision queue is a UI demonstration.</p>
+        <div class="studio-filter-group"><button type="button" class="studio-button" disabled>Submit to reviewer — unavailable</button><button type="button" class="studio-button" disabled>Approve revision — unavailable</button><button type="button" class="studio-button" disabled>Publish website — unavailable</button></div>
+        <p>Preview downloads remain local draft HTML, not approved publication.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="website">Open website workspace</button>
+      </section>`;
     }
 
     function renderAssets(state) {
@@ -335,32 +418,55 @@
       </div>`;
     }
 
+    function openWebsiteStep(step) {
+      if (!websiteSteps.some(item => item.id === step)) return;
+      websiteStep = step;
+      render();
+      requestAnimationFrame(() => {
+        const heading = host.querySelector('[data-website-panel="' + step + '"] h3');
+        heading?.focus({ preventScroll: true });
+        host.querySelector('.website-flow-nav')?.scrollIntoView({ block: 'nearest' });
+      });
+    }
+
     function renderWebsite() {
       const state = websiteState;
       if (!state || state.phase === 'no-context') return renderNoProject();
       if (state.phase !== 'editing' || !state.project) {
         return `<div class="studio-surface website-builder" data-surface="website">
-          <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder · local development capability</span><h2 id="website-builder-title">Create or reopen a website project.</h2><p>Projects are isolated to the selected Meridian project and saved in persistent application storage with a recovery copy.</p></div></section>
+          <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder · local development capability</span><h2 id="website-builder-title">Create or reopen a website project.</h2><p>${websiteStoragePersistent ? 'Websites are saved in this app on this device, with a recovery copy. Team sync is not connected.' : 'Storage is unavailable. Websites are session only and will be lost when this window reloads.'}</p></div></section>
+          ${state.error ? `<p class="studio-inline-error" role="alert">${escapeHtml(state.error)}. Try again when local storage is available.</p>` : ''}
           <section class="studio-section"><div class="website-create"><div class="studio-field"><label for="website-new-name">Website project name</label><input id="website-new-name" maxlength="160" placeholder="Example: Summit Roofing website" data-focus-key="website-new-name"></div><button type="button" class="studio-button studio-button--primary" data-action="website-create">Create website project</button></div></section>
-          <section class="studio-section" aria-labelledby="website-saved-title"><div class="studio-section-heading"><div><span class="studio-kicker">Saved locally</span><h2 id="website-saved-title">Reopen work</h2></div><p>${state.projects.length} saved project${state.projects.length === 1 ? '' : 's'}</p></div>
+          <section class="studio-section" aria-labelledby="website-saved-title"><div class="studio-section-heading"><div><span class="studio-kicker">${websiteStoragePersistent ? 'Saved in this app' : 'Session only'}</span><h2 id="website-saved-title">Reopen work</h2></div><p>${state.projects.length} saved project${state.projects.length === 1 ? '' : 's'}</p></div>
             ${state.projects.length ? `<div class="website-project-list">${state.projects.map(project => `<article><div><h3>${escapeHtml(project.name)}</h3><p>${project.pageCount} page${project.pageCount === 1 ? '' : 's'} · Updated ${escapeHtml(new Date(project.updatedAt).toLocaleString())}</p></div><button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(project.id)}">Open project</button></article>`).join('')}</div>` : '<p>No website projects have been saved for this Meridian project.</p>'}
           </section></div>`;
       }
 
       const project = state.project;
+      const stepIndex = websiteSteps.findIndex(item => item.id === websiteStep);
+      const step = websiteSteps[stepIndex];
+      const saveLabel = state.error ? 'Save needs attention' : state.dirty ? 'Unsaved changes' : websiteStoragePersistent ? 'Saved in this app' : 'Session only';
+      const saveHelp = state.error ? 'Your current edits remain here. Try saving again before leaving.' : websiteStoragePersistent ? 'Local to this app on this device. Team sync is not connected.' : 'Storage is unavailable. Keep this window open; session changes will be lost on reload.';
+
       const page = project.pages.find(item => item.id === state.selectedPageId) || project.pages[0];
       return `<div class="studio-surface website-builder" data-surface="website">
-        <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder · ${state.dirty ? 'Unsaved changes' : 'Saved locally'}</span><h2 id="website-builder-title">${escapeHtml(project.name)}</h2><p>Brief, sitemap, content, preview, recovery, and HTML output share one project model.</p></div><div class="studio-save-cluster"><button type="button" class="studio-button studio-button--secondary" data-action="website-undo">Undo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-redo">Redo</button><button type="button" class="studio-button studio-button--primary" data-action="website-save" ${state.dirty ? '' : 'disabled'}>Save project</button></div></section>
+        <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder</span><h2 id="website-builder-title">${escapeHtml(project.name)}</h2><p>One website, four focused steps. Return to any step without losing your current edits.</p></div><div class="studio-save-cluster"><button type="button" class="studio-button studio-button--secondary" data-action="website-list">All websites</button><button type="button" class="studio-button studio-button--secondary" data-action="website-undo">Undo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-redo">Redo</button><button type="button" class="studio-button studio-button--primary" data-action="website-save" ${state.dirty ? '' : 'disabled'}>Save project</button></div></section>
         ${state.error ? `<div class="studio-inline-error" role="alert"><div><strong>Website save or recovery failed.</strong><p>${escapeHtml(state.error)}</p></div></div>` : ''}
-        <div class="website-builder-grid">
-          <aside class="website-panel" aria-labelledby="website-brief-title"><span class="studio-kicker">Strategy</span><h3 id="website-brief-title">Client brief</h3>${['audience', 'goal', 'tone', 'offer'].map(field => `<div class="studio-field"><label for="website-brief-${field}">${field[0].toUpperCase()}${field.slice(1)}</label><textarea id="website-brief-${field}" rows="3" data-website-brief="${field}" data-focus-key="website-brief-${field}">${escapeHtml(project.brief[field])}</textarea></div>`).join('')}</aside>
-          <section class="website-panel" aria-labelledby="website-sitemap-title"><span class="studio-kicker">Structure</span><h3 id="website-sitemap-title">Sitemap</h3><div class="website-page-list">${project.pages.map(item => `<button type="button" class="website-page${item.id === page.id ? ' is-current' : ''}" data-action="website-page" data-value="${attr(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ''}><span>${escapeHtml(item.title)}</span><small>/${escapeHtml(item.slug)}</small></button>`).join('')}</div><div class="website-add-row"><label class="studio-field"><span>New page title</span><input id="website-page-name" maxlength="120" placeholder="Services"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-page">Add page</button></div></section>
-          <section class="website-panel website-page-editor" aria-labelledby="website-page-editor-title"><div class="studio-section-heading"><div><span class="studio-kicker">Page construction</span><h3 id="website-page-editor-title">Edit ${escapeHtml(page.title)}</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-add-section">Add section</button></div>
+        <div class="website-flow-status" role="status" aria-live="polite"><strong class="website-save-state${state.dirty ? ' is-dirty' : ''}">${escapeHtml(saveLabel)}</strong><span>${escapeHtml(saveHelp)}</span></div>
+        <nav class="website-flow-nav" aria-label="Website workflow">
+          ${websiteSteps.map((item, index) => `<button type="button" data-action="website-step" data-value="${item.id}" ${item.id === websiteStep ? 'aria-current="step"' : ''}><span class="website-flow-number" aria-hidden="true">${index + 1}</span><span><strong>${item.label}</strong><small>${item.hint}</small></span></button>`).join('')}
+        </nav>
+        <div class="website-step-heading"><span class="studio-kicker">Step ${stepIndex + 1} of ${websiteSteps.length}</span><p>${step.id === 'brief' ? 'Start with who this website serves and what it should achieve.' : step.id === 'pages' ? 'Choose a page to work on, or add the next page your site needs.' : step.id === 'edit' ? 'Edit the selected page. Use Pages to move to a different page.' : 'Check the selected page at different widths. Download exports this page only.'}</p></div>
+        <div class="website-builder-grid website-guided-grid">
+          <aside class="website-panel website-brief-panel" data-website-panel="brief" ${websiteStep === 'brief' ? '' : 'hidden'} aria-labelledby="website-brief-title"><span class="studio-kicker">Strategy</span><h3 id="website-brief-title" tabindex="-1">Client brief</h3>${['audience', 'goal', 'tone', 'offer'].map(field => `<div class="studio-field"><label for="website-brief-${field}">${field[0].toUpperCase()}${field.slice(1)}</label><textarea id="website-brief-${field}" rows="3" data-website-brief="${field}" data-focus-key="website-brief-${field}">${escapeHtml(project.brief[field])}</textarea></div>`).join('')}</aside>
+          <section class="website-panel" data-website-panel="pages" ${websiteStep === 'pages' ? '' : 'hidden'} aria-labelledby="website-sitemap-title"><span class="studio-kicker">Structure</span><h3 id="website-sitemap-title" tabindex="-1">Sitemap</h3><div class="website-page-list">${project.pages.map(item => `<button type="button" class="website-page${item.id === page.id ? ' is-current' : ''}" data-action="website-page" data-value="${attr(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ''}><span>${escapeHtml(item.title)}</span><small>/${escapeHtml(item.slug)}</small></button>`).join('')}</div><div class="website-add-row"><label class="studio-field"><span>New page title</span><input id="website-page-name" maxlength="120" placeholder="Services"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-page">Add page</button></div></section>
+          <section class="website-panel website-page-editor" data-website-panel="edit" ${websiteStep === 'edit' ? '' : 'hidden'} aria-labelledby="website-page-editor-title"><div class="studio-section-heading"><div><span class="studio-kicker">Page construction</span><h3 id="website-page-editor-title" tabindex="-1">Edit ${escapeHtml(page.title)}</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-add-section">Add section</button></div>
             <div class="website-page-settings"><div class="studio-field"><label for="website-page-title">Page title</label><input id="website-page-title" value="${attr(page.title)}" data-website-page="title" data-focus-key="website-page-title"></div><div class="studio-field"><label for="website-page-slug">URL slug</label><input id="website-page-slug" value="${attr(page.slug)}" data-website-page="slug" data-focus-key="website-page-slug"></div></div>
             <div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong></div><div class="studio-field"><label for="website-${section.id}-heading">Heading</label><input id="website-${section.id}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div><div class="studio-field"><label for="website-${section.id}-body">Body</label><textarea id="website-${section.id}-body" rows="4" data-website-section="${attr(section.id)}" data-field="body" data-focus-key="website-${attr(section.id)}-body">${escapeHtml(section.body)}</textarea></div><div class="studio-field"><label for="website-${section.id}-action">Action label</label><input id="website-${section.id}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div></article>`).join('')}</div>
           </section>
-          <section class="website-panel website-preview" aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(page.slug || 'index')}.html</button></div><iframe title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></section>
-        </div></div>`;
+          <section class="website-panel website-preview" data-website-panel="preview" ${websiteStep === 'preview' ? '' : 'hidden'} aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title" tabindex="-1">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(page.slug || 'index')}.html</button></div><div class="website-device-bar" role="group" aria-label="Preview width">${[['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([id, label]) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-device" data-value="${id}" aria-pressed="${websiteDevice === id}">${label}</button>`).join('')}<span>${websiteDevice === 'desktop' ? 'Fits the workspace' : websiteDevice === 'tablet' ? '768 px target · fits available space' : '375 px target · fits available space'}</span></div><div class="website-preview-stage"><iframe class="website-device-${websiteDevice}" title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></div></section>
+        </div>
+        <footer class="website-flow-footer"><span>${escapeHtml(page.title)} · ${project.pages.length} page${project.pages.length === 1 ? '' : 's'} in this website</span><div>${stepIndex > 0 ? `<button type="button" class="studio-button studio-button--secondary" data-action="website-step" data-value="${websiteSteps[stepIndex - 1].id}">Back to ${websiteSteps[stepIndex - 1].label}</button>` : ''}${stepIndex < websiteSteps.length - 1 ? `<button type="button" class="studio-button studio-button--primary" data-action="website-step" data-value="${websiteSteps[stepIndex + 1].id}">Continue to ${websiteSteps[stepIndex + 1].label}</button>` : '<button type="button" class="studio-button studio-button--primary" data-action="website-step" data-value="edit">Return to editing</button>'}</div></footer></div>`;
     }
 
     function renderToolDialog(state) {
@@ -401,8 +507,11 @@
       else if (viewState.phase === 'error') content = renderLoadError(viewState);
       else if (!viewState.data) content = renderNoProject();
       else if (viewState.surface === 'editor') content = renderEditor(viewState);
-      else if (viewState.surface === 'assets') content = renderAssets(viewState);
+      else if (viewState.surface === 'assets') content = assetLifecycle
+        ? '<section class="studio-surface" data-surface="assets"><div id="studio-asset-client-slot"></div></section>'
+        : renderAssets(viewState);
       else if (viewState.surface === 'website') content = renderWebsite();
+      else if (viewState.surface === 'handoff') content = renderHandoff(viewState);
       else if (viewState.surface === 'states') content = renderStates(viewState);
       else content = renderOperations(viewState);
 
@@ -415,6 +524,9 @@
           <div class="studio-live-status" role="status" aria-live="polite" aria-atomic="true">${escapeHtml(viewState.statusMessage)}</div>
           <main class="studio-main" id="studio-main" tabindex="-1">${content}</main>
         </div>${pendingLeave ? renderLeaveDialog() : renderToolDialog(viewState)}</div>`;
+      if (assetContainer && viewState.surface === 'assets') {
+        host.querySelector('#studio-asset-client-slot')?.appendChild(assetContainer);
+      }
       host.hidden = !active;
       restoreFocus(focused, selection);
       if (pendingLeave || viewState.toolDetailId) {
@@ -428,11 +540,17 @@
       if (!button || !host.contains(button)) return;
       const action = button.dataset.action;
       const value = button.dataset.value;
-      if (action === 'surface') workspace.openSurface(value);
+      if (action === 'surface' && value !== viewState.surface) requestTransition(() => workspace.openSurface(value), 'change Studio workspace');
       else if (action === 'focus-project') host.querySelector('#studio-project-select')?.focus();
       else if (action === 'retry-load') workspace.retryLoad();
-      else if (action === 'continue-campaign') workspace.selectScene(viewState.data.scenes[0].id);
-      else if (action === 'scene') workspace.selectScene(value);
+      else if (action === 'continue-campaign') requestTransition(() => viewState.data.scenes[0] ? workspace.selectScene(viewState.data.scenes[0].id) : workspace.createEmptyDraft(), 'open the storyboard draft');
+      else if (action === 'scene') requestTransition(() => workspace.selectScene(value), 'open another scene');
+      else if (action === 'scene-to-website') requestTransition(() => {
+        if (!viewState.project || !websiteState || !websiteState.project) return;
+        if (website.addScenePage({ projectId: viewState.project.id, sceneId: viewState.selectedSceneId, title: viewState.editor.title, notes: viewState.editor.notes })) {
+          workspace.openSurface('website'); openWebsiteStep('edit');
+        }
+      }, 'copy this scene into the open website');
       else if (action === 'save') await workspace.saveDraft();
       else if (action === 'submit-review') workspace.submitForReview();
       else if (action === 'asset-filter') workspace.setAssetFilter(value);
@@ -449,6 +567,15 @@
       else if (action === 'website-create') {
         const input = host.querySelector('#website-new-name');
         website.createProject(input && input.value.trim() ? input.value.trim() : 'Untitled website');
+      }
+      else if (action === 'website-step') openWebsiteStep(value);
+      else if (action === 'website-device' && ['desktop', 'tablet', 'phone'].includes(value)) {
+        websiteDevice = value;
+        render();
+        host.querySelector('[data-action="website-device"][data-value="' + value + '"]')?.focus({ preventScroll: true });
+      }
+      else if (action === 'website-list') {
+        if (guardLeave(() => website.close(), 'return to saved websites')) website.close();
       }
       else if (action === 'website-open') website.openProject(value);
       else if (action === 'website-page') website.selectPage(value);
@@ -473,22 +600,32 @@
       else if (action === 'discard-leave') {
         const callback = pendingLeave && pendingLeave.callback;
         const scope = pendingLeave && pendingLeave.scope;
+        const reason = pendingLeave && pendingLeave.reason;
+        const discarded = scope === 'website' ? website.discard() : (workspace.discardChanges(), true);
+        if (!discarded) return;
         pendingLeave = null;
         dialogReturnFocus = null;
-        if (scope === 'website') website.discard();
-        else workspace.discardChanges();
-        if (callback) callback();
+        render();
+        if (callback) requestTransition(callback, reason);
       } else if (action === 'save-leave') {
         const callback = pendingLeave && pendingLeave.callback;
         const scope = pendingLeave && pendingLeave.scope;
+        const reason = pendingLeave && pendingLeave.reason;
         const saved = scope === 'website' ? website.save() : await workspace.saveDraft();
-        if (saved) { pendingLeave = null; dialogReturnFocus = null; if (callback) callback(); }
+        if (saved) {
+          pendingLeave = null;
+          dialogReturnFocus = null;
+          render();
+          if (callback) requestTransition(callback, reason);
+        }
       }
     });
 
     host.addEventListener('change', event => {
       const control = event.target;
-      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') onProjectSelect(control.value);
+      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') {
+        onProjectSelect(control.value);
+      }
       if (control.dataset.editorField) workspace.updateEditor(control.dataset.editorField, control.value);
       if (control.dataset.websiteBrief) website.updateBrief(control.dataset.websiteBrief, control.value);
       if (control.dataset.websitePage) website.updatePage(control.dataset.websitePage, control.value);
@@ -523,9 +660,19 @@
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
 
+    function requestTransition(callback, reason) {
+      if (guardLeave(callback, reason)) callback();
+    }
+
     function guardLeave(callback, reason) {
-      const websiteDirty = viewState && viewState.surface === 'website' && websiteState && websiteState.dirty;
-      if (!viewState || (!viewState.unsaved && !websiteDirty)) return true;
+      if (executingApprovedTransition) return true;
+      if (pendingLeave || assetTransitionPending) return false;
+      const websiteDirty = websiteState && websiteState.dirty;
+      if (!viewState || (!viewState.unsaved && !websiteDirty)) {
+        if (!assetLifecycle) return true;
+        continueAfterAssetGuard(callback);
+        return false;
+      }
       rememberDialogReturnFocus();
       pendingLeave = { callback, reason: reason || 'leave Studio', scope: websiteDirty ? 'website' : 'studio' };
       render();
@@ -545,6 +692,8 @@
       clearTimeout(announcementTimer);
       dialogReturnFocus = null;
       workspace.destroy();
+      assetLifecycle?.dispose();
+      assetLifecycle = null;
       host.replaceChildren();
       currentInstance = null;
     }

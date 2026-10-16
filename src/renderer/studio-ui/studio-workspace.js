@@ -6,7 +6,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
 
-  const SURFACES = new Set(['operations', 'editor', 'assets', 'website', 'states']);
+  const SURFACES = new Set(['operations', 'editor', 'assets', 'website', 'handoff', 'states']);
 
   function copy(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -21,6 +21,8 @@
     let destroyed = false;
     let loadSequence = 0;
     let saveSequence = 0;
+    let editSequence = 0;
+    let draftCounter = 0;
     let state = {
       surface: 'operations',
       phase: 'idle',
@@ -48,6 +50,8 @@
     }
 
     async function loadProject(project) {
+      saveSequence += 1;
+      editSequence += 1;
       const sequence = ++loadSequence;
       const ticket = context.beginProjectRequest();
       state = {
@@ -82,6 +86,7 @@
             title: firstScene ? firstScene.name : 'Untitled synthetic scene',
             format: '16:9 landscape',
             notes: firstScene ? firstScene.note : '',
+            assetIds: firstScene ? copy(firstScene.assetIds || []) : [],
           },
           saveState: 'Draft',
           statusMessage: 'Synthetic development workspace loaded. No production service is connected.',
@@ -111,11 +116,13 @@
     function selectScene(sceneId) {
       const scene = state.data && state.data.scenes.find(item => item.id === sceneId);
       if (!scene) return false;
+      saveSequence += 1;
+      editSequence += 1;
       state = {
         ...state,
         surface: 'editor',
         selectedSceneId: scene.id,
-        editor: { title: scene.name, format: '16:9 landscape', notes: scene.note },
+        editor: { title: scene.name, format: scene.format || '16:9 landscape', notes: scene.note, assetIds: copy(scene.assetIds || []) },
         unsaved: false,
         saveState: scene.status === 'Saved' ? 'Saved' : 'Draft',
         statusMessage: `${scene.name} opened in the synthetic editor.`,
@@ -126,6 +133,7 @@
 
     function updateEditor(field, value) {
       if (!['title', 'format', 'notes'].includes(field) || !state.project) return false;
+      editSequence += 1;
       state = {
         ...state,
         editor: { ...state.editor, [field]: String(value) },
@@ -142,13 +150,20 @@
       const ticket = context.beginProjectRequest();
       if (!ticket || !state.unsaved || state.saveState === 'Saving') return false;
       const sequence = ++saveSequence;
-      const payload = { projectId: ticket.projectId, sceneId: state.selectedSceneId, editor: copy(state.editor) };
+      const editingVersion = editSequence;
+      const payload = { projectId: ticket.projectId, sceneId: state.selectedSceneId || `scene-local-${++draftCounter}`, editor: copy(state.editor) };
       state = { ...state, saveState: 'Saving', error: null, statusMessage: 'Saving synthetic draft…' };
       emit();
       try {
         const result = await adapter.save(payload);
         if (destroyed || sequence !== saveSequence || !context.isCurrentRequest(ticket)) return false;
-        state = { ...state, unsaved: false, saveState: 'Saved', statusMessage: `Synthetic draft saved at ${new Date(result.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` };
+        const savedScene = { id: payload.sceneId, name: payload.editor.title, note: payload.editor.notes, format: payload.editor.format, assetIds: copy(payload.editor.assetIds || []), duration: '00:00', status: 'Saved' };
+        const exists = state.data.scenes.some(scene => scene.id === payload.sceneId);
+        const scenes = exists ? state.data.scenes.map(scene => scene.id === payload.sceneId ? { ...scene, ...savedScene, duration: scene.duration } : scene) : [...state.data.scenes, savedScene];
+        const changedDuringSave = editingVersion !== editSequence;
+        state = { ...state, data: { ...state.data, scenes }, selectedSceneId: payload.sceneId,
+          unsaved: changedDuringSave, saveState: changedDuringSave ? 'Unsaved' : 'Saved',
+          statusMessage: changedDuringSave ? 'Earlier synthetic edit saved; newer changes still need saving.' : `Synthetic draft saved at ${new Date(result.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` };
         emit();
         return true;
       } catch (error) {
@@ -160,6 +175,8 @@
     }
 
     function discardChanges() {
+      saveSequence += 1;
+      editSequence += 1;
       const scene = state.data && state.data.scenes.find(item => item.id === state.selectedSceneId);
       state = {
         ...state,
@@ -167,6 +184,7 @@
           title: scene ? scene.name : 'Untitled synthetic scene',
           format: '16:9 landscape',
           notes: scene ? scene.note : '',
+          assetIds: scene ? copy(scene.assetIds || []) : [],
         },
         unsaved: false,
         saveState: 'Draft',
@@ -223,7 +241,8 @@
         emit();
         return false;
       }
-      state = { ...state, surface: 'editor', unsaved: true, saveState: 'Unsaved', statusMessage: `${asset.name} placed in the synthetic scene. Save the draft to keep this local change.` };
+      editSequence += 1;
+      state = { ...state, editor: { ...state.editor, assetIds: [...new Set([...(state.editor.assetIds || []), asset.id])] }, surface: 'editor', unsaved: true, saveState: 'Unsaved', statusMessage: `${asset.name} placed in the synthetic scene. Save the draft to keep this local change.` };
       emit();
       return true;
     }
@@ -269,10 +288,12 @@
     }
 
     function createEmptyDraft() {
+      saveSequence += 1;
+      editSequence += 1;
       state = {
         ...state,
         surface: 'editor',
-        editor: { title: 'Untitled synthetic scene', format: '16:9 landscape', notes: '' },
+        editor: { title: 'Untitled synthetic scene', format: '16:9 landscape', notes: '', assetIds: [] },
         selectedSceneId: null,
         unsaved: true,
         saveState: 'Unsaved',
