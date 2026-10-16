@@ -144,13 +144,14 @@ app.whenReady().then(async () => {
     await click(window, '.website-flow-nav [data-value="preview"]');
     const previewPages = await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].map(o=>({id:o.value,title:o.textContent}))");
     for (const page of previewPages) {
-      await window.webContents.executeJavaScript(`(() => { const control=document.querySelector('#website-preview-page'); control.value=${JSON.stringify(page.id)}; control.dispatchEvent(new Event('change',{bubbles:true})); })()`);
+      await window.webContents.executeJavaScript(`(() => { const control=document.querySelector('#website-preview-page'); control.focus(); control.value=${JSON.stringify(page.id)}; control.dispatchEvent(new Event('change',{bubbles:true})); })()`);
       const preview = await window.webContents.executeJavaScript("({html:document.querySelector('.website-preview iframe').srcdoc,sandbox:document.querySelector('.website-preview iframe').getAttribute('sandbox'),focused:document.activeElement.id})");
       assert.equal(preview.sandbox, '');
+      assert.equal(preview.focused, 'website-preview-page');
       assert.ok(preview.html.includes('<title>' + page.title));
       assert.ok(preview.html.includes('--accent:#16715a'));
       assert.ok(preview.html.includes('Georgia,serif'));
-      assert.ok(!/href=\"(?:index|services)\\.html\"/.test(preview.html));
+      assert.ok(!preview.html.includes('href="index.html"') && !preview.html.includes('href="services.html"'));
     }
     const download = new Promise((resolve, reject) => {
       const timer=setTimeout(()=>reject(Error('ZIP download timed out')),15000);
