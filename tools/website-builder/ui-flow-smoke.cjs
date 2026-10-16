@@ -95,6 +95,18 @@ app.whenReady().then(async () => {
       assert.equal(result.audience, 'Independent local businesses');
       assert.match(result.saveText, /Unsaved changes/);
       assert.equal(result.fits, true);
+      if (step === 'edit') {
+        const retainedScroll = await window.webContents.executeJavaScript(`(() => {
+          const field=document.querySelector('[data-website-section][data-field="body"]');
+          field.focus(); field.scrollIntoView({block:'center'});
+          const before=document.querySelector('.studio-workspace').scrollTop;
+          field.value += ' Runtime edit retained.'; field.dispatchEvent(new Event('input',{bubbles:true}));
+          return {before,after:document.querySelector('.studio-workspace').scrollTop,focused:document.activeElement.dataset.field};
+        })()`);
+        assert.ok(retainedScroll.before > 0);
+        assert.ok(Math.abs(retainedScroll.before-retainedScroll.after) <= 2);
+        assert.equal(retainedScroll.focused,'body');
+      }
       await capture(window, '02-' + step + '-1440');
     }
     await click(window, '[data-action="website-device"][data-value="phone"]');

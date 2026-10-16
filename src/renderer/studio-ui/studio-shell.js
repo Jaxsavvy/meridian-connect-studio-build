@@ -32,6 +32,7 @@
     let executingApprovedTransition = false;
     let assetLifecycle = null;
     let assetContainer = null;
+    let renderedLocation = null;
     const adapter = root.MeridianStudioFixtures.createSyntheticAdapter();
     let websiteState = null;
     let websiteContextId = null;
@@ -494,6 +495,9 @@
 
     function render() {
       if (!viewState || !host) return;
+      const location = `${viewState.project ? viewState.project.id : ''}:${viewState.surface}:${websiteState && websiteState.project ? websiteState.project.id : ''}`;
+      const oldWorkspace = host.querySelector('.studio-workspace');
+      const scrollTop = location === renderedLocation && oldWorkspace ? oldWorkspace.scrollTop : 0;
       const activeElement = host.contains(document.activeElement) ? document.activeElement : null;
       const focused = activeElement && activeElement.dataset ? activeElement.dataset.focusKey : null;
       const selection = activeElement && typeof activeElement.selectionStart === 'number' ? {
@@ -527,6 +531,9 @@
       if (assetContainer && viewState.surface === 'assets') {
         host.querySelector('#studio-asset-client-slot')?.appendChild(assetContainer);
       }
+      const nextWorkspace = host.querySelector('.studio-workspace');
+      if (nextWorkspace) nextWorkspace.scrollTop = scrollTop;
+      renderedLocation = location;
       host.hidden = !active;
       restoreFocus(focused, selection);
       if (pendingLeave || viewState.toolDetailId) {
