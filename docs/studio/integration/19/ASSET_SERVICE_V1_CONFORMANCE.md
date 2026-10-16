@@ -14,6 +14,7 @@ For v1, the fingerprint input is UTF-8 JSON of the ordered tuples below. Values 
 | Finalize import | `["files.import-finalize", projectId, uploadId, sha256, assetIdOrNull, parentVersionIdOrNull]` |
 | Metadata | `["files.metadata", projectId, assetId, expectedRevision, name, tags, description, section]` |
 | Submit review | `["files.submit-review", projectId, assetId, versionId, expectedRevision, "submitted"]` |
+| Approve review | `["files.approve-review", projectId, assetId, versionId, expectedRevision, "approved"]` |
 
 The service recomputes the fingerprint; a caller-provided digest is only a matching claim. `files.operation-status` takes operation, mutation key, and fingerprint to distinguish an unknown outcome from a different intent. It is itself authorized for the same actor/project/action and must not reveal a foreign operation. Retrying begin/finalize after a timeout uses the same key and tuple, or checks operation status. `unknown` is not a safe instruction to retry with a new key.
 
@@ -67,7 +68,9 @@ The current component accepts at most 100 metadata events. The reference therefo
 | `files.import-finalize` | `projectId`, `uploadId`, whole-file `sha256`, same logical target and stable `mutationKey` | Full canonical record, `createdVersionId`, `bodyDigest`; original or derivative lineage matches the begun intent. |
 | `files.metadata` | `projectId`, `assetId`, `expectedRevision`, fields, `mutationKey` | Full canonical record with strictly newer revision, appended changed-field audit/provenance and fingerprint. |
 | `files.submit-review` | `projectId`, `assetId`, `versionId`, `expectedRevision`, `decision: "submitted"`, `mutationKey` | Full canonical record with strictly newer revision and append-only submission event for that exact version. |
-| `files.download` | `projectId`, `assetId`, `versionId` | Exact-version host-owned transfer, byte length, SHA-256, verified media type, safe suggested name. Authority is rechecked at issuance and transfer; no arbitrary destination path. |
+| `files.approve-review` | `projectId`, `assetId`, `versionId`, `expectedRevision`, `mutationKey` | Owner-only approval of an exact submitted version with active project membership, append-only provenance, and a strictly newer revision. Self-approval is allowed. Live use waits for restricted-service policy proof. |
+| `files.preview` | `projectId`, `assetId`, `versionId` | Bounded reduced-fidelity rendition after `asset.read` authorization; never complete version bytes or a reusable byte URL. Unsupported media remains unavailable. |
+| `files.download` | `projectId`, `assetId`, `versionId` | Exact approved-version host-owned transfer, byte length, SHA-256, verified media type, safe suggested name. Active membership and explicit `asset.export` grant apply to every actor; authority is rechecked at issuance and transfer. |
 | `files.operation-status` | `projectId`, operation, `mutationKey`, `bodyDigest` | `pending`, `succeeded` with same canonical result, `failed` with safe error, or `unknown`; no foreign record. |
 
 The current client checks 25 MiB imports and 128 MiB downloads. Those are upper bounds for the client only. The service must publish and enforce its own per-type byte, pixel, chunk, time, and quota limits. Until then, the named bridge is unavailable. The service must reject malformed or corrupt media based on decoded content, not only file extension or magic bytes.
@@ -93,14 +96,14 @@ Each case requires real service persistence and authentication unless marked cli
 | M01 | Two editors save metadata from same revision | One commit; stale editor gets `REVISION_CONFLICT` and retains draft. |
 | M02 | Metadata times out after commit | An exact read may show changed state but does not prove that operation committed. Status for the same actor/project/operation/key/fingerprint returns its exact result; no second audit event or new-key replay. |
 | V01 | Derivative targets valid parent versus foreign/nonexistent/cyclic parent | Valid branch preserves original; invalid target denied and no sequence consumed visibly. |
-| V02 | Member submits exact version; unauthorized actor attempts approve | Submission event appended once; approval denied until DEV-011 role policy exists. |
-| V03 | Reviewer authority revoked during a future decision commit | Decision denied; prior review state and audit remain intact. |
+| V02 | Member submits exact version; another member attempts approval; owner with project membership approves | Submission event appended once; other member denied; owner approval records exact version and provenance once. An identical retry returns the first result, while changed intent conflicts. |
+| V03 | Owner loses project membership before or during approval commit | Decision denied if revocation wins first; prior review state and audit remain intact. A serialized approval that commits first remains auditable. |
 | D01 | Byte stream is interrupted or digest/length/media differs from descriptor | Download fails closed; no completed destination file. |
-| D02 | Revocation after a download grant but before byte transfer | Transfer denied or stopped; no reusable public grant. |
+| D02 | Export grant or membership revocation before byte transfer | Transfer denied or stopped if revocation wins first; no reusable public grant. Owner export requires the same explicit grant. |
 | O01 | Concurrent SQLite writers and staging restart | No duplicate sequence, partial visible asset, or lost committed audit; retry/lock behavior measured. |
 
 Client-only checks R03/R05 also run against a fake versioned transport. They do not substitute for the service-backed checks. A passing draft contract or green source suite cannot mark Studio Assets Available.
 
 ## Open owner decisions
 
-DEV-011 defines reviewer/owner and self-review policy, approval/export rights, and action-specific membership. The restricted service owner sets media/transfer/quota limits, retention and backup, audit history access/expiry, upload TTL, and SQLite transaction/recovery policy. Cassy confirms page state and exact read mapping in her adapter/controller tests. Chair 1 approves the individually named main/preload methods only after these decisions and staging evidence.
+DEV-011 draft PR #38 records the owner's policy choices for project access, approval, self-approval, export, and limited preview. The restricted service owner still sets media/transfer/quota limits, retention and backup, audit history access/expiry, upload TTL, and SQLite transaction/recovery policy. Preview rendition limits and its host contract require review. Cassy confirms page state and exact read mapping in her adapter/controller tests. Chair 1 approves the individually named main/preload methods only after these decisions and staging evidence.

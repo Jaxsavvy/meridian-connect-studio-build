@@ -24,7 +24,8 @@ Existing generic Team Hub project Files have session and project-membership chec
 | `files.search` | Project selector; bounded query, section, media type, review state, cursor, limit 1–50 | Permission-filtered summary items, `nextCursor`, and contract version. Stable cursor binds actor, project, filters, and ordering; no foreign IDs or counts. Summary is explicitly partial. |
 | `files.get` | Project and exact asset ID | Full canonical asset record with all version descriptors and current metadata revision. The caller must use this to hydrate a selected asset and to recover from conflict. |
 | `files.get-version` | Project, asset ID, version ID | Exact version descriptor if it belongs to that asset and project. No byte or storage reference is exposed by a descriptor. |
-| `files.download` | Project, asset ID, version ID | Authenticated exact-version stream or bounded host-owned byte transfer with byte length, verified media type, SHA-256, safe export name, and correlation ID. Recheck access at transfer time. |
+| `files.preview` | Project, asset ID, version ID | Separately authorized, bounded, reduced-fidelity rendition for a member with `asset.read`; unsupported media stays unavailable. Never return complete version bytes or a reusable byte URL. |
+| `files.download` | Project, asset ID, version ID | Authenticated exact approved-version stream or bounded host-owned byte transfer with byte length, verified media type, SHA-256, safe export name, and correlation ID. Require an explicit project `asset.export` grant even for the owner; recheck access at transfer time. |
 
 The canonical service record maps to Cassy's current component names: `assetId` → `id`, `versionId` → version `id`, `baseRevision` → component `revision`. The adapter must validate that every version belongs to the same asset/project, has unique sequence and ID, and reaches the original without cycles. It must not rewrite an already loaded immutable version. Metadata and review history require separate bounded paging or an explicit service snapshot marker when the full history exceeds a response limit; a truncated history may never be called complete.
 
@@ -38,7 +39,8 @@ Until Cassy's component adopts a wider limit, v1 display names and original file
 | `files.import-chunk` / `files.import-status` | Accept bounded ordered chunks with per-chunk digest; report acknowledged offset and expiry. Identical retransmission is harmless; changed bytes at an acknowledged offset conflict. Reauthorize each call. Invisible staging has a bounded cleanup policy. |
 | `files.import-finalize` | Recheck session, membership, action, parent lineage, observed revision, quota, whole-file digest, size, and decoded media. Atomically register immutable bytes, new version, metadata/audit, and the body-bound result; otherwise leave no visible partial asset. Same actor/project/operation/key/body returns the same canonical result after uncertain retry. Changed body under the key conflicts. |
 | `files.metadata` | Apply name/tags/description/section with expected revision and mutation key; append changed-field provenance and audit. Stale revision returns `REVISION_CONFLICT` with only the current authorized revision. No automatic overwrite or force-save. |
-| `files.submit-review` | Target an exact version with expected asset revision and mutation key. A project member may submit only if the server policy grants `review.submit`; record an append-only submission event. Approval and changes-requested actions require separate DEV-011 reviewer policy and are unavailable until that policy is tested. |
+| `files.submit-review` | Target an exact version with expected asset revision and mutation key. A project member may submit only if the server policy grants `review.submit`; record an append-only submission event. Submission never approves the version. |
+| `files.approve-review` | Only the authenticated owner with active membership in the asset's project may approve an exact submitted version at the expected revision. Self-approval is allowed. Record approver, submitter, version, decision, revision, time, and self-approval; recheck authority in the commit transaction. Unavailable until the DEV-011 policy is implemented and tested in the restricted service. |
 | `files.operation-status` | Lookup actor/project/operation/key/body digest and return `pending`, `succeeded` with the canonical result, `failed` with safe code, or `unknown`. Unknown is not proof of failure and must not trigger a new-key replay. |
 
 The current synthetic component limit is 25 MiB import and 128 MiB download; these are client checks only. The first service implementation must publish independently enforced byte/chunk/media limits before bridge wiring. No large file is copied through a generic renderer-selected IPC request. The Connect main process owns any OS save dialog, temporary download, digest verification, and atomic rename. A renderer path or suggested filename is never a destination grant.
@@ -47,10 +49,11 @@ The current synthetic component limit is 25 MiB import and 128 MiB download; the
 
 | Action | Minimum authority check |
 | --- | --- |
-| Search/get/version/download | Active session, active project membership, exact asset/version ownership, action grant, and final read/transfer recheck. |
+| Search/get/version/preview | Active session, active project membership, exact asset/version ownership, `asset.read` grant, and final preview-transfer recheck. Preview is a separate bounded rendition. |
+| Full-byte download/export | Active session, active project membership, exact approved version, explicit project `asset.export` grant for every actor, and final transfer recheck. |
 | Import begin/chunk/finalize | Active session, membership, `asset.import` grant, quota/media policy, exact parent and observed revision; repeat the checks at finalize. |
 | Metadata and review submission | Active session, membership, exact target, action grant, expected revision; recheck inside the committing transaction. |
-| Export and approval | Separate reviewed permissions; no general member permission inferred from download or review submission. Remain unavailable in v1 until policy and audit pass. |
+| Approval and grant administration | Current server-owned owner principal; owner must be a project member to approve. Only the owner changes project membership and action grants. Neither action is available live until policy and audit pass. |
 
 Use stable machine codes: `AUTH_REQUIRED`, `ACCESS_DENIED` or consistent concealed `NOT_FOUND`, `REVISION_CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INVALID_LINEAGE`, `INVALID_MEDIA`, `CHECKSUM_MISMATCH`, `TOO_LARGE`, `QUOTA_EXCEEDED`, `UPLOAD_EXPIRED`, `SERVICE_UNAVAILABLE`, and `UNKNOWN_OUTCOME`. Return only nonsensitive correlation IDs and permitted current revisions. The service must define one concealment policy and apply it to direct reads, list counts, upload parents, cursors, and operation lookup. Never place bearer tokens in query strings or long-lived download URLs.
 
@@ -64,7 +67,7 @@ Use stable machine codes: `AUTH_REQUIRED`, `ACCESS_DENIED` or consistent conceal
 | `asset.download` | Use exact-version transfer and host-owned integrity/safe-save flow. Verify digest, length, media type, and target version. |
 | `asset.submit-review` | Submit only. Do not map it to approval. Reconcile an unknown outcome through `files.operation-status` for the same key/body, then reload the exact version/record. |
 
-Add a host-level `asset.get`/`reloadAsset` capability and explicit page state to replace the current full-list fallback. The component's five names are not HTTP routes or approved Electron IPC. Main/preload methods remain separately reviewed under Task 06 and fail closed until the restricted service passes staging acceptance. PR #33, Tyler #34, and development-only mount #35 stay independent; this draft changes none of their shared files.
+Add a host-level `asset.get`/`reloadAsset` capability and explicit page state to replace the current full-list fallback. A limited preview needs its own reviewed client and host operation; `asset.download` cannot serve preview bytes. The component's five names are not HTTP routes or approved Electron IPC. Main/preload methods remain separately reviewed under Task 06 and fail closed until the restricted service passes staging acceptance. PR #33, Tyler #34, and development-only mount #35 stay independent; this draft changes none of their shared files.
 
 An exact read reports current asset state, not whether a particular timed-out mutation committed. Only an authorized `files.operation-status` result bound to actor, project, operation, key, and body digest can identify that operation's outcome. If status remains `unknown`, retain the draft/uncertainty and do not mint a new key or report success.
 
@@ -74,7 +77,7 @@ With isolated synthetic A/B identities and no customer data: deny unauthenticate
 
 ## Decisions still required
 
-1. DEV-011 must define reviewer/owner roles, self-review, approval and export privileges using server-owned identity. The current project-membership schema alone does not encode them.
+1. DEV-011 owner decisions are recorded in draft PR #38: owner-only grant administration and approval, project membership for approval, self-approval allowed, explicit export grant for everyone, and limited preview for read-authorized members. The restricted service must implement and prove those decisions; the current project-membership schema alone does not encode them.
 2. The restricted service owner must set transfer/media/quota limits; upload expiry; audit retention and pagination; backup/recovery; object encryption and tombstone/legal-hold policy.
 3. Cassy must review the paged summary + exact hydration mapping and add adapter/controller contract tests for partial pages, immutable loaded versions, conflict, unknown outcome and revoked scope. This draft is not an accepted Cassy adapter contract until that review and tests exist.
 4. Chair 1 must review exact main/preload method names and payload schemas after the service contract and staged authorization tests. Keep employee Studio Assets `Unavailable` meanwhile.
