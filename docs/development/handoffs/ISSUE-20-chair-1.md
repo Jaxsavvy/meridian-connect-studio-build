@@ -10,9 +10,9 @@
 ## Owner decisions recorded this session
 
 - Only the owner's authenticated account may administer a person's Studio project access and action grants.
-- Only that account may approve a submitted Studio asset version, including its own submission.
+- Only that account may approve a submitted Studio asset version, including its own submission, and it must have active membership in that project.
 - Exporting an approved version requires an explicit per-project `asset.export` grant for a member.
-- Two details remain pending: whether the owner also needs an export grant, and whether the owner needs project membership to approve. The policy note marks both clearly; neither is inferred from a UI role.
+- One detail remains pending: whether the owner also needs an explicit export grant. The policy note marks this clearly; it is not inferred from a UI role.
 
 ## Work and limits
 
@@ -23,6 +23,6 @@
 
 ## Next actions
 
-1. Resolve the two pending owner details and update the policy note and issue checkpoint.
+1. Resolve the pending owner export-grant detail and update the policy note and issue checkpoint.
 2. Reconcile the owner-approved policy with DEV-010's draft `studio.files.v1` contract and Cassy's review, without editing her branch.
 3. Implement and test grants, approval, export, revocation and audit in an isolated restricted service. Keep Studio Assets Unavailable and Project status Building until those checks pass.
