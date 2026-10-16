@@ -1,5 +1,12 @@
 # DEV-020 — Chair 1 final implementation handoff
 
+## 2026-10-15 corrected capture verified via CI
+
+- Capture guard introduced in `761d91f`, then executable-input provenance refined in `e72bacee7bf23c350e3502862b60357311788a9b`. Actions run `38843707878` passed source checks (85 tests) and real Electron smoke, producing artifact `12021823931`.
+- Downloaded the artifact, verified its archive SHA-256 and each of the three image hashes, and visually inspected the actual ordinary/selected/warning PNGs. Warning image visibly contains the actual unsaved sentence, both choices and the edited Display name. It differs from both baselines. Raw metrics and runtime outcomes pass.
+- Actions used synthetic merge commit `23543a9`; GitHub confirms its tree is identical to source correction `e72bace` (`40d1a93b2791bfc7b226a7033461628c92938b65`). Raw provenance is retained intact. Evidence publication copies the three PNGs and raw metrics byte-for-byte, with subsequent manual findings in `docs/studio/integration/32/VISUAL_REVIEW.md`.
+- This completes the actual capture and implementation-agent pixel inspection using CI's running app, despite no local Electron/display. Independent Tyler re-review remains open; no self-approval/dismissal or merge. PR #34 still preserves `8115f7d` and `38c093f` and needs Jaxsavvy/Theecassycat reviews.
+
 ## 2026-10-15 PR #35 evidence correction follow-up
 
 - User explicitly authorized scoped correction on `feature/dev-020-asset-mount`, starting from verified head `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Read Tyler's reviews and reproduction comment before editing. No app, Builder, shared shell, Asset component, backend or packaging changes.

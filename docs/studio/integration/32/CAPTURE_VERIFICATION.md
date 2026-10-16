@@ -4,6 +4,12 @@ The previous warning capture was byte-identical to the ordinary Asset view.
 That image is not accepted evidence. The correction changes the synthetic
 Electron harness only; it does not change the application or other chairs' work.
 
+The corrected run and subsequent actual pixel inspection are now complete via
+GitHub Actions on source correction `e72bace`. See `VISUAL_REVIEW.md` for the
+run, exact commit/tree mapping, verified hashes and manual findings. The
+instructions below describe reproduction; they are no longer an unperformed
+capture step. Independent Tyler review remains open.
+
 ## Capture guard
 
 The harness uses the existing synthetic Connect preload and real mounted Asset
