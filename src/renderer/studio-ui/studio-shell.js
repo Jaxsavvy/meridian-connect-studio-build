@@ -17,7 +17,7 @@
     return String(value || '').toLocaleLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
   }
 
-  function mount({ host, context, getProjects, onProjectSelect }) {
+  function mount({ host, context, getProjects, onProjectSelect, assetMount = null, assetDeps = null }) {
     if (!host || !context || !root.MeridianStudioWorkspace || !root.MeridianStudioFixtures) {
       throw new TypeError('Studio shell dependencies are unavailable.');
     }
@@ -28,6 +28,10 @@
     let viewState = null;
     let announcementTimer = null;
     let dialogReturnFocus = null;
+    let assetTransitionPending = false;
+    let executingApprovedTransition = false;
+    let assetLifecycle = null;
+    let assetContainer = null;
     const adapter = root.MeridianStudioFixtures.createSyntheticAdapter();
     const workspace = root.MeridianStudioWorkspace.createWorkspace({
       context,
@@ -38,8 +42,38 @@
       },
     });
 
+    if (assetMount && assetDeps) {
+      assetContainer = document.createElement('div');
+      assetContainer.id = 'studio-asset-client';
+      assetLifecycle = assetMount.mount({ container: assetContainer, context, deps: assetDeps });
+    }
+
+    function continueAfterAssetGuard(callback) {
+      if (assetTransitionPending) return;
+      if (!assetLifecycle) { if (callback) callback(); return; }
+      const lifecycle = assetLifecycle;
+      const ticket = context.beginProjectRequest();
+      assetTransitionPending = true;
+      Promise.resolve().then(() => lifecycle.prepareLeave()).then(allowed => {
+        assetTransitionPending = false;
+        if (allowed && lifecycle === assetLifecycle && (!ticket || context.isCurrentRequest(ticket))) {
+          // A confirmed host transition may re-enter guardLeave synchronously.
+          // The approval is valid only for that callback, never a later navigation.
+          if (callback) setTimeout(() => {
+            if (lifecycle !== assetLifecycle || (ticket && !context.isCurrentRequest(ticket))) return;
+            executingApprovedTransition = true;
+            try { callback(); } finally { executingApprovedTransition = false; }
+          }, 0);
+        }
+      }).catch(error => {
+        assetTransitionPending = false;
+        console.error('Studio Asset Library transition failed.', error);
+      });
+    }
+
     function projects() {
-      const items = typeof getProjects === 'function' ? getProjects() : [];
+      // Use only the accepted Connect context list: cached panel data may contain revoked projects.
+      const items = context.snapshot().projects;
       return Array.isArray(items) ? items.filter(item => item && item.id && item.name) : [];
     }
 
@@ -91,7 +125,7 @@
       const items = [
         ['operations', 'Operations', 'Production overview'],
         ['editor', 'Campaign editor', 'Synthetic first slice'],
-        ['assets', 'Asset Library', 'Read-only interaction preview'],
+        ['assets', 'Asset Library', assetLifecycle ? 'Writable synthetic development client' : 'Read-only interaction preview'],
         ['states', 'States', 'Recovery patterns'],
       ];
       return `<nav class="studio-local-nav" aria-label="Studio workspace"${modalOpen ? ' inert aria-hidden="true"' : ''}>
@@ -350,7 +384,9 @@
       else if (viewState.phase === 'error') content = renderLoadError(viewState);
       else if (!viewState.data) content = renderNoProject();
       else if (viewState.surface === 'editor') content = renderEditor(viewState);
-      else if (viewState.surface === 'assets') content = renderAssets(viewState);
+      else if (viewState.surface === 'assets') content = assetLifecycle
+        ? '<section class="studio-surface" data-surface="assets"><div id="studio-asset-client-slot"></div></section>'
+        : renderAssets(viewState);
       else if (viewState.surface === 'states') content = renderStates(viewState);
       else content = renderOperations(viewState);
 
@@ -363,6 +399,9 @@
           <div class="studio-live-status" role="status" aria-live="polite" aria-atomic="true">${escapeHtml(viewState.statusMessage)}</div>
           <main class="studio-main" id="studio-main" tabindex="-1">${content}</main>
         </div>${pendingLeave ? renderLeaveDialog() : renderToolDialog(viewState)}</div>`;
+      if (assetContainer && viewState.surface === 'assets') {
+        host.querySelector('#studio-asset-client-slot')?.appendChild(assetContainer);
+      }
       host.hidden = !active;
       restoreFocus(focused, selection);
       if (pendingLeave || viewState.toolDetailId) {
@@ -376,7 +415,11 @@
       if (!button || !host.contains(button)) return;
       const action = button.dataset.action;
       const value = button.dataset.value;
-      if (action === 'surface') workspace.openSurface(value);
+      if (action === 'surface') {
+        if (viewState.surface === 'assets' && value !== 'assets' && assetLifecycle) {
+          continueAfterAssetGuard(() => workspace.openSurface(value));
+        } else workspace.openSurface(value);
+      }
       else if (action === 'focus-project') host.querySelector('#studio-project-select')?.focus();
       else if (action === 'retry-load') workspace.retryLoad();
       else if (action === 'continue-campaign') workspace.selectScene(viewState.data.scenes[0].id);
@@ -400,17 +443,25 @@
         pendingLeave = null;
         dialogReturnFocus = null;
         workspace.discardChanges();
-        if (callback) callback();
+        render();
+        if (callback) continueAfterAssetGuard(callback);
       } else if (action === 'save-leave') {
         const callback = pendingLeave && pendingLeave.callback;
         const saved = await workspace.saveDraft();
-        if (saved) { pendingLeave = null; dialogReturnFocus = null; if (callback) callback(); }
+        if (saved) {
+          pendingLeave = null;
+          dialogReturnFocus = null;
+          render();
+          if (callback) continueAfterAssetGuard(callback);
+        }
       }
     });
 
     host.addEventListener('change', event => {
       const control = event.target;
-      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') onProjectSelect(control.value);
+      if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') {
+        onProjectSelect(control.value);
+      }
       if (control.dataset.editorField) workspace.updateEditor(control.dataset.editorField, control.value);
     });
 
@@ -440,7 +491,13 @@
     });
 
     function guardLeave(callback, reason) {
-      if (!viewState || !viewState.unsaved) return true;
+      if (executingApprovedTransition) return true;
+      if (pendingLeave || assetTransitionPending) return false;
+      if (!viewState || !viewState.unsaved) {
+        if (!assetLifecycle) return true;
+        continueAfterAssetGuard(callback);
+        return false;
+      }
       rememberDialogReturnFocus();
       pendingLeave = { callback, reason: reason || 'leave Studio' };
       render();
@@ -460,6 +517,8 @@
       clearTimeout(announcementTimer);
       dialogReturnFocus = null;
       workspace.destroy();
+      assetLifecycle?.dispose();
+      assetLifecycle = null;
       host.replaceChildren();
       currentInstance = null;
     }

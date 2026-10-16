@@ -93,7 +93,9 @@
 
     return Object.freeze({
       snapshot: () => namedSnapshot(controller.snapshot()),
+      get generation() { return controller.generation; },
       search(filters) { requireScope(); return controller.search(filters); },
+      reloadAsset(id) { requireScope(); return controller.reloadAsset(id); },
       selectAsset(id) { requireScope(); return controller.selectAsset(id); },
       save(method, input) { requireScope(); return controller.save(method, input); },
       download(input) { requireScope(); return controller.download(input); },
