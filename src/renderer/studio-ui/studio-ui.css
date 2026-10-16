@@ -679,6 +679,8 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 
 
 /* Guided Website workspace; preserves the shared Studio shell and project model. */
+.studio-local-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.studio-local-actions > * { max-width:100%; overflow-wrap:anywhere; }
 .website-flow-status { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; padding:12px 16px; border:1px solid var(--studio-line-soft); border-radius:10px; color:var(--studio-muted); background:#0a1c2a; font-size:13px; }
 .website-save-state { color:#8fdac8; }
 .website-save-state.is-dirty { color:#f0cd87; }

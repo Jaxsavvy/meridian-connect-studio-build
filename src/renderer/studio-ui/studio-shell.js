@@ -353,12 +353,12 @@
               <span>Development preview</span><strong>${escapeHtml(selected ? selected.duration : '00:00')}</strong>
             </div>
             <div><span class="studio-kicker">Current frame</span><h3 id="studio-preview-title" title="${attr(state.editor.title)}">${escapeHtml(state.editor.title)}</h3><p>${escapeHtml(state.editor.format)} · ${escapeHtml(state.saveState)}</p></div>
-            ${state.selectedAssetId ? '<p class="studio-inline-note">A synthetic asset is staged in this scene. Save the draft to keep the local change.</p>' : ''}
+            ${(state.editor.assetIds || []).length ? `<p class="studio-inline-note">${state.unsaved ? 'Synthetic reference placement has unsaved changes.' : 'Synthetic reference placement saved for this session.'}</p>` : ''}
           </section>
         </div>
         ${state.saveState === 'Error' ? `<div class="studio-inline-error" role="alert"><div><strong>Save failed.</strong><p>${escapeHtml(state.error)} Your edits remain in this window.</p></div><button type="button" class="studio-button studio-button--primary" data-action="save">Retry save</button></div>` : ''}
         <section class="studio-section" aria-labelledby="studio-scene-material-title"><div class="studio-section-heading"><div><span class="studio-kicker">Storyboard material · synthetic only</span><h3 id="studio-scene-material-title">Stage a reference, then place it</h3></div><p>These fixture references are separate from the mounted Asset Library. Originals and versions stay unchanged.</p></div>
-          <div class="studio-filter-group">${data.assets.map(asset => `<button type="button" class="studio-button studio-button--secondary" data-action="asset-select" data-value="${attr(asset.id)}" aria-pressed="${asset.id === state.selectedAssetId}">${escapeHtml(asset.name)} · ${escapeHtml(asset.version)}</button>`).join('')}</div>
+          <div class="studio-local-actions">${data.assets.map(asset => `<button type="button" class="studio-button studio-button--secondary" data-action="asset-select" data-value="${attr(asset.id)}" aria-pressed="${asset.id === state.selectedAssetId}">${escapeHtml(asset.name)} · ${escapeHtml(asset.version)}</button>`).join('')}</div>
           <p>${(state.editor.assetIds || []).length} synthetic references placed in this scene.</p>
           <button type="button" class="studio-button studio-button--secondary" data-action="asset-place" ${state.selectedAssetId ? '' : 'disabled'}>Place selected synthetic reference</button>
           <button type="button" class="studio-button studio-button--secondary" data-action="scene-to-website" ${websiteState && websiteState.project ? '' : 'disabled'}>Copy scene into open website</button>
@@ -373,7 +373,7 @@
         <dl><div><dt>Project</dt><dd>${escapeHtml(state.project.name)}</dd></div><div><dt>Campaign draft</dt><dd>${state.unsaved ? 'Unsaved changes' : escapeHtml(state.saveState)} · synthetic session memory</dd></div><div><dt>Website</dt><dd>${websiteState && websiteState.project ? escapeHtml(websiteState.project.name) + (websiteState.dirty ? ' · Unsaved changes' : ' · Saved locally') : 'No website open'}</dd></div></dl>
         <h3>Before sending for review</h3><ul><li>Save the local website and synthetic draft.</li><li>Inspect each page in Preview and verify source references.</li><li>Have an authorized reviewer accept the exact revision through the approved service when it is connected.</li></ul>
         <p role="note">Review submission, approval, approved-version export and publishing are unavailable. Reviewer policy and authoritative revision services are not connected. The synthetic decision queue is a UI demonstration.</p>
-        <div class="studio-filter-group"><button type="button" class="studio-button" disabled>Submit to reviewer — unavailable</button><button type="button" class="studio-button" disabled>Approve revision — unavailable</button><button type="button" class="studio-button" disabled>Publish website — unavailable</button></div>
+        <div class="studio-local-actions"><button type="button" class="studio-button studio-button--secondary" disabled>Submit to reviewer — unavailable</button><button type="button" class="studio-button studio-button--secondary" disabled>Approve revision — unavailable</button><button type="button" class="studio-button studio-button--secondary" disabled>Publish website — unavailable</button></div>
         <p>Preview downloads remain local draft HTML, not approved publication.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="website">Open website workspace</button>
       </section>`;
     }
