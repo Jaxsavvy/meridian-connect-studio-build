@@ -1,5 +1,49 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 corrected-evidence integration readback
+
+- Current input heads: #34 `38c093fe4691a2add2c7d9761aa266cc1353403a`; #35 `647bb9e0391f9188fdf1022b5cea30c258011350`. Both open and unmerged. Builder fix `8115f7d` preserved. No reviews from #34's requested reviewers Jaxsavvy or Theecassycat have been submitted.
+- #35 warning correction is complete: real Electron capture, guard, raw provenance/metrics and both baselines are committed. Downloaded images were inspected and hashes verified; source/Electron jobs pass at #35's current head. See #35 `docs/studio/integration/32/VISUAL_REVIEW.md` and Actions run `38844034523`.
+- Refreshed disposable combined checkout of those exact inputs passed 108/108 relevant Node tests, including 14 Builder and five capture-guard tests. Source diffs confirm neither PR changed `src` since the earlier agreed two-file resolution. Reused that resolution, passed changed-source syntax/whitespace checks, and recorded local combined tree `70079433cd43f8ebd775fcf670de0526581a7526`. No combined source pushed; no combined Electron claim. Current #35's standalone Electron run does not validate the combined tree.
+- Updated #35 review `5542571002`: original screenshot-specific defect is corrected and verified, but this assistant authored the correction and did not self-approve or dismiss its earlier review. Jaxsavvy or Theecassycat must independently review the correction/shared-file integration. #34 must retain both requested-review gates. Neither PR may merge under the user's current instruction.
+- Next safe step: independent review, then an agreed combined runtime/integration run before any separately authorized merge. No new feature scope added. Board synchronization remains pending.
+
+## 2026-10-15 evening PR #34 / #35 follow-up
+
+- Resumed from handoff `288e1d6` while preserving the later Builder fix `8115f7d`. Live #34 head is `8115f7de1f97876a291ef6deb38c23ba0421501d`; live #35 head is unchanged at `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Both remain open and unmerged; #34 has no submitted reviews from requested reviewers Jaxsavvy / Theecassycat.
+- #35 belongs to Jaxsavvy / Chair 1, not Tyler or Cassy. Posted exact synthetic dirty-metadata/leave reproduction and required capture/metrics/hash/manual-pixel evidence in [the PR conversation](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/35#issuecomment-6206716771). No replacement image or capture-guard commit was available to verify. Follow-up review `5542337955` records that Tyler's CHANGES_REQUESTED remains unresolved; no approval or dismissal submitted.
+- Separate disposable checkout composed current #34/#35, resolving only `app.js` and `studio-shell.js` according to the agreed loader, project-selection, mounted Assets and sequenced leave-guard plan. No combined source was pushed. Local combined tree: `89ef6fde5f71ebc422666041e63a9b1bdd49d4c4`.
+- Combined tests: 103/103 relevant Node tests, including 14/14 Builder tests. All source JavaScript syntax, workflow source/packaging-input assertions, prohibited tracked paths and whitespace checks passed. This supersedes the older 91-test source result for these two current PR heads. It does not cover later PR #33/#36 changes or Jaxsavvy's separate `feature/owner-studio-ui-flow` commit `d0d7c99`.
+- Runtime limit: Electron, Xvfb and a display server are absent in this environment. No new combined runtime/capture, dependency install, installer or visual verification claimed. GitHub source checks are green on both heads; #35's historical smoke remains green but does not verify corrected pixels or the new combined tree.
+- Next actors: Jaxsavvy must correct #35's capture and anti-stale guard, run the isolated runtime and publish exact evidence; Tyler then visually re-reviews it. Jaxsavvy and Theecassycat must submit the requested #34 reviews. Keep #34 unmerged until both reviews are satisfied and #35 correction is verified. No changes to other chairs' branches; board sync remains pending.
+
+## 2026-10-15 Website history and export correction
+
+- Continuing PR #34 from `288e1d6` on `feature/tyler-website-studio-ui`, assigned issue #9 / Chair 2. Only the Builder model, focused tests, this handoff and verification report changed.
+- Undo/redo now restores the selected page together with document content. Undoing page creation no longer leaves the editor pointing at a missing page. Failed edits preserve redo, and creating another website clears the prior website's history.
+- Export filename uniqueness now includes the home page's `index.html`. Adding an Index page chooses `index-2`; editing a conflicting slug or exporting a conflicting stored model fails explicitly rather than silently overwriting a page.
+- Three regression cases failed on the prior implementation and pass with the fix. Focused Builder: 14/14; full relevant Node suite: 95/95; model/test syntax and whitespace checks passed.
+- No layout or shared app/shell change. Electron screenshots, packaging and installed-app checks were not repeated for this model-only correction. Earlier runtime evidence is historical; it does not validate this new head.
+- PR #35's screenshot correction and the coordinated shared-file review remain pending. No merge, release, backend wiring or board completion claimed.
+- Board sync pending: no GitHub Project API tool or authenticated gh CLI is available in this environment. Existing issue #9 and its recorded Project identity retained; no duplicate created.
+
+## 2026-10-14 Website Builder continuation
+
+- Branch: `feature/tyler-website-studio-ui`, created from live `main` `29a0df6`. The previously reported unpublished commit `52daa2f`, recovery ZIP, and publication guide were not found in GitHub or located local Git object stores/files; they are not claimed as recovered.
+- Implemented a development-only Website Builder surface with project-scoped persistent local website projects, backup/pending recovery, editable brief, sitemap pages, reusable sections, undo/redo, unsaved-leave protection, sandboxed model-backed preview, and validated static HTML output.
+- Added `WEBSITE_STUDIO_AUDIT.md`, integration contracts, implementation notes, test report, and delivery/recovery documentation at the repository root.
+- Verification: focused Website Builder tests pass 11/11; full relevant regression passes 92/92; isolated Electron create/edit/save/reload/reopen, preview, form-label, leave-guard, and 200% horizontal-fit checks pass; editor/preview/reopen/zoom captures were visually inspected. Unsigned NSIS build succeeded; installer execution remains unverified.
+- Limits: local application storage is not authoritative Team Hub persistence or multi-device collaboration. Asset placement, provider-backed AI, authoritative permission evidence, whole-site UI packaging, screen-reader output, Windows High Contrast, installed-app validation, deployment, and production remain incomplete.
+- Publication: implementation commit `fe02832` and documentation commits `6c3727b`, `8df2274`, and `39857b9` were pushed to `origin/feature/tyler-website-studio-ui` and verified through GitHub readback. [PR #34 — DEV-006: add persistent Website Builder foundation](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/34) is open against `main`; its description now records the exact scope, checks, screenshots, limits, AI handoff, and incomplete review/dependency checklist. Its `source-checks` job passed and GitHub reports no merge conflicts. DEV-006 stays open and incomplete.
+
+## 2026-10-15 PR #35 coordination and combined dry run
+
+- Chair 1 documented the shared-file integration contract on PR #34. Tyler accepted it and requested review from `Jaxsavvy` and `Theecassycat`. PR #33 has no source-file overlap with PR #34; PR #35 overlaps only `src/renderer/app.js` and `src/renderer/studio-ui/studio-shell.js`.
+- A disposable checkout combined PR #34 head `df6b85e` with PR #35 head `8ed3f367`. The resolution composed both development loaders, retained `selectStudioConnectProject`, retained the host-owned Asset mount and accepted-project list, preserved the Website controller/render/events, and sequenced Website save/discard before the Asset leave guard. No combined code was committed or pushed.
+- Combined JavaScript syntax and the relevant Node suite passed 91/91 outside the filesystem sandbox. The identical sandboxed suite passed 86 tests and denied five existing OS-worker cases with `EPERM`; those five passed in the authorized development environment.
+- Both combined Electron paths completed: DEV-020 mount/import/leave/project-isolation/revocation/sign-out/200%-zoom and Website Builder create/edit/save/reload/reopen/leave/200%-zoom. The Website evidence probe needed to accept the mounted Asset client's polite status element instead of only the superseded read-only-preview selector.
+- Manual visual review passed the mounted Asset view, project-switch state, and 200% zoom. PR #35's `unsaved-asset-leave.png` was byte-identical to `asset-view-1440.png` and did not visibly show the warning, although the runtime DOM assertion measured a connected visible 855-by-81 warning. Tyler submitted a requested-changes review for corrected screenshot evidence and an anti-stale capture guard. PR #34 remains unmerged while that evidence/review gate is open.
+
 ## Identity
 
 - Issue number and URL: [#9 — DEV-006](https://github.com/Jaxsavvy/meridian-connect-studio-build/issues/9)

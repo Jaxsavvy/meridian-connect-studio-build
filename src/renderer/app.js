@@ -129,7 +129,7 @@ async function configureStudioGate(isDevelopment) {
   setStudioGatePresentation(Boolean(isDevelopment));
   if (!isDevelopment) return false;
   try {
-    for (const source of ['studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js', 'studio-ui/studio-shell.js']) {
+    for (const source of ['studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js', 'studio-ui/website-builder.js', 'studio-ui/studio-shell.js']) {
       await loadStudioDevelopmentScript(source);
     }
     initStudioUI();
