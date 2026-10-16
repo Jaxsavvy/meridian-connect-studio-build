@@ -235,3 +235,37 @@ test('failed website creation reports an error without crashing the local worksp
   assert.equal(active.snapshot().project, null);
   assert.match(active.snapshot().error, /Local storage full/);
 });
+
+test('website recovery rejects a different website identity in every storage candidate', () => {
+  const storage = createMemoryStorage();
+  const active = controller(storage, 'identity');
+  active.createProject('Requested site');
+  const requested = active.snapshot().project;
+  active.createProject('Other site');
+  const other = active.snapshot().project;
+  const key = `meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(requested.id)}`;
+  const repository = createRepository(storage, meridianProject.id);
+
+  storage.setItem(key, JSON.stringify(other));
+  storage.setItem(`${key}.backup`, JSON.stringify(requested));
+  assert.equal(repository.open(requested.id).id, requested.id);
+  assert.equal(JSON.parse(storage.getItem(key)).id, requested.id);
+
+  for (const suffix of ['', '.backup', '.pending']) storage.setItem(`${key}${suffix}`, JSON.stringify(other));
+  assert.throws(() => repository.open(requested.id), /identity/i);
+  assert.deepEqual(repository.list().map(project => project.id), [other.id]);
+});
+
+test('section limit rejects the edit before it can make the website unsaveable and preserves redo', () => {
+  const active = controller();
+  active.createProject('Section limit');
+  for (let count = 2; count < 100; count += 1) assert.equal(active.addSection(), true);
+  active.updateBrief('tone', 'Direct');
+  active.undo();
+  assert.equal(active.addSection(), false);
+  assert.equal(active.snapshot().project.pages[0].sections.length, 100);
+  assert.match(active.snapshot().error, /100 sections/);
+  assert.equal(active.redo(), true);
+  assert.equal(active.snapshot().project.brief.tone, 'Direct');
+  assert.equal(active.save(), true);
+});

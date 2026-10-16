@@ -30,8 +30,9 @@
 
   function pageFilename(page) { return `${page.slug || 'index'}.html`; }
 
-  function validateProject(input, expectedProjectId) {
+  function validateProject(input, expectedProjectId, expectedWebsiteId) {
     if (!input || input.schema !== SCHEMA || typeof input.id !== 'string' || !input.id) throw new Error('Invalid website project.');
+    if (expectedWebsiteId !== undefined && input.id !== expectedWebsiteId) throw new Error('Website identity does not match the requested record.');
     if (input.meridianProjectId !== expectedProjectId) throw new Error('Website project does not belong to the selected Meridian project.');
     if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 50) throw new Error('Website project pages are invalid.');
     const pageIds = new Set();
@@ -308,6 +309,7 @@
       if (!SECTION_TYPES.has(type)) return false;
       return mutate(project => {
         const page = project.pages.find(item => item.id === state.selectedPageId);
+        if (page.sections.length >= 100) throw new Error('This page already has 100 sections.');
         page.sections.push({ id: makeId('section'), type, heading: type === 'cta' ? 'Ready to take the next step?' : 'New section', body: 'Write clear, useful content for this section.', action: type === 'cta' ? 'Contact us' : '' });
       }, 'Section added.');
     }
