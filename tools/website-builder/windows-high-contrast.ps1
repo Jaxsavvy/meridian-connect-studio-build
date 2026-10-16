@@ -9,21 +9,29 @@ public static class MeridianContrast {
   public struct HIGHCONTRAST {
     public uint cbSize;
     public uint dwFlags;
-    [MarshalAs(UnmanagedType.LPWStr)] public string lpszDefaultScheme;
+    public IntPtr lpszDefaultScheme;
   }
+  public struct Snapshot { public uint dwFlags; public string Scheme; }
   [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
   public static extern bool SystemParametersInfo(uint action, uint param, ref HIGHCONTRAST value, uint flags);
-  public static HIGHCONTRAST Read() {
+  public static Snapshot Read() {
     HIGHCONTRAST value = new HIGHCONTRAST();
     value.cbSize = (uint)Marshal.SizeOf(typeof(HIGHCONTRAST));
     if (!SystemParametersInfo(0x0042, value.cbSize, ref value, 0)) throw new System.ComponentModel.Win32Exception();
-    return value;
+    // The returned scheme pointer belongs to Windows. Never marshal it as an
+    // owned string that the P/Invoke marshaller could attempt to free.
+    return new Snapshot { dwFlags=value.dwFlags, Scheme=value.lpszDefaultScheme==IntPtr.Zero ? null : Marshal.PtrToStringUni(value.lpszDefaultScheme) };
   }
-  public static void Write(HIGHCONTRAST value) {
-    if (!SystemParametersInfo(0x0043, value.cbSize, ref value, 3)) throw new System.ComponentModel.Win32Exception();
+  public static void Write(Snapshot snapshot) {
+    IntPtr scheme = snapshot.Scheme == null ? IntPtr.Zero : Marshal.StringToHGlobalUni(snapshot.Scheme);
+    try {
+      HIGHCONTRAST value = new HIGHCONTRAST { cbSize=(uint)Marshal.SizeOf(typeof(HIGHCONTRAST)), dwFlags=snapshot.dwFlags, lpszDefaultScheme=scheme };
+      if (!SystemParametersInfo(0x0043, value.cbSize, ref value, 3)) throw new System.ComponentModel.Win32Exception();
+    } finally { if (scheme != IntPtr.Zero) Marshal.FreeHGlobal(scheme); }
   }
 }
 '@
+Write-Output 'Reading actual OS High Contrast flags'
 $original = [MeridianContrast]::Read()
 $record = @{ originalFlags=$original.dwFlags; mechanism='Win32 SPI_SETHIGHCONTRAST, not Chromium media emulation'; restored=$false }
 $output = Join-Path $PWD 'test-output/windows-high-contrast'
@@ -32,6 +40,7 @@ try {
   $enabled = $original
   $enabled.dwFlags = ($original.dwFlags -bor 1) -band (-bnot 0x1000)
   [MeridianContrast]::Write($enabled)
+  Write-Output 'OS High Contrast enable call returned; verifying readback'
   $actual = [MeridianContrast]::Read()
   if (($actual.dwFlags -band 1) -ne 1) { throw 'OS High Contrast readback was not enabled' }
   $record.enabledFlags = $actual.dwFlags
@@ -41,6 +50,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Actual OS Contrast Electron run exit $LASTEXITCODE" }
   $record.status = 'passed'
 } finally {
+  Write-Output 'Restoring original OS High Contrast flags'
   [MeridianContrast]::Write($original)
   $restored = [MeridianContrast]::Read()
   $record.restoredFlags = $restored.dwFlags
