@@ -1,5 +1,13 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 local Website gaps completed
+
+- Branch `feature/tyler-dev006-combined`, PR #39; final executable source `837559b75c7ddfaf0a89c2fac337746dcdf9ac94`. Added undoable accessible page/section reorder/remove, section-type selection, safe global accent/fonts, parent-controlled multi-page preview with unchanged empty sandbox, and real whole-site static ZIP download. Preserved `8115f7d`, `38c093f`, all prior source/history and Cassy's files.
+- 127 local/Linux tests and 78 Windows tests pass. Source run `38964410373`, Linux `38964410375`, Windows `38964410689` all pass; both real Electron flows, real downloads, actual OS Contrast/readback/restoration, existing NSIS install and 47-file installed-source match/AX/Tab/employee gate verified. Downloaded both final artifacts, checked hashes and exact source/capture tree, independently decoded all three ZIPs and inspected fifteen named images. See `LOCAL_WEBSITE_COMPLETION.md` and `combined-evidence/local-website-completion.json`.
+- #33 `80461b2` + this source refreshed in the correct disposable worktree: no conflicts, 150 tests pass, staged whitespace clean, prospective tree `e2f53935d80b0d2c9bab648d9609074b14a2e510`; own temporary merge aborted, no PR/branch merge.
+- Existing #9 board item returned Building → Review → Testing, read back; other fields preserved. No Complete/closure, self-approval, new dependency, bridge/service or production change. No private screenshot upload retry.
+- Jaxsavvy + Theecassycat must independently review #34/#39; either must assess #35 correction. Theecassycat must confirm/return requested human Narrator/Contrast walkthrough, or Jaxsavvy coordinate an alternate; Tyler retains follow-through. No reply/booking/human pass inferred. Authenticated installed Studio and live integrations remain approved-service owner gates. All PRs remain unmerged. Explicit advanced-product backlog is still listed, not called complete.
+
 ## 2026-10-16 Windows verification and repository-wide task audit
 
 - Source `c1f5f507f29d69ec69ddce86d4eb7a16fafad360`: 121 relevant local/Linux CI tests; 72 Windows renderer/context tests; Linux/Windows guided and Asset Electron flows pass. Windows run `38961539058` also passes actual OS High Contrast readback/walkthrough/restoration, NSIS build/silent installation, byte equality for 47 installed source/settings files, ordinary employee gate/startup, actual Tab navigation and actual AX labels.

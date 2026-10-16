@@ -3,6 +3,10 @@
 ## Current continuation
 
 PR #39 (`feature/tyler-dev006-combined`) is the current combined review lane.
+Current source `837559b` completes local page/section management, safe global
+styles, multi-page preview and whole-site ZIP download. Fresh 127-test Linux,
+78-test Windows, actual OS Contrast and installed-app evidence is in
+`docs/studio/design/9/LOCAL_WEBSITE_COMPLETION.md`; all PRs remain unmerged.
 See `docs/studio/design/9/DEV006_VERIFICATION.md`, `WINDOWS_REVIEW.md` and the
 Chair 2 handoff for current source/Windows evidence and exact remaining gates.
 The source below records the initial #34 milestone and is retained as history.

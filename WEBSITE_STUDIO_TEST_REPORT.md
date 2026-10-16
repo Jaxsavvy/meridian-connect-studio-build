@@ -1,6 +1,16 @@
 # Website Studio verification report
 
-## 2026-10-16 current combined Windows delivery
+## Latest local completion
+
+Source `837559b`: 127 relevant local/Linux tests, 78 Windows tests, both actual
+Electron flows, real ZIP download, actual OS Contrast/readback/restoration,
+existing NSIS installation and installed source/AX/Tab/employee gate checks pass.
+Downloaded final artifacts, verified source-tree/image/archive hashes and
+independently decoded every actual downloaded ZIP. Exact runs, inspected-image
+list, limits and human/reviewer actions: `docs/studio/design/9/LOCAL_WEBSITE_COMPLETION.md`.
+The older verification records below are retained as history.
+
+## 2026-10-16 earlier combined Windows delivery
 
 Source `c1f5f50` on PR #39 passes 121 relevant local/Linux CI tests and 72
 Windows renderer/context tests, both platform Electron flows, actual OS High

@@ -1,0 +1,399 @@
+{
+  "sourceCommit": "837559b75c7ddfaf0a89c2fac337746dcdf9ac94",
+  "captureCommit": "3bb6ada1d0493afbde9b4714250531c29c80e0b0",
+  "sourceAndCaptureTree": "c2df5476cc1737be7f568e6d6d70f3cee12e53c0",
+  "treeEqualityVerifiedViaGitHub": true,
+  "tests": {
+    "localAndLinux": 127,
+    "windows": 78,
+    "fail": 0
+  },
+  "runs": {
+    "source": 38964410373,
+    "linux": 38964410375,
+    "windows": 38964410689
+  },
+  "artifacts": {
+    "linux": {
+      "id": 12073937648,
+      "sha256": "055282a0884f9128068a703516b9befede8d6c845c0131d4da4543baf3fe2ce1"
+    },
+    "windows": {
+      "id": 12073134702,
+      "sha256": "6fc5ea1a66073247da9c71847dd3263c1384c16119c3a46d805c533056f0874f"
+    }
+  },
+  "management": {
+    "linux": {
+      "status": "passed",
+      "previewPages": [
+        {
+          "id": "page-mvbfs2yb-2",
+          "title": "Services"
+        },
+        {
+          "id": "website-mvbfs0xl-1-home",
+          "title": "Home"
+        }
+      ],
+      "download": {
+        "name": "northstar-website-ui-flow-review-site.zip",
+        "bytes": 4657,
+        "sha256": "20dc0a43a13a12deefc44610dea90f92c1f73f41f2ffe0faca7bd21f013675c5"
+      },
+      "sandbox": "",
+      "globalStyle": {
+        "accent": "#16715a",
+        "font": "serif"
+      },
+      "verified": [
+        "page reorder/remove/undo",
+        "section type/reorder/remove/undo",
+        "every preview page",
+        "actual ZIP download"
+      ]
+    },
+    "windows": {
+      "status": "passed",
+      "previewPages": [
+        {
+          "id": "page-mvbfsg3z-2",
+          "title": "Services"
+        },
+        {
+          "id": "website-mvbfse7d-1-home",
+          "title": "Home"
+        }
+      ],
+      "download": {
+        "name": "northstar-website-ui-flow-review-site.zip",
+        "bytes": 4657,
+        "sha256": "20dc0a43a13a12deefc44610dea90f92c1f73f41f2ffe0faca7bd21f013675c5"
+      },
+      "sandbox": "",
+      "globalStyle": {
+        "accent": "#16715a",
+        "font": "serif"
+      },
+      "verified": [
+        "page reorder/remove/undo",
+        "section type/reorder/remove/undo",
+        "every preview page",
+        "actual ZIP download"
+      ]
+    },
+    "actualOSHighContrast": {
+      "status": "passed",
+      "previewPages": [
+        {
+          "id": "page-mvbfsx5i-2",
+          "title": "Services"
+        },
+        {
+          "id": "website-mvbfsv9d-1-home",
+          "title": "Home"
+        }
+      ],
+      "download": {
+        "name": "northstar-website-ui-flow-review-site.zip",
+        "bytes": 4657,
+        "sha256": "20dc0a43a13a12deefc44610dea90f92c1f73f41f2ffe0faca7bd21f013675c5"
+      },
+      "sandbox": "",
+      "globalStyle": {
+        "accent": "#16715a",
+        "font": "serif"
+      },
+      "verified": [
+        "page reorder/remove/undo",
+        "section type/reorder/remove/undo",
+        "every preview page",
+        "actual ZIP download"
+      ]
+    }
+  },
+  "osSetting": {
+    "status": "passed",
+    "originalFlags": 126,
+    "mechanism": "Win32 SPI_SETHIGHCONTRAST, not Chromium media emulation",
+    "enabledFlags": 127,
+    "restored": true,
+    "restoredFlags": 126
+  },
+  "installed": {
+    "status": "passed",
+    "release": "10.0.26100",
+    "sourceMatchesRunnerCheckout": true,
+    "fileCount": 47,
+    "employee": {
+      "ready": true,
+      "loginVisible": true,
+      "studioDisabled": true,
+      "studioHidden": true,
+      "syntheticLoaded": false,
+      "development": false,
+      "session": null,
+      "devLoginHidden": true,
+      "backgroundInert": true
+    },
+    "keyboard": "Actual Tab input moved Username to Password",
+    "programmaticStudioRouteRejected": true,
+    "localCrossCheck": {
+      "exactLinuxBytes": 10,
+      "windowsCRLFEquivalent": 37
+    }
+  },
+  "warnings": {
+    "linux": {
+      "provenance": {
+        "commit": "3bb6ada1d0493afbde9b4714250531c29c80e0b0",
+        "tree": "c2df5476cc1737be7f568e6d6d70f3cee12e53c0",
+        "trackedSourceClean": true,
+        "runId": "94b07fa6-b92d-40be-935d-6a35f9a354b6",
+        "startedAt": "2026-10-16T20:45:03.315Z"
+      },
+      "beforeCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 486,
+          "y": 391.75,
+          "width": 873,
+          "height": 81
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 491,
+              "y": 421.75,
+              "width": 122.09375,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 623.09375,
+              "y": 421.75,
+              "width": 238.140625,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1440,
+          "height": 973,
+          "devicePixelRatio": 1
+        }
+      },
+      "afterCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 486,
+          "y": 391.75,
+          "width": 873,
+          "height": 81
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 491,
+              "y": 421.75,
+              "width": 122.09375,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 623.09375,
+              "y": 421.75,
+              "width": 238.140625,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1440,
+          "height": 973,
+          "devicePixelRatio": 1
+        }
+      },
+      "hashes": {
+        "normal": "8aa7590acbab9d01fbf07f6d859e82192e1cbdfcbda21992366b348335d19c35",
+        "selected": "a2d48e47869fd8caf54fd9118038674e37d2e192b6b294ef3ac960b3cd893750",
+        "warning": "ca5e6b69880c120cdd8b65188a7824fb6ee5ae12aef9ea29ac6c8cd9fbe08030"
+      }
+    },
+    "windows": {
+      "provenance": {
+        "commit": "3bb6ada1d0493afbde9b4714250531c29c80e0b0",
+        "tree": "c2df5476cc1737be7f568e6d6d70f3cee12e53c0",
+        "trackedSourceClean": true,
+        "runId": "bca52109-4e54-4c31-8bde-25f8da2348c3",
+        "startedAt": "2026-10-16T20:45:21.075Z"
+      },
+      "beforeCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 474.234375,
+          "y": 307,
+          "width": 462.53125,
+          "height": 105
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 479.234375,
+              "y": 361,
+              "width": 111.03125,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 600.265625,
+              "y": 361,
+              "width": 208.796875,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1008,
+          "height": 655,
+          "devicePixelRatio": 1
+        }
+      },
+      "afterCapture": {
+        "connected": true,
+        "visible": true,
+        "bounds": {
+          "x": 474.234375,
+          "y": 307,
+          "width": 462.53125,
+          "height": 105
+        },
+        "inViewport": true,
+        "text": "Unsaved asset metadata will be discarded if you leave this project.Keep editingDiscard changes and leave",
+        "controls": [
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 479.234375,
+              "y": 361,
+              "width": 111.03125,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Keep editing",
+            "disabled": false
+          },
+          {
+            "connected": true,
+            "visible": true,
+            "bounds": {
+              "x": 600.265625,
+              "y": 361,
+              "width": 208.796875,
+              "height": 46
+            },
+            "inViewport": true,
+            "text": "Discard changes and leave",
+            "disabled": false
+          }
+        ],
+        "projectId": "synthetic-northstar",
+        "fieldValue": "Unsaved synthetic metadata",
+        "dirty": true,
+        "viewport": {
+          "width": 1008,
+          "height": 655,
+          "devicePixelRatio": 1
+        }
+      },
+      "hashes": {
+        "normal": "598887d062f8ab7cd2256481b96270adeefb808da31329d4966bc63cdf860f72",
+        "selected": "215fd7529ae3283402380263b8fe19c25e4baac83e6e89726bad0c327c071ac5",
+        "warning": "e4b027532a031c6c7a0a419537fe47c7e2c102df3ee5fd57bb85479ea1ad74f9"
+      }
+    }
+  },
+  "reviewedImageHashes": {
+    "linux/ui-flow-evidence/11-page-management.png": "6f5ab67ac7a5510a1a3d300423c359ad73a8b4d8a8bd8b26163ac8e950d91983",
+    "linux/ui-flow-evidence/12-section-management.png": "0b5193885dcaf1ee37938471ec5b1a871b04dcd1cbe477f3951b1c6a04a02fcc",
+    "linux/ui-flow-evidence/13-multipage-preview.png": "affea1cb763ab6b2de2943731adbcf575c21996579e5646ef0073deb1537111c",
+    "linux/docs/studio/integration/32/renders/asset-view-1440.png": "8aa7590acbab9d01fbf07f6d859e82192e1cbdfcbda21992366b348335d19c35",
+    "linux/docs/studio/integration/32/renders/asset-selected-clean-1440.png": "a2d48e47869fd8caf54fd9118038674e37d2e192b6b294ef3ac960b3cd893750",
+    "linux/docs/studio/integration/32/renders/unsaved-asset-leave.png": "ca5e6b69880c120cdd8b65188a7824fb6ee5ae12aef9ea29ac6c8cd9fbe08030",
+    "windows/test-output/windows-high-contrast/11-page-management.png": "7072ab8830133c11aead0bd5f42b00dc6f9b538ec0ef5ff5381c832afe707eba",
+    "windows/test-output/windows-high-contrast/12-section-management.png": "1fbd2c35627d4186ff1445da69b71f1dc0351220511de7c5655eeba989974e30",
+    "windows/test-output/windows-high-contrast/13-multipage-preview.png": "ab9af9dc95701fa404581b771d3e45234b61c43da14d2e279a95ee519513b022",
+    "windows/test-output/windows-high-contrast/10-global-styles.png": "5d7a3f3bc84932aaa6c15fc26d2380831b5051938cf3a554109d333d4b7eb850",
+    "windows/test-output/windows-high-contrast/05-composed-asset-warning.png": "802255e79099303c65c340aca2da159738d5a188947685fca506346fdd1dcd39",
+    "windows/test-output/windows-high-contrast/04-preview-200pct.png": "fb13446c26a12cccbb953eed38631d5158873a484055ccc72e893563acd4a9dc",
+    "windows/test-output/windows-installed/installed-employee-login.png": "0f93478635f5d9f8bf374ff08090b5bf1aacd52cc1891765b11554747d228c55",
+    "windows/ui-flow-evidence/10-global-styles.png": "b87d66410a05d0db9f1637b9a3d977fa08ff62bd6fae66171ff1a0b08c273e2d",
+    "windows/docs/studio/integration/32/renders/unsaved-asset-leave.png": "e4b027532a031c6c7a0a419537fe47c7e2c102df3ee5fd57bb85479ea1ad74f9"
+  },
+  "compatibility": {
+    "pr33Head": "80461b26435033d7db04f5f6ff9417ba93379255",
+    "prospectiveTree": "e2f53935d80b0d2c9bab648d9609074b14a2e510",
+    "tests": 150,
+    "fail": 0,
+    "scope": "Disposable source composition only; no PR merge/runtime claim"
+  },
+  "limits": [
+    "Not Narrator speech or independent human acceptance.",
+    "No authenticated installed Studio or live provider/service/release claim.",
+    "Normal Windows Asset warning shows warning/choices; dirty name is below fold. Actual-OS composed warning shows dirty field.",
+    "Global font field is below fold at Windows runner DPI; Linux style capture shows both controls.",
+    "Private Project screenshot was not uploaded; no authorization to retry its blocked external sharing."
+  ]
+}

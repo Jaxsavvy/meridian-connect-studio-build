@@ -24,17 +24,29 @@ preserved. No existing PR or main branch is merged by this delivery.
   approval, approved-version export and publishing remain disabled until the
   separately managed DEV-010/DEV-011/DEV-016 contracts are accepted and connected.
   The existing synthetic decision queue is visibly a UI demonstration.
-- Website Preview downloads local draft HTML only. The UI does not promise
+- Website Preview downloads local draft HTML or a whole-site static ZIP. The UI does not promise
   authoritative storage, team synchronization, publishing or provider execution.
+
+Current local Website completion: undoable page/section reorder/removal, typed
+sections, safe website-wide styles, explicit multi-page preview and ZIP export.
+Exact implementation, current runs and evidence: `LOCAL_WEBSITE_COMPLETION.md`.
+The source below retains the previous verification milestone as history.
+
+Current executable source `837559b` passes **127/127** relevant local/Linux tests,
+**78/78** Windows tests, both real Electron flows, actual OS Contrast/restoration,
+NSIS installation and installed login/AX/Tab/employee gate checks. Final artifacts
+were downloaded, source trees/hashes verified and fifteen named images inspected.
+Refreshed #33 source-only composition passes 150 tests. No independent human
+Narrator or reviewer approval is implied. All PRs remain unmerged, #9 open.
 
 ## Verification and remaining limits
 
-Local full relevant Node suite: **121/121 pass**, including behavior regressions
+Previous milestone full relevant Node suite: **121/121 pass**, including behavior regressions
 for internal navigation, saved scene reopen/reference retention, edits made
 during a pending save, same-project scene-to-page provenance, create-storage
 failure recovery, exact website identity during recovery and the 100-section editing limit. JavaScript syntax and whitespace checks pass.
 
-Current source `c1f5f50` also passes real Windows guided/Asset flows, actual OS
+Previous source `c1f5f50` also passes real Windows guided/Asset flows, actual OS
 High Contrast enable/readback/restoration, existing NSIS build/installation,
 47-file installed-source comparison, ordinary employee startup/gate, actual Tab
 input and login accessibility-tree checks. All twelve actual-OS Contrast images
@@ -45,7 +57,7 @@ workspace exposure behind login. Exact runs/results/hashes are in
 The dedicated `Website guided UI` workflow runs the combined source suite and
 both real isolated Electron flows. It captures overview, each Website step,
 composed Asset warning, storyboard material, review readiness, 200% zoom,
-emulated forced colors and ordinary employee Unavailable state. The current run passed on source `c1f5f50` with 121 tests and both real Electron flows. Separate Windows evidence is recorded above. See `DEV006_VERIFICATION.md` for provenance, exact results and remaining limits.
+emulated forced colors and ordinary employee Unavailable state. The earlier run passed on source `c1f5f50` with 121 tests and both real Electron flows. Current Website completion is recorded above. See `DEV006_VERIFICATION.md` for provenance, exact results and remaining limits.
 
 Actual screen-reader speech and independent human review remain unverified.
 Actual OS Contrast and ordinary installed startup now have Windows evidence,

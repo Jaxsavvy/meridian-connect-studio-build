@@ -1,6 +1,19 @@
 # DEV-006 combined delivery verification
 
-## 2026-10-16 Windows and installed-app verification — current
+## 2026-10-16 local Website completion — current
+
+Executable source `837559b75c7ddfaf0a89c2fac337746dcdf9ac94` passes 127 local/Linux
+tests and 78 Windows tests, both real Electron flows, actual OS Contrast with
+restoration, NSIS install and installed login/AX/Tab/employee gate verification.
+Fresh source/Linux/Windows runs: `38964410373`, `38964410375`, `38964410689`.
+Local page/section management, safe styles, multi-page preview and actual ZIP
+download are implemented and verified. See `LOCAL_WEBSITE_COMPLETION.md` for
+exact artifact links, source-tree checks, image inspection, independent ZIP
+decoding, refreshed 150-test #33 source compatibility and remaining people.
+Raw curated evidence: `combined-evidence/local-website-completion.json`.
+Older records below are historical, not substitutes for this current source.
+
+## 2026-10-16 Windows and installed-app verification — prior milestone
 
 Verified executable source: `c1f5f507f29d69ec69ddce86d4eb7a16fafad360`.
 

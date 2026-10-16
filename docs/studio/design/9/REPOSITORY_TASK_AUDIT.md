@@ -46,11 +46,19 @@ This remains a disposable source-only check, not an extra merge/runtime claim.
 ## Historical roadmap versus assigned acceptance
 
 The root `WEBSITE_STUDIO_AUDIT.md` describes the initial foundation as partial
-and lists future page/section reorder/delete, drag/drop/rich text/global
-components, whole-site UI export, authoritative storage, media and AI integration.
-Those are **not silently complete**. Responsive device controls and combined
-local scene-text copying have since landed; a model-level multi-page HTML
-bundle is not a user-facing whole-site ZIP export. The current assigned #9
+and listed page/section reorder/delete, drag/drop/rich text/global components,
+whole-site UI export, authoritative storage, media and AI integration.
+The user's continuation prompted actual implementation of the actionable local
+management/styles/preview/ZIP slice, not merely another status note. Source
+`837559b` now delivers page/section reorder/remove, four section types, safe
+global styles, multi-page preview and actual whole-site ZIP download; 127 tests
+and fresh Linux/Windows/installed/actual OS Contrast evidence pass. Exact scope
+and limits are in `LOCAL_WEBSITE_COMPLETION.md`. Responsive device controls and
+same-project synthetic scene-text copying were already delivered.
+Drag/drop, rich text, reusable global components and nested navigation remain
+an explicitly undelivered advanced-product backlog, not hidden completion claims.
+Authoritative persistence/media/AI/publishing still require owner contracts.
+The current assigned #9
 acceptance permits visibly synthetic adapters and honest unavailable provider
 entries; it does not establish a full production builder or authorize the
 separate #25 service/publish work. This audit does not erase that feature backlog
@@ -58,9 +66,20 @@ or represent it as tested. Any additional product scope must remain visible in
 the Website roadmap and owner integration planning rather than being inferred
 from green UI checks.
 
+Refreshed #33 compatibility after these local changes: #33 `80461b2` + #39
+`837559b`, no conflicts, 150/150 relevant tests, staged whitespace clean;
+prospective tree `e2f53935d80b0d2c9bab648d9609074b14a2e510`. This check was done
+in the correct clean disposable checkout and its own temporary merge aborted.
+No source from #33 was added to the active branch and no PR was merged.
+Fresh all-issue retrieval still shows 20 issues and only #9 open/assigned to
+Tyler; no new human feedback or reviewer decision has arrived.
+
 ## Board feedback completed
 
 The existing #9 item was updated and read back using Tyler's verified account.
+For the new local Website implementation it returned Testing → Building, then
+Building → Review → Testing after publication; each saved status was read back.
+Chair 2 — Tyler / P1 — High / Studio UI/UX remain unchanged. No Complete claim.
 See the already published issue #9 comment `6208191006` for its transition and
 verification request, and issue #8 comment `6208191710` for the concrete token/slot
 handoff. No duplicate item, reassignment, Complete transition, issue closure or

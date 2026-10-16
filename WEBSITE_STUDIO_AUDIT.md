@@ -7,9 +7,13 @@ claim. Combined DEV-006 work and current evidence are in
 `docs/studio/design/9/DEV006_ACCEPTANCE.md`, `DEV006_VERIFICATION.md`,
 `WINDOWS_REVIEW.md` and `REPOSITORY_TASK_AUDIT.md` on PR #39. Preview device
 controls, mounted synthetic Assets, composed leave guards and same-project
-synthetic scene-text copying have since landed. Page/section reorder/delete,
-rich text/global components, whole-site UI export and live service/provider
-integration are not silently marked complete by that verification.
+synthetic scene-text copying have since landed. Current source `837559b` also
+delivers undoable page/section reorder/remove, four section types, safe global
+styles, multi-page preview and real whole-site ZIP export. See
+`docs/studio/design/9/LOCAL_WEBSITE_COMPLETION.md` for fresh Linux/Windows,
+actual OS Contrast, installed-app and ZIP evidence. Rich text, drag/drop,
+reusable global components, nested navigation and live service/provider
+integration remain undelivered; the table below retains the initial baseline.
 
 Audit baseline: `main` at `29a0df6` on 2026-10-14 PDT. This document distinguishes source evidence from runtime and external-service evidence.
 

@@ -8,9 +8,10 @@ duplicate issue or Project item is needed.
 
 ## Automated Windows lane
 
-Verified run: [38961539058](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38961539058), executable source `c1f5f50`, artifact `12072732936`.
-72 Windows tests, actual guided/Asset flows, OS Contrast/restoration and the
+Verified run: [38964410689](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38964410689), executable source `837559b`, artifact `12073134702`.
+78 Windows tests, actual guided/Asset flows, actual ZIP download, OS Contrast/restoration and the
 installed package checks below pass. Raw record and image hashes:
+`combined-evidence/local-website-completion.json`. Prior milestone remains in
 `combined-evidence/windows-verification.json`. This is not a human Narrator pass.
 
 `Windows Studio verification` runs on PR #39's combined branch. It runs
@@ -77,6 +78,10 @@ profiles, logs, credentials or binaries.
    navigation to enter Studio → Website Builder and create a synthetic site.
    Verify spoken navigation/step names and every input label; proceed through
    Brief → Pages → Edit → Preview. Record actual spoken examples and failures.
+   Also check website-wide accent/font labels, selected-page movement/removal,
+   section type/movement/removal and Undo. Verify meaningful post-action focus
+   and spoken status. In Preview, select both pages and download the site ZIP;
+   confirm the selector keeps focus and both static pages open from the archive.
 2. Edit an audience/body field, leave Website, and verify the unsaved dialog is
    announced, initial focus is Keep editing, Tab/Shift+Tab stays in the modal,
    Escape/Keep returns focus to its opener, and text survives. Retry with Save.
