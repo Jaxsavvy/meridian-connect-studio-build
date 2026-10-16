@@ -36,7 +36,7 @@ Current executable source `837559b` passes **127/127** relevant local/Linux test
 **78/78** Windows tests, both real Electron flows, actual OS Contrast/restoration,
 NSIS installation and installed login/AX/Tab/employee gate checks. Final artifacts
 were downloaded, source trees/hashes verified and fifteen named images inspected.
-Refreshed #33 source-only composition passes 150 tests. No independent human
+Refreshed #33 `3fab5ef` source-only composition passes 152 tests. No independent human
 Narrator or reviewer approval is implied. All PRs remain unmerged, #9 open.
 
 ## Verification and remaining limits

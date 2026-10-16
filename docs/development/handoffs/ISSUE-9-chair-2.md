@@ -2,6 +2,12 @@
 
 ## 2026-10-16 local Website gaps completed
 
+Final repo readback caught newer Cassy #33 `3fab5ef` after the pinned 150-test
+check. Inspected token/helper delta; disposable composition with executable
+`837559b` passes 152 tests, syntax/whitespace, no conflicts; prospective tree
+`cd0202585d02be3a2dbd159550a117d2e2480e99`. Own merge aborted, no runtime/merge
+claim. #33 feedback `6224526177`; the 80461b2/150-test result below is historical.
+
 - Branch `feature/tyler-dev006-combined`, PR #39; final executable source `837559b75c7ddfaf0a89c2fac337746dcdf9ac94`. Added undoable accessible page/section reorder/remove, section-type selection, safe global accent/fonts, parent-controlled multi-page preview with unchanged empty sandbox, and real whole-site static ZIP download. Preserved `8115f7d`, `38c093f`, all prior source/history and Cassy's files.
 - 127 local/Linux tests and 78 Windows tests pass. Source run `38964410373`, Linux `38964410375`, Windows `38964410689` all pass; both real Electron flows, real downloads, actual OS Contrast/readback/restoration, existing NSIS install and 47-file installed-source match/AX/Tab/employee gate verified. Downloaded both final artifacts, checked hashes and exact source/capture tree, independently decoded all three ZIPs and inspected fifteen named images. See `LOCAL_WEBSITE_COMPLETION.md` and `combined-evidence/local-website-completion.json`.
 - #33 `80461b2` + this source refreshed in the correct disposable worktree: no conflicts, 150 tests pass, staged whitespace clean, prospective tree `e2f53935d80b0d2c9bab648d9609074b14a2e510`; own temporary merge aborted, no PR/branch merge.

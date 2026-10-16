@@ -49,9 +49,11 @@ session-local. No packages, bridge, backend, employee gate or Cassy modules chan
   Windows normal capture shows warning/choices but its dirty field is below fold;
   the composed actual-OS Contrast image visibly includes that dirty field.
   The Windows font control is below fold; Linux style evidence shows both controls.
-- Source-only compatibility with Cassy's #33 `80461b2` refreshed in a clean
-  disposable worktree: no conflict, **150/150** tests, staged whitespace clean.
-  Prospective tree `e2f53935d80b0d2c9bab648d9609074b14a2e510`. The temporary merge
+- Final readback caught Cassy's newer #33 `3fab5ef`. Exact token/helper delta
+  inspected and source-only composition with this source rerun in the clean
+  disposable worktree: no conflict, **152/152** tests, affected syntax and staged
+  whitespace clean. Prospective tree `cd0202585d02be3a2dbd159550a117d2e2480e99`.
+  Earlier `80461b2`/150-test evidence is historical. The temporary merge
   was aborted; no #33 runtime or branch/PR merge is implied.
 
 ## Remaining people and boundaries

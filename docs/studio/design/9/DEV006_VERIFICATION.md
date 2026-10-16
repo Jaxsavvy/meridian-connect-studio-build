@@ -9,7 +9,7 @@ Fresh source/Linux/Windows runs: `38964410373`, `38964410375`, `38964410689`.
 Local page/section management, safe styles, multi-page preview and actual ZIP
 download are implemented and verified. See `LOCAL_WEBSITE_COMPLETION.md` for
 exact artifact links, source-tree checks, image inspection, independent ZIP
-decoding, refreshed 150-test #33 source compatibility and remaining people.
+decoding, refreshed 152-test #33 source compatibility and remaining people.
 Raw curated evidence: `combined-evidence/local-website-completion.json`.
 Older records below are historical, not substitutes for this current source.
 
