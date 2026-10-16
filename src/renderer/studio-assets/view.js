@@ -77,7 +77,7 @@
       const form=element('form'); const fields={}; const draft=drafts.get(asset.id) || {revision:asset.revision,name:asset.name,tags:asset.tags.join(', '),description:asset.description,section:asset.section};
       const draftNotice=element('p','Unsaved metadata changes — retained while this project remains selected.',{role:'status'});draftNotice.hidden=!drafts.has(asset.id);
       for(const [key,label] of [['name','Display name'],['tags','Tags (comma separated)'],['description','Description'],['section','Section']]) {
-        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || '',disabled:busy}); input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);draftNotice.hidden=false;};wrap.append(input);form.append(wrap);
+        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || '',disabled:busy});if(key==='name')input.maxLength=160;input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);draftNotice.hidden=false;};wrap.append(input);form.append(wrap);
       }
       const save=element('button','Save metadata',{type:'submit',disabled:busy});form.append(save);form.onsubmit=async e=>{e.preventDefault();const result=await controller.save('metadata',{assetId:asset.id,revision:draft.revision,name:fields.name.value,tags:fields.tags.value.split(',').map(t=>t.trim()).filter(Boolean),description:fields.description.value,section:fields.section.value});if(result){drafts.delete(asset.id);render(controller.snapshot());}};panel.append(form);
       panel.append(draftNotice);

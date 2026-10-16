@@ -187,3 +187,10 @@ test('unknown mutation outcome is not auto-replayed and exact read can reconcile
  await c.save('metadata',{assetId:a.id,revision:a.revision,name:'Committed but timed out',tags:[],section:'Files'});assert.equal(attempts,1);assert.equal(c.snapshot().error,'UNKNOWN_OUTCOME');assert.equal(c.snapshot().assets[0].name,a.name);assert.equal(c.snapshot().notice,null);
  s.get=async({projectId,assetId})=>structuredClone(s.record(projectId,assetId));const read=await c.reloadAsset(a.id);assert.equal(read.name,'Committed but timed out');assert.equal(attempts,1);assert.deepEqual(read.versions,a.versions);
 });
+
+test('160-character names download with exact version suffix without trusting transport filenames',async()=>{
+ const s=new SyntheticService({projects:['A']});const a=await s.import(input({filename:'f'.repeat(156)+'.txt'}));const c=new Controller({service:s,projects:[{id:'A'}]});await c.selectProject('A');const name='n'.repeat(160);const b=await c.save('metadata',{assetId:a.id,revision:a.revision,name,tags:[],section:'Files'});
+ const download=s.download.bind(s);s.download=async request=>({...await download(request),filename:'../untrusted-destination.exe'});const result=await c.download({assetId:a.id,versionId:a.originalVersionId});assert.equal(result.filename,name+'__v1.txt');assert.equal(result.filename.length,168);assert.equal(b.originalFilename,a.originalFilename);assert.equal(b.versions[0].sha256,a.versions[0].sha256);
+ assert.equal(await c.save('metadata',{assetId:a.id,revision:b.revision,name:'n'.repeat(161),tags:[],section:'Files'}),null);assert.equal(c.snapshot().error,'INVALID_TEXT');assert.equal(c.snapshot().assets[0].name,name);
+});
+test('Unicode display names keep exact export suffix while retaining current UTF-16 length limit',()=>{const name='😀'.repeat(80);assert.equal(M.text(name).length,160);assert.equal(M.exportName({name},{mediaType:'image/png',sequence:12}),name+'__v12.png');assert.throws(()=>M.text('😀'.repeat(81)),{code:'INVALID_TEXT'});});

@@ -118,7 +118,9 @@
       const digest = await crypto.subtle.digest('SHA-256', result.bytes);
       const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
       if (hash !== result.sha256 || result.sha256 !== version.sha256 || result.mediaType !== version.mediaType || result.bytes.length !== version.bytes) M.fail('CHECKSUM_MISMATCH');
-      return { ...result, filename: M.safeName(result.filename) };
+      // Validate the display-name stem at its own limit, then append the exact version suffix.
+      // A transport filename is neither canonical metadata nor a destination grant.
+      return { ...result, filename: M.exportName(asset, version) };
     }, true); }
     cancel() { this.generation++; for (const r of this.requests) r.abort(); this.requests.clear();this.writes.clear();this.read = null; this.state.notice=null;this.state.phase = 'cancelled'; this.emit(); }
   }
