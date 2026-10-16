@@ -52,7 +52,7 @@ async function main() {
   const sourceHashes = {};
   for (const file of tracked) {
     const source = fs.readFileSync(path.join(root, file));
-    const installed = asar.extractFile(archive, file);
+    const installed = asar.extractFile(archive, path.normalize(file));
     assert.ok(source.equals(installed), 'Installed source mismatch: ' + file);
     sourceHashes[file] = createHash('sha256').update(installed).digest('hex');
   }
@@ -128,7 +128,10 @@ async function main() {
     console.log('WINDOWS_INSTALLED_SMOKE_PASSED');
   } finally {
     if (client) client.close();
-    if (child.pid) execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    if (child.pid && child.exitCode === null) {
+      try { execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); }
+      catch (_) { /* The app may already have exited; preserve the test result. */ }
+    }
   }
 }
 
