@@ -18,7 +18,7 @@
 ## Work and limits
 
 - `docs/studio/integration/20/STUDIO_ASSET_PERMISSION_POLICY_V1.md` records the action matrix, server checks, audit fields, revocation timing, and seven synthetic A/B acceptance scenarios.
-- Cross-check against the current Asset Library found that image preview and "Download selected version" both call `asset.download` and receive complete version bytes in the renderer. This must be split before a live mount; otherwise a read grant bypasses the intended export grant. The owner permits a limited preview; rendition limits still need implementation review.
+- Preview and full-byte export need separate reviewed service and client operations before a live mount. The owner permits a limited preview; rendition limits still need implementation review.
 - The owner decisions do not enable approval, export, or any new bridge. No customer data, credentials, provider calls, live database change, service restart, merge, or deployment occurred.
 - Document structure and `git diff --check` were checked locally. No runtime test is claimed for a documentation-only policy draft.
 - The separate private Studio Files stage passes 81 synthetic checks, but its grant callback is test-only and approval/export remain disabled. The active Team Hub database has no Studio Files tables. Loaded process bytes remain unverified.

@@ -34,7 +34,7 @@ An approval must record the approver, submitter, exact version, decision, time, 
 
 ## Preview and export integration gate
 
-The current Asset Library UI calls the same `asset.download` method for image preview and for its "Download selected version" action. Both paths receive complete version bytes in the renderer. If a read-only preview path returns those bytes, a person can save them without the export action, so the service cannot truthfully enforce the explicit export grant. Before mounting a live adapter, separate preview from full-byte transfer. The owner permits members without an export grant to view a limited preview. The service must produce a bounded, reduced-fidelity presentation artifact without complete version bytes; the exact rendition limits require implementation review. A preview can still be captured from the screen, so the export grant governs transfer of complete version bytes. Any path returning complete version bytes is an export and must enforce the approved-version and `asset.export` rules. Cassy's component and the Connect host need a reviewed contract change; this draft does not edit her branch or approve a new route.
+The owner permits members without an export grant to view a limited preview. The service must produce a bounded, reduced-fidelity presentation artifact. The exact rendition limits require implementation review. Complete version bytes are a separate export operation and require an approved version and `asset.export`. Cassy's component and the Connect host need a reviewed contract change before a live mount; this draft does not edit her branch or approve a new route.
 
 ## Isolated acceptance cases
 
