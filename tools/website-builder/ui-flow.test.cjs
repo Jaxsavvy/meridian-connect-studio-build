@@ -135,3 +135,11 @@ test('internal Studio navigation cannot bypass dirty Website work', async () => 
   assert.match(h.host.innerHTML, /Keep this website edit/);
   assert.match(h.host.innerHTML, /Saved in this app/);
 });
+
+test('handoff preserves the session-only label when persistent storage is unavailable', async () => {
+  const h = harness({ fallback: true }); h.select('synthetic-alpha'); await h.click('website-create');
+  await h.click('surface', 'handoff');
+  assert.match(h.host.innerHTML, /Session only/);
+  assert.doesNotMatch(h.host.innerHTML, /Saved locally/);
+  assert.match(h.host.innerHTML, /Submit to reviewer — unavailable/);
+});
