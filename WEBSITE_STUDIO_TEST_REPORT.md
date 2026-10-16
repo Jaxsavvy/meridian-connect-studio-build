@@ -1,5 +1,11 @@
 # Website Studio verification report
 
+## 2026-10-15 final corrected-evidence inputs
+
+Combined current inputs #34 `38c093f` + #35 `647bb9e` passed **108/108 relevant Node tests** using the prior full command plus `docs/studio/integration/32/capture-guard.test.cjs`. Includes 14 Builder and five capture-guard tests. Neither input changed `src` since the agreed prior shared-file resolution; reused that resolution in a separate disposable checkout. Source syntax and staged whitespace passed. Local combined tree: `70079433cd43f8ebd775fcf670de0526581a7526`. No combined source pushed or combined Electron runtime rerun claimed.
+
+#35 now contains verified actual warning pixels and source-provenance evidence; its final-head standalone source/Electron checks passed (Actions run `38844034523`). This supersedes the earlier screenshot-correction blocker below. Independent correction review remains required because this assistant authored the fix; #34's Jaxsavvy and Theecassycat reviews remain absent. Both PRs stay unmerged.
+
 ## 2026-10-15 evening current-head integration check
 
 Exact input heads: PR #34 `8115f7de1f97876a291ef6deb38c23ba0421501d` plus PR #35 `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Disposable local resolution of the two shared-file conflicts produced tree `89ef6fde5f71ebc422666041e63a9b1bdd49d4c4`; no combined code was pushed. Both development loaders, accepted-project selection, writable Asset lifecycle and Website controller were retained, sequencing Website save/discard before the Asset guard.

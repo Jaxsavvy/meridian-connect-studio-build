@@ -1,5 +1,13 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-15 corrected-evidence integration readback
+
+- Current input heads: #34 `38c093fe4691a2add2c7d9761aa266cc1353403a`; #35 `647bb9e0391f9188fdf1022b5cea30c258011350`. Both open and unmerged. Builder fix `8115f7d` preserved. No reviews from #34's requested reviewers Jaxsavvy or Theecassycat have been submitted.
+- #35 warning correction is complete: real Electron capture, guard, raw provenance/metrics and both baselines are committed. Downloaded images were inspected and hashes verified; source/Electron jobs pass at #35's current head. See #35 `docs/studio/integration/32/VISUAL_REVIEW.md` and Actions run `38844034523`.
+- Refreshed disposable combined checkout of those exact inputs passed 108/108 relevant Node tests, including 14 Builder and five capture-guard tests. Source diffs confirm neither PR changed `src` since the earlier agreed two-file resolution. Reused that resolution, passed changed-source syntax/whitespace checks, and recorded local combined tree `70079433cd43f8ebd775fcf670de0526581a7526`. No combined source pushed; no combined Electron claim. Current #35's standalone Electron run does not validate the combined tree.
+- Updated #35 review `5542571002`: original screenshot-specific defect is corrected and verified, but this assistant authored the correction and did not self-approve or dismiss its earlier review. Jaxsavvy or Theecassycat must independently review the correction/shared-file integration. #34 must retain both requested-review gates. Neither PR may merge under the user's current instruction.
+- Next safe step: independent review, then an agreed combined runtime/integration run before any separately authorized merge. No new feature scope added. Board synchronization remains pending.
+
 ## 2026-10-15 evening PR #34 / #35 follow-up
 
 - Resumed from handoff `288e1d6` while preserving the later Builder fix `8115f7d`. Live #34 head is `8115f7de1f97876a291ef6deb38c23ba0421501d`; live #35 head is unchanged at `8ed3f367a965a8f3789ee3cb1f7d288d46bc549d`. Both remain open and unmerged; #34 has no submitted reviews from requested reviewers Jaxsavvy / Theecassycat.
