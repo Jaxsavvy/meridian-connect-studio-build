@@ -560,6 +560,10 @@ app.whenReady().then(async () => {
     await pause(200);
     for (const step of ['brief', 'pages', 'edit', 'preview']) {
       await click(window, '.website-flow-nav [data-value="' + step + '"]');
+      if (!(await metrics(window)).fits) {
+        const overflow=await window.webContents.executeJavaScript("[...document.querySelectorAll('.website-builder,.website-builder *')].filter(el=>getComputedStyle(el).display!=='none'&&el.clientWidth>0&&el.scrollWidth>el.clientWidth+1).map(el=>({tag:el.tagName,id:el.id,class:el.className,width:el.clientWidth,scroll:el.scrollWidth,text:el.textContent.slice(0,160)})).slice(0,20)");
+        await fs.writeFile(join(evidence,'long-label-overflow.json'),JSON.stringify({step,overflow},null,2));console.error('Long-label overflow',overflow);
+      }
       assert.equal((await metrics(window)).fits, true, '200% fit: ' + step);
       assert.equal((await metrics(window)).usableHeight, true, '200% usable editor height: ' + step);
       assert.equal((await metrics(window)).focusedHeadingVisible, true, '200% focused heading visible: ' + step);

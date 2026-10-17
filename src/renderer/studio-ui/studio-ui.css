@@ -758,3 +758,7 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-shared-library { margin-block: 18px; padding: 14px; border: 1px solid var(--studio-line); border-radius: 10px; }
 .website-shared-library h4 { margin: 0; }
 .website-shared-library p { color: var(--studio-muted); }
+
+.website-builder { min-width: 0; overflow-wrap: anywhere; }
+.website-builder .studio-section-heading > div, .website-flow-footer > span { min-width: 0; }
+.website-builder .studio-button { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
