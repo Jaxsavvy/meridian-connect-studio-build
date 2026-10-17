@@ -680,6 +680,26 @@ app.whenReady().then(async () => {
     assert.equal(employeeGate.disabled,true); assert.equal(employeeGate.hidden,true); assert.equal(employeeGate.syntheticLoaded,false);
     await capture(employee,'09-employee-unavailable'); employee.destroy();
     await fs.writeFile(join(evidence, 'results.json'), JSON.stringify({ status: 'passed', osHighContrast: { required: requireOSHighContrast, enabled: nativeTheme.shouldUseHighContrastColors }, media, employeeGate, lastMetrics: await metrics(window), verified: ['four panels', 'focus after navigation', 'modal keyboard wrapping', 'unsaved edits retained', 'phone width', 'sandbox preserved', 'dirty list guard', 'save/list/reopen', 'Website/Assets composed guards', 'synthetic scene references', 'scene-to-page provenance', 'unavailable authoritative handoff', 'all steps at 200%', 'emulated forced colors/reduced motion', 'employee gate'] }, null, 2));
+    // Simulate an already committed write from another window through its local record.
+    await click(window,'.website-flow-nav [data-value="brief"]');
+    const conflictOriginal=await window.webContents.executeJavaScript(`(() => {
+      const key=Object.keys(localStorage).find(key=>key.startsWith('meridian.website.')&&!key.endsWith('.index')&&!key.endsWith('.backup')&&!key.endsWith('.pending'));
+      const record=JSON.parse(localStorage.getItem(key));record.revision++;record.brief.goal='Newer external-window goal';localStorage.setItem(key,JSON.stringify(record));
+      const field=document.querySelector('#website-brief-goal');field.value='Keep my separate copy';field.dispatchEvent(new Event('input',{bubbles:true}));return {key,id:record.id};
+    })()`);
+    await click(window,'[data-action="website-save"]');
+    assert.match(await window.webContents.executeJavaScript("document.querySelector('.website-builder').textContent"),/changed elsewhere/);
+    await click(window,'[data-action="website-save-copy"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-brief-goal').value"),'Keep my separate copy');
+    assert.match((await metrics(window)).saveText,/Separate website copy saved/);
+    const copyCheck=await window.webContents.executeJavaScript(`(() => {
+      const original=JSON.parse(localStorage.getItem(${JSON.stringify(conflictOriginal.key)}));
+      const copies=Object.keys(localStorage).filter(key=>key.startsWith('meridian.website.')&&!key.endsWith('.index')&&!key.endsWith('.backup')&&!key.endsWith('.pending')).map(key=>JSON.parse(localStorage.getItem(key))).filter(record=>record.id!==${JSON.stringify(conflictOriginal.id)});
+      return {originalGoal:original.brief.goal,copies:copies.length,copyGoal:copies[0]?.brief.goal,identityDistinct:copies[0]?.id!==original.id};
+    })()`);
+    assert.equal(copyCheck.originalGoal,'Newer external-window goal');assert.equal(copyCheck.copyGoal,'Keep my separate copy');assert.equal(copyCheck.copies,1);assert.equal(copyCheck.identityDistinct,true);
+    await capture(window,'31-separate-copy-saved');
+    await fs.writeFile(join(evidence,'separate-copy.json'),JSON.stringify({status:'passed',...copyCheck,limits:'Observed committed local change is simulated; not atomic cross-process CAS'},null,2));
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

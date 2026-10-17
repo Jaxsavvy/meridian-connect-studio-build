@@ -730,6 +730,26 @@
       }
     }
 
+    function saveSeparateCopy() {
+      if (!repository || !state.project) return false;
+      try {
+        const project = copy(state.project);
+        project.id = makeId('website');
+        if (repository.open(project.id)) throw new Error('Copy identity already exists. Try again.');
+        project.name = cleanText(project.name, 155) + ' copy';
+        project.createdAt = project.updatedAt = now();
+        project.revision = 0;
+        repository.save(project);
+        savedBaseline = JSON.stringify(project);
+        history = []; future = []; checkpoints = [];
+        state = { ...state, project, dirty: false, error: null, status: 'Separate website copy saved on this device. The original website and its checkpoints are unchanged.' };
+        refreshList(); emit(); return true;
+      } catch (error) {
+        state = { ...state, error: error.message || 'Copy save failed.', status: 'Separate copy could not be saved. Your original draft and edits remain here.' };
+        emit(); return false;
+      }
+    }
+
     function createCheckpoint(label) {
       if (!repository || !state.project) return false;
       try {
@@ -813,7 +833,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, movePageTo, removePage, addSection, makeSectionShared, addSharedSection, detachSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
+      updatePage, movePage, movePageTo, removePage, addSection, makeSectionShared, addSharedSection, detachSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, saveSeparateCopy, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {

@@ -52,3 +52,15 @@ reloading the fixture, clearing unsaved editor/website state or resetting jobs.
 Identity/session changes retain their existing invalidation path. New Node and
 mounted renderer assertions cover name refresh and retained edits; relevant
 suite168 passes. No membership or authorization behavior changes.
+
+## Preserve conflicted edits as a separate website
+
+Save separate copy creates a new device-local website identity with current
+content and a copy name, fresh revision, and independent baseline. The original
+website and its checkpoint history are untouched. Undo/checkpoints reset for the
+new identity; shared groups remain scoped to the copied website. A failed write
+keeps the original open draft, dirty edits and Undo history. Node regressions
+cover conflict preservation and quota failure; mounted UI simulates an already
+committed external local record, refuses overwrite and saves the retained draft
+as a second identity.170 local tests pass. This is not cloud backup or service
+conflict resolution. Current runtime verification is pending.

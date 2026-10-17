@@ -748,3 +748,25 @@ test('a save interrupted after its primary write can be retried without a false 
   failIndex=true;assert.equal(active.save(),false);assert.equal(active.snapshot().dirty,true);
   failIndex=false;assert.equal(active.save(),true);assert.equal(active.snapshot().dirty,false);
 });
+
+test('saving a separate local copy preserves stale edits without overwriting the newer original or linking groups across websites', () => {
+  const storage=createMemoryStorage(),first=controller(storage,'original');first.createProject('Original');
+  const originalId=first.snapshot().project.id,section=first.snapshot().project.pages[0].sections[0].id;
+  first.makeSectionShared(section);first.save();first.createCheckpoint('Original checkpoint');
+  const second=controller(storage,'other');second.openProject(originalId);second.updateBrief('goal','Newer original');second.save();
+  first.updateSection(section,'heading','Keep my local version');assert.equal(first.save(),false);
+  assert.equal(first.saveSeparateCopy(),true);
+  const copied=first.snapshot();assert.notEqual(copied.project.id,originalId);assert.equal(copied.dirty,false);assert.deepEqual(copied.checkpoints,[]);
+  assert.equal(copied.project.pages[0].sections[0].heading,'Keep my local version');assert.equal(copied.project.name,'Original copy');
+  const repo=createRepository(storage,meridianProject.id);assert.equal(repo.open(originalId).brief.goal,'Newer original');
+  assert.notEqual(repo.open(originalId).pages[0].sections[0].heading,'Keep my local version');assert.equal(repo.listCheckpoints(originalId).length,1);
+  assert.equal(first.undo(),false);first.updateBrief('tone','Independent');assert.equal(first.save(),true);
+  assert.equal(repo.open(originalId).brief.tone,'');assert.equal(repo.list().length,2);
+});
+
+test('failed separate-copy save retains current identity, unsaved content and history', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Copy failure');active.updateBrief('goal','Keep here');
+  const original=active.snapshot().project;storage.setItem=()=>{throw Error('Storage full');};
+  assert.equal(active.saveSeparateCopy(),false);assert.deepEqual(active.snapshot().project,original);assert.equal(active.snapshot().dirty,true);
+  assert.equal(active.undo(),true);active.selectContext(null);assert.equal(active.saveSeparateCopy(),false);
+});
