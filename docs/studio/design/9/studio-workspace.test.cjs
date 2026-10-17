@@ -277,3 +277,14 @@ test('synthetic retries are explicit and bounded, and non-development data canno
   const adapter={async load(project){const data=createProjectFixture(project);delete data.developmentOnly;return data;},async save(){throw Error('Must not call');}};
   const other=await readyWorkspace(adapter);assert.equal(other.workspace.simulateDevelopmentJob('queued'),false);other.workspace.destroy();
 });
+
+
+test('loaded and locally reviewed scene status survives reopening and discarding later edits', async () => {
+  const { context,workspace }=await readyWorkspace();
+  assert.equal(workspace.snapshot().saveState,'Saved');
+  assert.equal(workspace.submitForReview(),true);workspace.selectScene('scene-proof');workspace.selectScene('scene-opening');
+  assert.equal(workspace.snapshot().saveState,'Needs review');
+  workspace.updateEditor('notes','Discard this');workspace.discardChanges();
+  assert.equal(workspace.snapshot().saveState,'Needs review');
+  context.reset();assert.equal(workspace.submitForReview(),false);workspace.destroy();
+});

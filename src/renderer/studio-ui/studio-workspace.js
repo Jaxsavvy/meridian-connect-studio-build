@@ -45,6 +45,8 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
+  function sceneSaveState(scene) { return ['Saved','Needs review'].includes(scene?.status) ? scene.status : 'Draft'; }
+
   function createWorkspace({ context, adapter, onChange = () => {} }) {
     if (!context || typeof context.subscribe !== 'function') throw new TypeError('Studio context required.');
     if (!adapter || typeof adapter.load !== 'function' || typeof adapter.save !== 'function') {
@@ -127,7 +129,7 @@
             notes: firstScene ? firstScene.note : '',
             assetIds: firstScene ? copy(firstScene.assetIds || []) : [],
           },
-          saveState: 'Draft',
+          saveState: sceneSaveState(firstScene),
           statusMessage: 'Synthetic development workspace loaded. No production service is connected.',
         };
         emit();
@@ -163,7 +165,7 @@
         selectedSceneId: scene.id,
         editor: { title: scene.name, format: scene.format || '16:9 landscape', notes: scene.note, assetIds: copy(scene.assetIds || []) },
         unsaved: false,
-        saveState: scene.status === 'Saved' ? 'Saved' : 'Draft',
+        saveState: sceneSaveState(scene),
         statusMessage: `${scene.name} opened in the synthetic editor.`,
       };
       emit();
@@ -226,7 +228,7 @@
           assetIds: scene ? copy(scene.assetIds || []) : [],
         },
         unsaved: false,
-        saveState: scene?.status === 'Saved' ? 'Saved' : 'Draft',
+        saveState: sceneSaveState(scene),
         error: null,
         statusMessage: 'Unsaved synthetic changes discarded.',
       };
@@ -234,12 +236,14 @@
     }
 
     function submitForReview() {
+      if (!state.project || !state.data || !state.selectedSceneId) return false;
       if (state.unsaved || state.saveState === 'Saving') {
         state = { ...state, statusMessage: 'Save the draft before submitting it for review.' };
         emit();
         return false;
       }
-      state = { ...state, saveState: 'Needs review', statusMessage: 'Development-only review state recorded locally. No service was called.' };
+      const scenes = state.data.scenes.map(scene => scene.id === state.selectedSceneId ? { ...scene, status: 'Needs review' } : scene);
+      state = { ...state, data: { ...state.data, scenes }, saveState: 'Needs review', statusMessage: 'Development-only review state recorded locally. No service was called.' };
       emit();
       return true;
     }

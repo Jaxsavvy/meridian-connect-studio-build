@@ -535,6 +535,15 @@ app.whenReady().then(async () => {
     await waitFor(window, '#studio-scene-format');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-scene-format').value"),'9:16 vertical');
     await fs.writeFile(join(evidence,'scene-format.json'),JSON.stringify({status:'passed',saved:'9:16 vertical',discarded:'1:1 square',restored:'9:16 vertical'},null,2));
+    await click(window,'[data-action="submit-review"]');
+    await until(window,"[...document.querySelectorAll('.studio-save-cluster .studio-pill')].some(item=>item.textContent==='Needs review')");
+    const reviewedScene=await window.webContents.executeJavaScript("document.querySelector('[data-action=scene][aria-current]')?.dataset.value || document.querySelector('[data-action=scene].is-current')?.dataset.value || document.querySelector('[data-action=scene]').dataset.value");
+    const otherScene=await window.webContents.executeJavaScript("[...document.querySelectorAll('[data-action=scene]')].find(item=>item.dataset.value!=="+JSON.stringify(reviewedScene)+").dataset.value");
+    await click(window,`[data-action="scene"][data-value="${otherScene}"]`);
+    await click(window,`[data-action="scene"][data-value="${reviewedScene}"]`);
+    assert.equal(await window.webContents.executeJavaScript("[...document.querySelectorAll('.studio-save-cluster .studio-pill')].some(item=>item.textContent==='Needs review')"),true);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-scene-format').value"),'9:16 vertical');
+    await fs.writeFile(join(evidence,'scene-review-state.json'),JSON.stringify({status:'passed',localReviewSurvivesReopen:true,frameRetained:true,limits:'Synthetic memory only; no authoritative review submission'},null,2));
     await capture(window, '06-storyboard-material');
     await click(window, '[data-action="scene-to-website"]');
     await waitFor(window, '#website-page-editor-title');

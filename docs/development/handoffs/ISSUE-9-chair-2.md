@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 scene status and local review correction
+
+- Audit reproduced loaded Saved scene showing Draft and locally submitted review state disappearing on reopen. Normalize recognized Saved/Needs review status on load/select/discard, retain local review state on the scene and reject review with no active project/scene. No authoritative review action or persistence added. New regression fails before the fix; relevant suite161. Actual renderer reopens the reviewed scene and verifies Needs review plus retained frame. Exact-source evidence pending.
+
 ## 2026-10-16 job recovery visibility correction
 
 - ac3cefe passes all four workflows, but visual inspection caught the unknown-state heading aligned at the bottom of a smaller Windows viewport with recovery choices below view. Align the focused job heading at the start of the workspace; add explicit heading/action bounds assertions before unknown/cancellation/denied captures. Fresh exact-source evidence pending; no clipped capture accepted as visible recovery evidence.
