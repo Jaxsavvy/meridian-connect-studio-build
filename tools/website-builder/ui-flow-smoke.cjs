@@ -75,6 +75,7 @@ app.whenReady().then(async () => {
         additionalArguments: ['--studio-evidence-mode=development'],
       },
     });
+    window.webContents.on('console-message', (_event, _level, message) => console.log('Synthetic renderer:', message));
     await window.loadFile(join(root, 'src/renderer/index.html'));
     if (requireOSHighContrast) assert.equal(await window.webContents.executeJavaScript("matchMedia('(forced-colors: active)').matches"), true, 'Actual OS colors must reach the renderer before any emulation');
     await waitFor(window, '#projectsMasterList .project-item');
@@ -151,9 +152,16 @@ app.whenReady().then(async () => {
       const next=document.querySelector('textarea[data-field=body]');next.focus();next.setSelectionRange(0,5);
       document.querySelector('[data-command=bold]').focus();
     })()`);
+    window.focus(); window.webContents.focus();
+    await pause(100);
     window.webContents.sendInputEvent({type:'keyDown',keyCode:'Enter'});
     window.webContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
-    await until(window,"document.querySelector('textarea[data-field=body]').value.startsWith('**Clear**')");
+    try { await until(window,"document.querySelector('textarea[data-field=body]').value.startsWith('**Clear**')"); }
+    catch (error) {
+      const diagnostic=await window.webContents.executeJavaScript("({body:document.querySelector('textarea[data-field=body]')?.value,focus:document.activeElement?.outerHTML,error:document.querySelector('.website-builder .studio-inline-error')?.textContent,mode:document.querySelector('[data-field=bodyFormat]')?.value})");
+      await fs.writeFile(join(evidence,'formatting-failure.json'),JSON.stringify(diagnostic,null,2));
+      console.error('Formatting keyboard diagnostic',diagnostic);throw error;
+    }
     assert.equal(await window.webContents.executeJavaScript("document.activeElement.dataset.field"),'body');
     for (const [command,selected] of [['italic','words'],['bullets','First benefit\nSecond benefit']]) {
       await window.webContents.executeJavaScript(`(() => {const body=document.querySelector('textarea[data-field=body]');const start=body.value.indexOf(${JSON.stringify(selected)});body.focus();body.setSelectionRange(start,start+${selected.length});})()`);
