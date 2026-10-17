@@ -3,7 +3,55 @@
 This is an ownership and acceptance audit, not a claim that the entire Studio
 roadmap or every possible enhancement is complete.
 
-## Continuation update — 2026-10-17
+## Fresh build-wide audit — 2026-10-17 continuation
+
+Re-fetched all20 issues and their comments, all19 PR records, eight open PR
+review/inline-thread sets, all15 branches (next page exhausted), current main,
+all published source branches, build map and owner queue. Only #9 is currently
+open and explicitly assigned to Tyler. #3/#4/#5/#7 are closed. #8 remains Cassy's;
+#11/#16/#18–28/#32 remain owner integration work by their bodies. Empty Assignee
+does not transfer those tasks. No new independent #39 approval/inline request
+appeared. No fresh board readback or status update is claimed.
+
+The audit produced actual #9 work:
+- Corrected bounded duplicate URLs and preserved the home entry point.
+- Validated malformed editor records before recovery/mutation; discovered
+  saved records even when a parseable index is stale.
+- Detected observed newer local writes, retained conflicted edits, supported
+  retry after partial own-save and added Save separate copy recovery.
+- Preserved monotonic revision numbers when saving after Undo/restore.
+- Updated accepted project display names without reloading drafts/jobs.
+- Wrapped generated-site content and added real exported-HTML layout measures
+  at375/768/1440px and200%, independently of editor layout.
+- Inspected Cassy #33's seven-path075ec2a delta and updated disposable CI pins.
+  Final application suite171; disposable0d44050+075ec2a suite198, no conflicts,
+  tree2d7eaca37e62ab8c139d26183d4e1cc9016951fc. Temporary merge aborted; neither
+  branch merged. Final source/runtime acceptance is in LOCAL_DRAFT_INTEGRITY.md.
+
+## Concrete cross-chair findings from the fresh audit
+
+| Finding | Evidence / follow-through | Boundary |
+| --- | --- | --- |
+| Request normalization exceeds name limit | PR36 ed17ef6: U+0344 repeated160 normalizes to320 units while bodyDigest accepts it; comment6237265306 gives reproduction.33 contract/context tests pass, demonstrating missing boundary coverage. | Owner must reconcile canonical request/digest validation with private stage; no owner branch or backend altered. |
+| External URL host boundary | main app:open-external forwards renderer input directly; browser child window handler also lacks the separate open-browser entry's scheme check. Reported in #28 comment6237355466. | Static finding, no OS handler invocation. Host scheme/sender policy and patch stay with Chair1. |
+| Intermittent installer failure | a32d0e1 run39052149196 again exits-1073741819 at installation after renderer/Contrast pass; subsequent3a258a9 run39052314183 succeeds. | Not repaired by UI changes; no hidden retry or installer stability claim. |
+| Human/native/service verification | Independent reviews, Narrator/native pointer observations, authoritative service/provider/permission and installed approved-service gates remain open. | Automated synthetic checks cannot establish these observations or grant authority. |
+
+A specific input blocker was also verified: #18/#21/#23–26 owner worklogs describe
+new public-safe client/contract code as **local and uncommitted**. Published
+feature/studio-integration is9c87ad3, and the named new Blender/Krita/Website/Audio
+clients/contracts do not exist in its tree or the other published branches.
+Issue9 comment6237415824 requests an exact public-safe commit/sanitized patch for
+Tyler UI/adapter compatibility. Existing #9 task surfaces and Asset slot/tokens
+remain available; no restricted source is requested. Described local tests are
+not treated as published runnable integration evidence or guessed signatures.
+
+These are named remaining items with evidence, not a claim that the entire
+Meridian build is complete or that no future enhancement could be useful.
+Private Team Hub/Core source and the active Windows host are not present in
+this environment; GitHub's sanitized client cannot verify their actual runtime.
+
+## Earlier continuation update — 2026-10-17
 
 Source `872b31f` now delivers nested navigation, sibling/section drag reorder,
 linked shared sections, 200% long-label wrapping, development-only job recovery

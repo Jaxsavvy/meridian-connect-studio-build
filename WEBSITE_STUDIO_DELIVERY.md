@@ -1,6 +1,16 @@
 # Website Studio recovery and delivery
 
-## Current continuation
+## Current implementation record — 2026-10-17
+
+PR #39 remains the combined, unmerged review lane. Current executable source
+`0d440502aedaf1031da81eaa258f57999e54dee4` has 171 passing local tests.
+Current features, exact-source runtime evidence and limits are recorded in
+`docs/studio/design/9/LOCAL_DRAFT_INTEGRITY.md` and `CONTINUATION_ACCEPTANCE.md`.
+`REPOSITORY_TASK_AUDIT.md` records the fresh build-wide audit and concrete
+cross-chair findings. The milestone records below retain their original scope;
+their older source IDs/test counts are not current-head claims.
+
+## Earlier continuation
 
 PR #39 (`feature/tyler-dev006-combined`) is the current combined review lane.
 Current source `837559b` completes local page/section management, safe global

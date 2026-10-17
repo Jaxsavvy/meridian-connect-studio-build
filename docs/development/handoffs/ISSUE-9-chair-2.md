@@ -1,5 +1,11 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-17 continued full build audit and recovery work
+
+- Eight reproduced regressions fixed plus explicit Save separate copy:171 local tests. Exported pages now measured in actual Chromium at phone/tablet/desktop/200%. Final0d44050 includes monotonic revision fix and focused visible copy confirmation. All four workflows pass, four archives/hashes read back, six ZIPs checked, current Linux/Windows Contrast pixels inspected. LOCAL_DRAFT_INTEGRITY.md records exact runs/trees/hashes.
+- All20 issues/comments,19 PRs/eight open review/thread sets,15 branches (pagination exhausted), build map and owner queue audited. Concrete PR36 normalization and #28 host URL/installer findings posted with reproduction; restricted code unchanged. Current #33 policy-gated075ec2a exercised in disposable composition;198 tests pass on0d44050+075ec2a, same composed tree as CI; own temporary merge aborted.
+- See LOCAL_DRAFT_INTEGRITY.md and fresh REPOSITORY_TASK_AUDIT.md section for sources, limits and next gates. All PRs remain unmerged; board not freshly read back.
+
 ## 2026-10-17 repository-wide continuation: local draft integrity
 
 - Rechecked all20 issues, all19 PR records/eight open PR reviews/threads, full branch inventory, current build map, owner queue and issue comments. New Cassy075ec2a policy-gate delta inspected; refresh disposable runtime pins only. No merge or restricted service changes.

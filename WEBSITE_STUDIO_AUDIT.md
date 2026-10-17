@@ -2,11 +2,12 @@
 
 ## Current delivery record
 
-Current executable source is `872b31f` on PR #39 (application changes through
-`4114056`). The 161-test local suite and all four exact-source workflows pass:
+Current executable source is `0d44050` on PR #39. The 171-test local suite
+passes. Runtime evidence and its exact source/run boundary are recorded for:
 source checks, Linux guided UI, Windows installed application/actual OS Contrast,
 and disposable cross-chair Linux/Windows runtime with Asset source `3fab5ef`.
-Current continuation details are in `docs/studio/design/9/CONTINUATION_ACCEPTANCE.md`.
+Current continuation details are in `docs/studio/design/9/LOCAL_DRAFT_INTEGRITY.md`
+and `CONTINUATION_ACCEPTANCE.md`.
 
 | Delivered local capability | Scope and limit |
 | --- | --- |
@@ -15,6 +16,7 @@ Current continuation details are in `docs/studio/design/9/CONTINUATION_ACCEPTANC
 | Linked sections | Shared copies synchronize within one website; detach/Undo supported; not a cross-project template store |
 | Text and links | Safe basic bold/italic/lists and validated internal CTA destinations; not full WYSIWYG |
 | Recovery and jobs | Checkpoint removal/retry and development-only job/retry/cancel/permission states; no service authority |
+| Draft integrity | Bounded URLs, valid recovery shapes, orphan discovery, observed stale-write detection, partial-save retry, separate local copy and monotonic revisions |
 | Scene state | Loaded Saved and locally submitted Needs review survive scene selection; local synthetic review only |
 | Layout and export | Long labels wrap at 200%; whole-site ZIP and multi-page preview retained |
 

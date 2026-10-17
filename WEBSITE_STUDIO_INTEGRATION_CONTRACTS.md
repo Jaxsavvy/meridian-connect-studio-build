@@ -6,6 +6,18 @@
 
 The current repository is the employee Electron client. It does not own Meridian Core, Team Hub, provider credentials, backend permission policy, production deployment, or customer storage. No renderer check is treated as authorization.
 
+## Current local extensions — 2026-10-17
+
+The local v1 document now also permits validated parentPageId (three navigation
+levels), opt-in bodyFormat, same-website actionPageId and sharedId groups with
+consistent fields. These are client-local extensions, not acceptance of the
+owner's unpublished DEV-016 service schema. Checkpoints stay device-local;
+observed stale writes are refused, explicit retries recognize their own partial
+save, and Save separate copy creates independent website identity. Revision
+increments use the accepted persisted baseline after Undo/restore. This is not
+an atomic cross-process transaction, cloud backup or authoritative version store.
+See LOCAL_DRAFT_INTEGRITY.md under docs/studio/design/9 for tests and limits.
+
 ## Project document
 
 - Identity: schema, website project ID, Meridian project ID, name, created/updated timestamps, revision.

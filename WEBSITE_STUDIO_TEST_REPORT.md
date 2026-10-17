@@ -1,6 +1,16 @@
 # Website Studio verification report
 
-## Latest local completion
+## Current implementation record — 2026-10-17
+
+PR #39 remains the combined, unmerged review lane. Current executable source
+`0d440502aedaf1031da81eaa258f57999e54dee4` has 171 passing local tests.
+Current features, exact-source runtime evidence and limits are recorded in
+`docs/studio/design/9/LOCAL_DRAFT_INTEGRITY.md` and `CONTINUATION_ACCEPTANCE.md`.
+`REPOSITORY_TASK_AUDIT.md` records the fresh build-wide audit and concrete
+cross-chair findings. The milestone records below retain their original scope;
+their older source IDs/test counts are not current-head claims.
+
+## Earlier local completion
 
 Source `837559b`: 127 relevant local/Linux tests, 78 Windows tests, both actual
 Electron flows, real ZIP download, actual OS Contrast/readback/restoration,
