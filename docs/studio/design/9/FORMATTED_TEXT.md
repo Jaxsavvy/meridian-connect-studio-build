@@ -28,3 +28,18 @@ No backend, bridge, dependency, permission, approval/publish or packaging change
 Human Narrator output and independent reviews remain separate. Drag/drop,
 reusable global components, nested site navigation and advanced rich editing
 remain explicit backlog; this slice delivers the listed text formatting only.
+
+
+## Action destinations (same continuation)
+
+The export audit found every action previously linked to an absent #contact.
+Action destination now selects an actual page from this website. Stable page IDs
+follow slug changes; export derives safe filenames. Removing a target clears
+references in the same undoable transaction. A missing target is visible in the
+editor and local readiness; that action is omitted from preview/downloads until
+configured. In preview, configured actions are inert spans; exported actions use
+relative HTML links. No renderer-supplied URL or external destination is accepted.
+Three new regressions verify destinations, removal/undo and invalid targets.
+The full relevant local suite is now 144/144. The first formatting Electron run
+failed because its test embedded a newline incorrectly; corrected before this
+combined verification run. No runtime success is claimed for that failed run.

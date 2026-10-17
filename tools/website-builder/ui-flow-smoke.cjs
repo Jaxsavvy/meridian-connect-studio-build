@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
     // Opt-in text formatting through real controls, including native Enter activation.
     await window.webContents.executeJavaScript(`(() => {
       const mode=document.querySelector('[data-field=bodyFormat]');mode.value='formatted';mode.dispatchEvent(new Event('change',{bubbles:true}));
-      const body=document.querySelector('textarea[data-field=body]');body.value='Clear words\n\nFirst benefit\nSecond benefit\n\n<script>unsafe()</script>';body.dispatchEvent(new Event('input',{bubbles:true}));
+      const body=document.querySelector('textarea[data-field=body]');body.value=${JSON.stringify('Clear words\n\nFirst benefit\nSecond benefit\n\n<script>unsafe()</script>')};body.dispatchEvent(new Event('input',{bubbles:true}));
       const next=document.querySelector('textarea[data-field=body]');next.focus();next.setSelectionRange(0,5);
       document.querySelector('[data-command=bold]').focus();
     })()`);
@@ -170,6 +170,17 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript("document.querySelector('.website-text-tools').scrollIntoView({block:'start'})");
     await capture(window,'17-formatted-text-editor');
     await fs.writeFile(join(evidence,'formatted-text.json'),JSON.stringify({status:'passed',nativeEnter:true,focusReturnedToBody:true,undoRedo:true,body:formattedBody,limits:'Opt-in plain-text formatting; no HTML, links or scripts accepted'},null,2));
+    // Real page destination controls replace the old nonexistent #contact target.
+    const destination=await window.webContents.executeJavaScript(`(() => {
+      const select=document.querySelector('[data-field=actionPageId]');
+      const target=[...select.options].find(option=>option.textContent.includes('Home'));
+      select.value=target.value;select.dispatchEvent(new Event('change',{bubbles:true}));
+      return target.value;
+    })()`);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-field=actionPageId]').value"),destination);
+    await window.webContents.executeJavaScript("document.querySelector('[data-field=actionPageId]').scrollIntoView({block:'center'})");
+    await capture(window,'18-action-destination');
+
 
     await click(window, '.website-flow-nav [data-value="preview"]');
     const previewPages = await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].map(o=>({id:o.value,title:o.textContent}))");
@@ -190,6 +201,8 @@ app.whenReady().then(async () => {
     assert.match(formattedHTML,/<ul><li>First benefit<\/li><li>Second benefit<\/li><\/ul>/);
     assert.match(formattedHTML,/&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
     assert.doesNotMatch(formattedHTML,/<script>/);
+    assert.match(formattedHTML,/<span class="action">Contact us<\/span>/);
+    assert.doesNotMatch(formattedHTML,/href="#contact"/);
     const download = new Promise((resolve, reject) => {
       const timer=setTimeout(()=>reject(Error('ZIP download timed out')),15000);
       window.webContents.session.once('will-download', (_event,item) => {
@@ -206,6 +219,8 @@ app.whenReady().then(async () => {
     assert.match(zip.toString('utf8'),/href="index.html"/);
     assert.match(zip.toString('utf8'),/<strong>Clear<\/strong> <em>words<\/em>/);
     assert.doesNotMatch(zip.toString('utf8'),/<script>/);
+    assert.match(zip.toString('utf8'),/<a class="action" href="index.html">Contact us<\/a>/);
+    assert.doesNotMatch(zip.toString('utf8'),/href="#contact"/);
     await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
     await capture(window, '13-multipage-preview');
     // Device-local checkpoints and real storage-failure recovery; no service approval.
@@ -380,7 +395,7 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="surface"][data-value="handoff"]');
     await waitFor(window, '#studio-handoff-title');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-surface=handoff] button:disabled').length"), 3);
-    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-readiness]').length"),4);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-readiness]').length"),5);
     await capture(window, '07-review-handoff');
     await click(window, '[data-action="surface"][data-value="website"]');
     await click(window, '[data-action="website-save"]');

@@ -62,6 +62,9 @@
         if (section.bodyFormat !== undefined && !['plain', 'formatted'].includes(section.bodyFormat)) throw new Error('Website body format is invalid.');
       }
     }
+    for (const page of input.pages) for (const section of page.sections) {
+      if (section.actionPageId !== undefined && (typeof section.actionPageId !== 'string' || (section.actionPageId && !pageIds.has(section.actionPageId)))) throw new Error('Action destination must be a page in this website.');
+    }
     return copy(input);
   }
 
@@ -250,7 +253,8 @@
       return preview ? `<span${current}>${escapeHtml(item.title)}</span>` : `<a href="${escapeHtml(pageFilename(item))}"${current}>${escapeHtml(item.title)}</a>`;
     }).join('');
     const sections = page.sections.map(section => {
-      const action = section.action ? `<a class="action" href="#contact">${escapeHtml(section.action)}</a>` : '';
+      const target = project.pages.find(item => item.id === section.actionPageId);
+      const action = !section.action || !target ? '' : preview ? `<span class="action">${escapeHtml(section.action)}</span>` : `<a class="action" href="${escapeHtml(pageFilename(target))}">${escapeHtml(section.action)}</a>`;
       return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1>${renderBody(section)}${action}</div></section>`;
     }).join('');
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{display:flex;flex-wrap:wrap;gap:18px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
@@ -410,8 +414,9 @@
         if (project.pages.length === 1) throw new Error('Keep at least one page in the website.');
         if (!project.pages[index].slug) throw new Error('Keep the home page. Its content can be edited or its sections removed.');
         project.pages.splice(index, 1);
+        for (const page of project.pages) for (const section of page.sections) if (section.actionPageId === id) section.actionPageId = '';
         if (state.selectedPageId === id) state.selectedPageId = project.pages[Math.min(index, project.pages.length - 1)].id;
-      }, 'Page removed. Undo restores it. Existing page URLs are unchanged.');
+      }, 'Page removed. Actions pointing to it need a new destination. Undo restores the page and its links.');
     }
 
     function moveSection(id, direction) {
@@ -485,13 +490,14 @@
     }
 
     function updateSection(sectionId, field, value) {
-      if (!['heading', 'body', 'action', 'bodyFormat'].includes(field)) return false;
+      if (!['heading', 'body', 'action', 'bodyFormat', 'actionPageId'].includes(field)) return false;
       if (field === 'bodyFormat' && !['plain', 'formatted'].includes(value)) return false;
       return mutate(project => {
         const page = project.pages.find(item => item.id === state.selectedPageId);
         const section = page && page.sections.find(item => item.id === sectionId);
         if (!section) throw new Error('Section was not found.');
-        section[field] = cleanText(value, field === 'body' ? 8000 : 200);
+        if (field === 'actionPageId' && (typeof value !== 'string' || (value && !project.pages.some(item => item.id === value)))) throw new Error('Choose an action destination from this website.');
+        section[field] = field === 'actionPageId' ? value : cleanText(value, field === 'body' ? 8000 : 200);
       }, 'Page content updated.');
     }
 
@@ -566,6 +572,7 @@
           { id: 'saved', label: 'No unsaved website edits', passed: Boolean(project && !state.dirty) },
           { id: 'brief', label: 'Audience, goal, tone and offer filled in', passed: Boolean(project && ['audience','goal','tone','offer'].every(field => typeof project.brief?.[field] === 'string' && project.brief[field].trim())) },
           { id: 'content', label: 'Every page has a title and nonempty section content', passed: Boolean(project && project.pages.every(page => hasText(page.title) && page.sections.length && page.sections.every(section => hasText(section.heading) && hasText(section.body)))) },
+          { id: 'actions', label: 'Every action label has a page destination', passed: Boolean(project && project.pages.every(page => page.sections.every(section => !hasText(section.action) || project.pages.some(target => target.id === section.actionPageId)))) },
           { id: 'home', label: 'Home export entry exists', passed: Boolean(project && project.pages.some(page => !page.slug)) },
         ],
         limit: 'Authoritative review, approval and publish services are not connected. Local checks never grant authority.',

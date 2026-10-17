@@ -173,6 +173,7 @@ test('local readiness never grants review, approval or publish authority', () =>
   assert.equal(active.readiness().canPublish,false);assert.equal(active.readiness().canApprove,false);
   assert.equal(active.readiness().checks.find(check=>check.id==='brief').passed,false);
   for(const field of ['audience','goal','tone','offer']) active.updateBrief(field,'Synthetic answer');
+  active.updateSection(active.snapshot().project.pages[0].sections[0].id,'actionPageId',active.snapshot().selectedPageId);
   active.save();const ready=active.readiness();assert.ok(ready.checks.every(check=>check.passed));
   assert.equal(ready.canPublish,false);assert.equal(ready.canApprove,false);assert.match(ready.limit,/service/i);
   active.selectContext({id:'project-beta',name:'Beta'});assert.equal(active.readiness().websiteOpen,false);
@@ -508,4 +509,41 @@ test('invalid formatting commands, modes, ranges and oversized insertion preserv
   assert.equal(active.snapshot().project.pages[0].sections[0].body.length,8000);
   const invalid=active.snapshot().project;invalid.pages[0].sections[0].bodyFormat='html';
   assert.throws(()=>exportSite(invalid),/format/i);
+});
+
+
+test('action buttons export only real page destinations and preview stays inert', () => {
+  const active=controller();active.createProject('Destinations');
+  const home=active.snapshot().selectedPageId,hero=active.snapshot().project.pages[0].sections[0].id;
+  assert.doesNotMatch(active.exportSite().files['index.html'],/href="#contact"|class="action"/);
+  assert.equal(active.readiness().checks.find(check=>check.id==='actions').passed,false);
+  active.addPage('Contact');const contact=active.snapshot().selectedPageId;active.selectPage(home);
+  assert.equal(active.updateSection(hero,'actionPageId',contact),true);
+  assert.match(active.exportSite().files['index.html'],/<a class="action" href="contact.html">Get started<\/a>/);
+  assert.match(active.preview(),/<span class="action">Get started<\/span>/);
+  assert.doesNotMatch(active.preview(),/href="contact.html"/);
+  assert.equal(active.readiness().checks.find(check=>check.id==='actions').passed,true);
+  active.selectPage(contact);active.updatePage('slug','get-in-touch');active.selectPage(home);
+  assert.match(active.exportSite().files['index.html'],/class="action" href="get-in-touch.html"/);
+  active.save();active.openProject(active.snapshot().project.id);
+  assert.equal(active.snapshot().project.pages[0].sections[0].actionPageId,contact);
+});
+
+test('removing an action destination clears affected links and Undo restores both', () => {
+  const active=controller();active.createProject('Removal');const home=active.snapshot().selectedPageId,hero=active.snapshot().project.pages[0].sections[0].id;
+  active.addPage('Contact');const contact=active.snapshot().selectedPageId;active.selectPage(home);active.updateSection(hero,'actionPageId',contact);
+  active.removePage(contact);
+  assert.equal(active.snapshot().project.pages[0].sections[0].actionPageId,'');
+  assert.doesNotMatch(active.exportSite().files['index.html'],/class="action"/);
+  assert.equal(active.readiness().checks.find(check=>check.id==='actions').passed,false);
+  active.undo();assert.match(active.exportSite().files['index.html'],/class="action" href="contact.html"/);
+});
+
+test('foreign or executable action destinations are rejected without losing redo', () => {
+  const active=controller();active.createProject('Scoped');const hero=active.snapshot().project.pages[0].sections[0].id;
+  active.addPage('Contact');active.undo();
+  for(const target of ['foreign-id','javascript:alert(1)','https://example.invalid','../outside']) assert.equal(active.updateSection(hero,'actionPageId',target),false);
+  assert.equal(active.redo(),true);
+  const invalid=active.snapshot().project;invalid.pages[0].sections[0].actionPageId='foreign-id';
+  assert.throws(()=>exportSite(invalid),/destination/i);
 });

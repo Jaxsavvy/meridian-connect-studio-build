@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 Website action destinations
+
+- Export audit found all actions linked to #contact although no target was generated. Added page destinations selected from the current website. Targets follow stable page identity through slug changes; deleting a destination clears affected links and Undo restores both. Unset actions are omitted from preview/export and flagged in local readiness. Preview actions are inert. Foreign IDs/URLs are rejected; export validates references.
+- Three new model tests reproduce the gap; relevant suite 144/144. Renderer test selects Home as the CTA target and verifies inert preview plus real index.html link in the downloaded ZIP. Also corrects the initial formatting test script newline embedding failure; the first 92a2ed0 Electron run was not accepted. Exact-source combined runtime evidence remains pending.
+
 ## 2026-10-16 Website formatted-text backlog slice
 
 - User asked to find further work rather than stop at review gates. Implemented opt-in section body formatting: bold/italic, paragraphs, bullet/number lists, accessible insertion controls, focus return and single-edit undo/redo. Existing sections remain plain text. Formatting survives save/reopen and checkpoint restore; preview/static export share one escaped-text renderer. No raw HTML, links, external resources or dependencies.
