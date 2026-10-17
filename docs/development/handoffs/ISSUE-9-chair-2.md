@@ -1,5 +1,11 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 resumed checkpoint evidence verification
+
+- Resumed clean branch at published 3e44413; PR #39 head matches. All four exact-head workflows pass. Repeated 135 local regressions with no failures.
+- Independently downloaded Linux/Windows artifacts 12075328631 / 12075918656, verified both GitHub archive hashes and capture tree 5bc114c1668d714366dd3a82b2c2ab3d0a0e4470 against HEAD. Checked checkpoint failure/retry/restore/undo metrics, installed-source/AX/Tab/gate and actual OS Contrast restoration. Inspected checkpoint, save failure and OS Contrast checkpoint pixels. Exact runs/hashes in WEBSITE_CHECKPOINTS.md.
+- The checkpoint/readiness slice is runtime-verified; earlier pending-evidence text below is historical. No human Narrator or independent review claimed; all PRs stay unmerged.
+
 ## 2026-10-16 continuous contribution continuation
 
 - User explicitly requested brief completion updates followed by scanning and taking the next actionable task, while preserving all prior work and keeping PRs unmerged.

@@ -35,10 +35,18 @@ local suite is 135 passing tests, syntax/whitespace clean.
 
 Actual Electron checks exercise checkpoint creation, injected checkpoint quota,
 retry, injected primary-save failure with retained text, retry, checkpoint restore
-as unsaved, undo/redo, reopen and unchanged disabled review controls. Real
-captures/results are pending the new exact-source CI run; they will be verified
-before runtime success is claimed. Existing 154-test cross-chair runtime evidence
-is a preceding pinned snapshot, not automatic coverage of this new code.
+as unsaved, undo/redo, reopen and unchanged disabled review controls. Exact-source Linux run 38969007061, Windows run 38969007101, source run
+38969007047 and cross-chair run 38969007059 all passed on 3e44413. Downloaded
+Linux artifact 12075328631 and Windows artifact 12075918656; archive SHA-256
+values matched GitHub (c5395aa2a8e1bfb091efe6d993e48a16a9b583d9fefbbd11c8206f8c7e23bb9d
+and ca168bec4891e72513ac3be447998c519a27b2879e043ca669fd4a1f011e8b48).
+Installed capture tree 5bc114c1668d714366dd3a82b2c2ab3d0a0e4470 exactly matches
+3e44413. Both checkpoint-review.json records and actual OS Contrast record pass
+(126 -> 127 -> 126, restored). Visually inspected Linux checkpoint and save-error
+captures plus actual Windows Contrast checkpoint capture: labels, restore
+controls, retained history and error feedback are visible. Installed-source
+comparison, AX/Tab and ordinary employee gate also pass. Human Narrator speech
+is still unverified. Repeated relevant local suite: 135/135.
 
 Remaining limits: no history deletion UI, multi-device/team sync, authoritative
 version history, accepted service review/approval, media validation or publish.
