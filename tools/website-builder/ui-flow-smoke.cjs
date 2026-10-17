@@ -715,6 +715,7 @@ app.whenReady().then(async () => {
     await waitFor(window,'#website-recovery-title');
     await click(window,'[data-action="website-open"][data-value="website-recovery-evidence"]');
     assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(recoveryFixture.key)})`),'{malformed');
+    assert.equal(await window.webContents.executeJavaScript("document.activeElement.dataset.value"),'website-recovery-evidence','Failed recovery retains retry focus');
     await window.webContents.executeJavaScript("const heading=document.querySelector('#website-recovery-title');heading.focus({preventScroll:true});heading.closest('section').scrollIntoView({block:'start'})");
     assert.equal(await window.webContents.executeJavaScript("(() => {const r=document.querySelector('#website-recovery-title').closest('section').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return r.top>=w.top-1&&r.bottom<=w.bottom+1;})()"),true,'Retained-record warning and retry must be visible');
     await capture(window,'32-retained-record-recovery');
@@ -724,7 +725,7 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(recoveryFixture.key)}+suffix)`);
     await click(window,'[data-action="website-list"]');
     assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#website-recovery-title'))"),false);
-    await fs.writeFile(join(evidence,'retained-record-recovery.json'),JSON.stringify({status:'passed',pendingOnlyDiscovered:true,malformedRecordVisible:true,failedRetryPreservesRecord:true,repairedRetryOpens:true,warningClearsAfterRemoval:true,limits:'Synthetic local-storage fixture; no automatic repair or data deletion by application'},null,2));
+    await fs.writeFile(join(evidence,'retained-record-recovery.json'),JSON.stringify({status:'passed',pendingOnlyDiscovered:true,malformedRecordVisible:true,failedRetryPreservesRecord:true,failedRetryFocusRetained:true,repairedRetryOpens:true,warningClearsAfterRemoval:true,limits:'Synthetic local-storage fixture; no automatic repair or data deletion by application'},null,2));
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

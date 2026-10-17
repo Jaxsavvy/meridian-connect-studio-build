@@ -524,7 +524,7 @@
           <section class="studio-section"><div class="website-create"><div class="studio-field"><label for="website-new-name">Website project name</label><input id="website-new-name" maxlength="160" placeholder="Example: Summit Roofing website" data-focus-key="website-new-name"></div><button type="button" class="studio-button studio-button--primary" data-action="website-create">Create website project</button></div></section>
           <section class="studio-section" aria-labelledby="website-saved-title"><div class="studio-section-heading"><div><span class="studio-kicker">${websiteStoragePersistent ? 'Saved in this app' : 'Session only'}</span><h2 id="website-saved-title">Reopen work</h2></div><p>${state.projects.length} saved project${state.projects.length === 1 ? '' : 's'}</p></div>
             ${state.projects.length ? `<div class="website-project-list">${state.projects.map(project => `<article><div><h3>${escapeHtml(project.name)}</h3><p>${project.pageCount} page${project.pageCount === 1 ? '' : 's'} · Updated ${escapeHtml(new Date(project.updatedAt).toLocaleString())}</p></div><button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(project.id)}">Open project</button></article>`).join('')}</div>` : state.unavailableProjects?.length ? '<p>No readable website projects were found. Saved records needing recovery are listed below.</p>' : '<p>No website projects have been saved for this Meridian project.</p>'}
-          ${state.unavailableProjects?.length ? `<section class="studio-inline-error" aria-labelledby="website-recovery-title"><div><h3 id="website-recovery-title" tabindex="-1">Saved websites need recovery</h3><p>${state.unavailableProjects.length} local website record${state.unavailableProjects.length === 1 ? '' : 's'} could not be opened. The saved records have been kept. Retrying checks the same saved copies; it does not replace them with a new website.</p>${state.unavailableProjects.map((item, index) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(item.id)}" aria-label="Retry recovery for saved website ${index + 1}">Retry recovery ${index + 1}</button>`).join('')}</div></section>` : ''}
+          ${state.unavailableProjects?.length ? `<section class="studio-inline-error" aria-labelledby="website-recovery-title"><div><h3 id="website-recovery-title" tabindex="-1">Saved websites need recovery</h3><p>${state.unavailableProjects.length} local website record${state.unavailableProjects.length === 1 ? '' : 's'} could not be opened. The saved records have been kept. Retrying checks the same saved copies; it does not replace them with a new website.</p>${state.unavailableProjects.map((item, index) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(item.id)}" data-focus-key="website-recovery-${attr(item.id)}" aria-label="Retry recovery for saved website ${index + 1}">Retry recovery ${index + 1}</button>`).join('')}</div></section>` : ''}
           </section></div>`;
       }
 
@@ -674,7 +674,13 @@
       else if (action === 'website-list') {
         if (guardLeave(() => website.close(), 'return to saved websites')) website.close();
       }
-      else if (action === 'website-open') website.openProject(value);
+      else if (action === 'website-open') {
+        if (website.openProject(value)) openWebsiteStep(websiteStep);
+        else {
+          const retry = [...host.querySelectorAll('[data-action=website-open]')].find(item => item.dataset.value === value);
+          retry?.focus({ preventScroll: true }); retry?.scrollIntoView({ block: 'nearest' });
+        }
+      }
       else if (action === 'website-page') website.selectPage(value);
       else if (action === 'website-add-page') {
         const input = host.querySelector('#website-page-name');
