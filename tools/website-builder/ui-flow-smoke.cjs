@@ -144,6 +144,33 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-section-card').length"), 2);
     await window.webContents.executeJavaScript("document.querySelector('.website-section-card').scrollIntoView({block:'start'})");
     await capture(window, '12-section-management');
+    // Opt-in text formatting through real controls, including native Enter activation.
+    await window.webContents.executeJavaScript(`(() => {
+      const mode=document.querySelector('[data-field=bodyFormat]');mode.value='formatted';mode.dispatchEvent(new Event('change',{bubbles:true}));
+      const body=document.querySelector('textarea[data-field=body]');body.value='Clear words\n\nFirst benefit\nSecond benefit\n\n<script>unsafe()</script>';body.dispatchEvent(new Event('input',{bubbles:true}));
+      const next=document.querySelector('textarea[data-field=body]');next.focus();next.setSelectionRange(0,5);
+      document.querySelector('[data-command=bold]').focus();
+    })()`);
+    window.webContents.sendInputEvent({type:'keyDown',keyCode:'Enter'});
+    window.webContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
+    await until(window,"document.querySelector('textarea[data-field=body]').value.startsWith('**Clear**')");
+    assert.equal(await window.webContents.executeJavaScript("document.activeElement.dataset.field"),'body');
+    for (const [command,selected] of [['italic','words'],['bullets','First benefit\nSecond benefit']]) {
+      await window.webContents.executeJavaScript(`(() => {const body=document.querySelector('textarea[data-field=body]');const start=body.value.indexOf(${JSON.stringify(selected)});body.focus();body.setSelectionRange(start,start+${selected.length});})()`);
+      await click(window,`[data-command="${command}"]`);
+      assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.field'),'body');
+    }
+    const formattedBody=await window.webContents.executeJavaScript("document.querySelector('textarea[data-field=body]').value");
+    assert.match(formattedBody, /^\*\*Clear\*\* \*words\*/);
+    assert.match(formattedBody, /- First benefit\n- Second benefit/);
+    await click(window,'[data-action="website-undo"]');
+    assert.doesNotMatch(await window.webContents.executeJavaScript("document.querySelector('textarea[data-field=body]').value"),/- First benefit/);
+    await click(window,'[data-action="website-redo"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('textarea[data-field=body]').value"),formattedBody);
+    await window.webContents.executeJavaScript("document.querySelector('.website-text-tools').scrollIntoView({block:'start'})");
+    await capture(window,'17-formatted-text-editor');
+    await fs.writeFile(join(evidence,'formatted-text.json'),JSON.stringify({status:'passed',nativeEnter:true,focusReturnedToBody:true,undoRedo:true,body:formattedBody,limits:'Opt-in plain-text formatting; no HTML, links or scripts accepted'},null,2));
+
     await click(window, '.website-flow-nav [data-value="preview"]');
     const previewPages = await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].map(o=>({id:o.value,title:o.textContent}))");
     for (const page of previewPages) {
@@ -156,6 +183,13 @@ app.whenReady().then(async () => {
       assert.ok(preview.html.includes('Georgia,serif'));
       assert.ok(!preview.html.includes('href="index.html"') && !preview.html.includes('href="services.html"'));
     }
+    const formattedPreview=await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].find(x=>x.textContent==='Services').value");
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#website-preview-page');control.value=${JSON.stringify(formattedPreview)};control.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    const formattedHTML=await window.webContents.executeJavaScript("document.querySelector('.website-preview iframe').srcdoc");
+    assert.match(formattedHTML,/<strong>Clear<\/strong> <em>words<\/em>/);
+    assert.match(formattedHTML,/<ul><li>First benefit<\/li><li>Second benefit<\/li><\/ul>/);
+    assert.match(formattedHTML,/&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
+    assert.doesNotMatch(formattedHTML,/<script>/);
     const download = new Promise((resolve, reject) => {
       const timer=setTimeout(()=>reject(Error('ZIP download timed out')),15000);
       window.webContents.session.once('will-download', (_event,item) => {
@@ -170,6 +204,8 @@ app.whenReady().then(async () => {
     assert.equal(zip.readUInt16LE(zip.length-12),2);
     assert.match(zip.toString('utf8'),/href="services.html"/);
     assert.match(zip.toString('utf8'),/href="index.html"/);
+    assert.match(zip.toString('utf8'),/<strong>Clear<\/strong> <em>words<\/em>/);
+    assert.doesNotMatch(zip.toString('utf8'),/<script>/);
     await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
     await capture(window, '13-multipage-preview');
     // Device-local checkpoints and real storage-failure recovery; no service approval.

@@ -1,5 +1,11 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 Website formatted-text backlog slice
+
+- User asked to find further work rather than stop at review gates. Implemented opt-in section body formatting: bold/italic, paragraphs, bullet/number lists, accessible insertion controls, focus return and single-edit undo/redo. Existing sections remain plain text. Formatting survives save/reopen and checkpoint restore; preview/static export share one escaped-text renderer. No raw HTML, links, external resources or dependencies.
+- Four new model tests failed on the missing feature before implementation; full relevant suite now 141/141. Real Electron coverage adds native Enter activation, focus return, list insertion/undo/redo, escaped malicious text, matching preview and actual ZIP content. Exact-source CI and pixel inspection are pending at publication.
+- Same Chair 2 branch/PR #39 and #9 scope, coordinated in PR comment 6228914766. No Cassy/service/bridge/package changes or PR merges. See FORMATTED_TEXT.md.
+
 ## 2026-10-16 saved scene format correction
 
 - Audit reproduced two format resets: initial loaded scene ignored adapter format, and discard always restored landscape/Draft. Renderer now reads stored scene format and retains Saved status when discarding edits to a saved scene. Two targeted regressions failed before the fix; all 137 relevant tests pass after it.

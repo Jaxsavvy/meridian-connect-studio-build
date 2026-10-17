@@ -59,6 +59,7 @@
       slugs.add(page.slug || '');
       for (const section of page.sections) {
         if (!section || typeof section.id !== 'string' || !SECTION_TYPES.has(section.type)) throw new Error('Website section is invalid.');
+        if (section.bodyFormat !== undefined && !['plain', 'formatted'].includes(section.bodyFormat)) throw new Error('Website body format is invalid.');
       }
     }
     return copy(input);
@@ -209,6 +210,37 @@
     };
   }
 
+  // Deliberately limited text formatting: escape every user fragment, then emit
+  // only fixed semantic tags. No HTML, links, images, CSS or executable markup.
+  function renderBody(section) {
+    if (section.bodyFormat !== 'formatted') return `<p>${escapeHtml(section.body)}</p>`;
+    const text = cleanText(section.body, 8000).replace(/\r\n?/g, '\n');
+    function inline(line) {
+      const pattern = /\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+      let result = '', offset = 0;
+      for (const match of line.matchAll(pattern)) {
+        result += escapeHtml(line.slice(offset, match.index));
+        result += match[1] !== undefined ? `<strong>${escapeHtml(match[1])}</strong>` : `<em>${escapeHtml(match[2])}</em>`;
+        offset = match.index + match[0].length;
+      }
+      return result + escapeHtml(line.slice(offset));
+    }
+    let output = '', kind = '', lines = [];
+    function flush() {
+      if (lines.length) output += kind === 'p' ? `<p>${lines.join('<br>')}</p>` : `<${kind}>${lines.map(line => `<li>${line}</li>`).join('')}</${kind}>`;
+      kind = ''; lines = [];
+    }
+    for (const line of text.split('\n')) {
+      if (!line.trim()) { flush(); continue; }
+      const bullet = /^[-] (.+)$/.exec(line), numbered = /^\d+[.] (.+)$/.exec(line);
+      const next = bullet ? 'ul' : numbered ? 'ol' : 'p';
+      if (kind && kind !== next) flush();
+      kind = next; lines.push(inline(bullet ? bullet[1] : numbered ? numbered[1] : line));
+    }
+    flush();
+    return output;
+  }
+
   function renderPage(project, pageId, { preview = false } = {}) {
     const page = project.pages.find(item => item.id === pageId) || project.pages[0];
     const accent = /^#[0-9a-f]{6}$/i.test(project.design?.accent) ? project.design.accent : '#1f6fd6';
@@ -219,7 +251,7 @@
     }).join('');
     const sections = page.sections.map(section => {
       const action = section.action ? `<a class="action" href="#contact">${escapeHtml(section.action)}</a>` : '';
-      return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1><p>${escapeHtml(section.body)}</p>${action}</div></section>`;
+      return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1>${renderBody(section)}${action}</div></section>`;
     }).join('');
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{display:flex;flex-wrap:wrap;gap:18px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
   }
@@ -453,13 +485,38 @@
     }
 
     function updateSection(sectionId, field, value) {
-      if (!['heading', 'body', 'action'].includes(field)) return false;
+      if (!['heading', 'body', 'action', 'bodyFormat'].includes(field)) return false;
+      if (field === 'bodyFormat' && !['plain', 'formatted'].includes(value)) return false;
       return mutate(project => {
         const page = project.pages.find(item => item.id === state.selectedPageId);
         const section = page && page.sections.find(item => item.id === sectionId);
         if (!section) throw new Error('Section was not found.');
         section[field] = cleanText(value, field === 'body' ? 8000 : 200);
       }, 'Page content updated.');
+    }
+
+    function formatSectionText(sectionId, command, start, end) {
+      if (!['bold', 'italic', 'bullets', 'numbered'].includes(command)) return false;
+      return mutate(project => {
+        const section = project.pages.find(page => page.id === state.selectedPageId)?.sections.find(item => item.id === sectionId);
+        if (!section) throw new Error('Section was not found.');
+        const body = cleanText(section.body, 8000);
+        if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > body.length) throw new Error('Select text in this section before formatting.');
+        let selection = body.slice(start, end);
+        if (command === 'bold' || command === 'italic') {
+          const marker = command === 'bold' ? '**' : '*';
+          selection = (selection || 'Text').split('\n').map(line => line ? marker + line + marker : '').join('\n');
+        } else {
+          // List commands operate on complete lines even for a partial selection.
+          start = start === 0 ? 0 : body.lastIndexOf('\n', start - 1) + 1;
+          const nextLine = body.indexOf('\n', Math.max(start, end - 1));
+          end = nextLine < 0 ? body.length : nextLine;
+          selection = body.slice(start, end).split('\n').map((line, index) => `${command === 'bullets' ? '-' : index + 1 + '.'} ${line || 'List item'}`).join('\n');
+        }
+        const next = body.slice(0, start) + selection + body.slice(end);
+        if (next.length > 8000) throw new Error('Formatting would exceed the 8,000-character body limit. Shorten this section first.');
+        section.body = next; section.bodyFormat = 'formatted';
+      }, 'Text formatting inserted. Preview shows the result; Undo reverses this edit.');
     }
 
     function save() {
@@ -548,7 +605,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, save, createCheckpoint, restoreCheckpoint, readiness, undo, redo, close, discard,
+      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {

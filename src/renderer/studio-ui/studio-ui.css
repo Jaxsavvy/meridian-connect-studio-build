@@ -739,3 +739,6 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
   .website-flow-nav button,.website-flow-status,.website-device-bar button { border:1px solid CanvasText; }
   .website-flow-nav button[aria-current="step"],.website-device-bar [aria-pressed="true"] { outline:2px solid Highlight; }
 }
+
+.website-text-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.website-text-tools button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

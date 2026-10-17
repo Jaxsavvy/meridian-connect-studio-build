@@ -458,3 +458,54 @@ test('section limit rejects the edit before it can make the website unsaveable a
   assert.equal(active.snapshot().project.brief.tone, 'Direct');
   assert.equal(active.save(), true);
 });
+
+
+test('formatted section bodies safely render paragraphs, emphasis and lists in preview and export', () => {
+  const active=controller();active.createProject('Formatted');
+  const section=active.snapshot().project.pages[0].sections[0];
+  active.updateSection(section.id,'body','Hello **bold** and *italic*.\nSecond line.\n\n- First\n- <img src=x onerror=alert(1)>\n\n1. One\n2. Two');
+  assert.equal(active.updateSection(section.id,'bodyFormat','formatted'),true);
+  for(const html of [active.preview(),active.exportSite().files['index.html']]) {
+    assert.match(html,/<p>Hello <strong>bold<\/strong> and <em>italic<\/em>\.<br>Second line\.<\/p>/);
+    assert.match(html,/<ul><li>First<\/li><li>&lt;img src=x onerror=alert\(1\)&gt;<\/li><\/ul>/);
+    assert.match(html,/<ol><li>One<\/li><li>Two<\/li><\/ol>/);
+    assert.doesNotMatch(html,/<img|<script/);
+  }
+});
+
+test('existing plain text stays literal and formatted mode survives save, checkpoint and undo', () => {
+  const storage=createMemoryStorage(),active=controller(storage,'format');active.createProject('Plain');
+  const section=active.snapshot().project.pages[0].sections[0];
+  active.updateSection(section.id,'body','**literal** <script>alert(1)</script>');
+  assert.match(active.preview(),/<p>\*\*literal\*\* &lt;script&gt;/);
+  active.updateSection(section.id,'bodyFormat','formatted');active.undo();
+  assert.doesNotMatch(active.preview(),/<strong>literal/);
+  active.redo();active.save();active.createCheckpoint('Formatted');
+  const websiteId=active.snapshot().project.id,checkpoint=active.snapshot().checkpoints[0].id;
+  active.updateSection(section.id,'bodyFormat','plain');active.save();active.restoreCheckpoint(checkpoint);
+  assert.match(active.preview(),/<strong>literal<\/strong>/);
+  active.save();active.openProject(websiteId);assert.equal(active.snapshot().project.pages[0].sections[0].bodyFormat,'formatted');
+});
+
+test('formatting commands are single undoable edits and retain Unicode selected text', () => {
+  const active=controller();active.createProject('Toolbar');const section=active.snapshot().project.pages[0].sections[0];
+  active.updateSection(section.id,'body','Café ☕');
+  assert.equal(active.formatSectionText(section.id,'bold',0,4),true);
+  assert.equal(active.snapshot().project.pages[0].sections[0].body,'**Café** ☕');
+  active.undo();assert.equal(active.snapshot().project.pages[0].sections[0].body,'Café ☕');
+  active.redo();assert.match(active.preview(),/<strong>Café<\/strong> ☕/);
+  active.updateSection(section.id,'body','First\nSecond');
+  active.formatSectionText(section.id,'bullets',0,12);assert.match(active.preview(),/<ul><li>First<\/li><li>Second<\/li><\/ul>/);
+});
+
+test('invalid formatting commands, modes, ranges and oversized insertion preserve current work and redo', () => {
+  const active=controller();active.createProject('Bounds');const section=active.snapshot().project.pages[0].sections[0];
+  active.updateSection(section.id,'body','Current');active.undo();const before=active.snapshot().project;
+  assert.equal(active.updateSection(section.id,'bodyFormat','html'),false);
+  for(const args of [['link',0,1],['bold',-1,2],['bold',3,1],['bold',0,99999]]) assert.equal(active.formatSectionText(section.id,...args),false);
+  assert.deepEqual(active.snapshot().project,before);assert.equal(active.redo(),true);
+  active.updateSection(section.id,'body','x'.repeat(8000));assert.equal(active.formatSectionText(section.id,'bold',0,8000),false);
+  assert.equal(active.snapshot().project.pages[0].sections[0].body.length,8000);
+  const invalid=active.snapshot().project;invalid.pages[0].sections[0].bodyFormat='html';
+  assert.throws(()=>exportSite(invalid),/format/i);
+});
