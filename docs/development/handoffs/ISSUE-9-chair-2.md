@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-17 repository-wide continuation: local draft integrity
+
+- Rechecked all20 issues, all20 PR records/eight open PR reviews/threads, full branch inventory, current build map, owner queue and issue comments. New Cassy075ec2a policy-gate delta inspected; refresh disposable runtime pins only. No merge or restricted service changes.
+- Five reproduced model regressions fixed: bounded duplicate slugs, preserved home entry, structural recovery validation, orphan discovery and observed stale-window overwrite.166 relevant tests pass; new actual UI cases added. LOCAL_DRAFT_INTEGRITY.md records details and limits. Runtime acceptance pending.
+
 ## 2026-10-17 current continuation acceptance
 
 - Source872b31f/tree0626e525: all four workflows pass,161 local tests. Downloaded four artifacts, checked digests/provenance, all six real website ZIPs and final Windows Contrast recovery/200% label pixels. See `docs/studio/design/9/CONTINUATION_ACCEPTANCE.md` for exact evidence and limits; earlier pending entries below are historical.

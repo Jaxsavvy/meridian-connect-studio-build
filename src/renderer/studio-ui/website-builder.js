@@ -35,6 +35,16 @@
     return `${/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(slug) ? 'page-' : ''}${slug}.html`;
   }
 
+  function uniquePageSlug(project, title) {
+    const base = safeId(title, 'page');
+    let slug = base, suffix = 2;
+    while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) {
+      const ending = `-${suffix++}`;
+      slug = base.slice(0, 120 - ending.length).replace(/-+$/, '') + ending;
+    }
+    return slug;
+  }
+
   function accentInk(hex) {
     const channels = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
     const luminance = channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
@@ -104,20 +114,25 @@
     if (expectedWebsiteId !== undefined && input.id !== expectedWebsiteId) throw new Error('Website identity does not match the requested record.');
     if (input.meridianProjectId !== expectedProjectId) throw new Error('Website project does not belong to the selected Meridian project.');
     if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 50) throw new Error('Website project pages are invalid.');
+    if (typeof input.name !== 'string' || input.name.length > 160 || !Number.isSafeInteger(input.revision) || input.revision < 0 || !input.brief || ['audience','goal','tone','offer'].some(field => typeof input.brief[field] !== 'string' || input.brief[field].length > 4000)) throw new Error('Website draft fields are invalid.');
     const pageIds = new Set();
     const slugs = new Set();
     const filenames = new Set();
     for (const page of input.pages) {
       if (!page || typeof page.id !== 'string' || !page.id || pageIds.has(page.id)) throw new Error('Website page identity is invalid.');
       if (typeof page.slug !== 'string' || page.slug.length > 120 || !/^([a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(page.slug) || slugs.has(page.slug)) throw new Error('Website page slug is invalid.');
+      if (typeof page.title !== 'string' || page.title.length > 120) throw new Error('Website page title is invalid.');
       if (!Array.isArray(page.sections) || page.sections.length > 100) throw new Error('Website page sections are invalid.');
       if (filenames.has(pageFilename(page))) throw new Error('Each page needs a unique export filename.');
       filenames.add(pageFilename(page));
       if (page.source && (page.source.kind !== 'synthetic-storyboard' || page.source.projectId !== expectedProjectId || typeof page.source.sceneId !== 'string' || !page.source.sceneId)) throw new Error('Website page source does not match this project.');
       pageIds.add(page.id);
       slugs.add(page.slug || '');
+      const sectionIds = new Set();
       for (const section of page.sections) {
-        if (!section || typeof section.id !== 'string' || !SECTION_TYPES.has(section.type)) throw new Error('Website section is invalid.');
+        if (!section || typeof section.id !== 'string' || !section.id || sectionIds.has(section.id) || !SECTION_TYPES.has(section.type)) throw new Error('Website section is invalid.');
+        sectionIds.add(section.id);
+        if (['heading','body','action'].some(field => typeof section[field] !== 'string' || section[field].length > (field === 'body' ? 8000 : 200))) throw new Error('Website section content is invalid.');
         if (section.bodyFormat !== undefined && !['plain', 'formatted'].includes(section.bodyFormat)) throw new Error('Website body format is invalid.');
       }
     }
@@ -159,9 +174,10 @@
     }
 
     function readIndex() {
+      let indexed = [];
       try {
         const value = JSON.parse(storage.getItem(indexKey) || '[]');
-        if (Array.isArray(value)) return value.filter(id => typeof id === 'string' && id);
+        if (Array.isArray(value)) indexed = value.filter(id => typeof id === 'string' && id);
       } catch (_) { /* Recover the index from validated primary records below. */ }
       const recovered = [];
       for (let index = 0; index < Number(storage.length || 0); index += 1) {
@@ -169,7 +185,7 @@
         if (!key || !key.startsWith(prefix) || key === indexKey || key.endsWith('.backup') || key.endsWith('.pending')) continue;
         try { recovered.push(decodeURIComponent(key.slice(prefix.length))); } catch (_) { /* Ignore malformed storage keys. */ }
       }
-      return recovered;
+      return [...new Set([...indexed, ...recovered])];
     }
 
     function writeIndex(ids) {
@@ -393,6 +409,7 @@
     let future = [];
     let counter = 0;
     let checkpoints = [];
+    let savedBaseline = null;
     const makeId = idFactory || (prefix => `${prefix}-${Date.now().toString(36)}-${(++counter).toString(36)}`);
 
     function emit() { onChange(snapshot()); }
@@ -409,6 +426,7 @@
       contextProject = project && project.id ? { id: String(project.id), name: cleanText(project.name, 160) } : null;
       repository = contextProject ? createRepository(storage, contextProject.id) : null;
       history = []; future = [];
+      savedBaseline = null;
       checkpoints = [];
       state = contextProject
         ? { phase: 'list', projects: repository.list(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
@@ -426,6 +444,7 @@
         emit(); return false;
       }
       history = []; future = [];
+      savedBaseline = JSON.stringify(project);
       refreshList();
       state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Website project created and saved locally.' };
       checkpoints = [];
@@ -439,6 +458,7 @@
         const project = repository.open(id);
         if (!project) throw new Error('Website project was not found.');
         history = []; future = [];
+        savedBaseline = JSON.stringify(project);
         state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Saved website project reopened.' };
         refreshCheckpoints();
         emit(); return true;
@@ -454,6 +474,7 @@
       try {
         mutator(project);
         project.updatedAt = now();
+        validateProject(project, contextProject.id, state.project.id);
         history.push(previous);
         if (history.length > 50) history.shift();
         future = [];
@@ -564,9 +585,7 @@
       const label = cleanText(title || 'New page', 120);
       return mutate(project => {
         if (project.pages.length >= 50) throw new Error('This website already has 50 pages.');
-        const base = safeId(label, 'page');
-        let slug = base; let suffix = 2;
-        while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) slug = `${base}-${suffix++}`;
+        const slug = uniquePageSlug(project, label);
         const id = makeId('page');
         project.pages.push({ id, title: label, slug, sections: [{ id: makeId('section'), type: 'content', heading: label, body: 'Add the content this page needs.', action: '' }] });
         state.selectedPageId = id;
@@ -578,9 +597,7 @@
       return mutate(project => {
         if (project.pages.length >= 50) throw new Error('This website already has 50 pages.');
         const title = cleanText(scene.title || 'Storyboard scene', 120);
-        const base = safeId(title, 'scene');
-        let slug = base; let suffix = 2;
-        while (project.pages.some(page => pageFilename(page) === pageFilename({ slug }))) slug = `${base}-${suffix++}`;
+        const slug = uniquePageSlug(project, title);
         const id = makeId('page');
         project.pages.push({ id, title, slug,
           source: { kind: 'synthetic-storyboard', projectId: contextProject.id, sceneId: scene.sceneId },
@@ -604,6 +621,7 @@
           if (typeof value !== 'string') throw new Error('Choose a parent from this website.');
           page.parentPageId = value; navigationRows(project);
         } else {
+          if (!page.slug) throw new Error('Keep the home URL empty so the website opens at index.html.');
           const slug = safeId(value, 'page');
           if (project.pages.some(item => item.id !== page.id && pageFilename(item) === pageFilename({ slug }))) throw new Error('Each page needs a unique URL slug and export filename.');
           page.slug = slug;
@@ -690,10 +708,13 @@
     function save() {
       if (!repository || !state.project) return false;
       try {
+        const persisted = repository.open(state.project.id);
+        if (JSON.stringify(persisted) !== savedBaseline) throw new Error('Website changed elsewhere. Your edits remain here; reopen the saved website before applying them again.');
         const project = copy(state.project);
         project.revision += 1;
         project.updatedAt = now();
         repository.save(project);
+        savedBaseline = JSON.stringify(project);
         state = { ...state, project, dirty: false, error: null, status: 'Website project saved to durable local application storage.' };
         refreshList(); emit(); return true;
       } catch (error) {
@@ -774,6 +795,7 @@
         const project = repository.open(state.project.id);
         if (!project) throw new Error('The last saved website project could not be found.');
         history = []; future = [];
+        savedBaseline = JSON.stringify(project);
         state = { ...state, project, selectedPageId: project.pages.some(page => page.id === state.selectedPageId) ? state.selectedPageId : project.pages[0].id, dirty: false, error: null, status: 'Unsaved website changes discarded.' };
         emit(); return true;
       } catch (error) {

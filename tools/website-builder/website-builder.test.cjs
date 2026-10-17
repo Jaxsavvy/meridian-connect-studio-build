@@ -693,3 +693,50 @@ test('shared-section identities and divergent imported copies fail validation, a
   assert.equal(active.addSharedSection(undefined),false);assert.equal(active.addSharedSection(null),false);
   assert.equal(active.makeSectionShared('foreign-section'),false);
 });
+
+test('duplicate maximum-length page and scene names remain saveable with unique bounded slugs', () => {
+  const active=controller();active.createProject('Bounded pages');
+  for(const title of ['a'.repeat(120), 'a'.repeat(118)+' b']) {
+    assert.equal(active.addPage(title),true);assert.equal(active.addPage(title),true);
+    assert.equal(active.addScenePage({projectId:meridianProject.id,sceneId:'long-scene',title}),true);
+  }
+  for(const page of active.snapshot().project.pages)assert.ok(page.slug.length<=120);
+  assert.equal(active.save(),true);assert.ok(active.exportArchive());
+  assert.equal(active.openProject(active.snapshot().project.id),true);
+  assert.equal(new Set(active.snapshot().project.pages.map(p=>p.slug)).size,7);
+});
+
+test('home URL remains the portable entry point and rejected edits preserve redo', () => {
+  const active=controller();active.createProject('Entry');active.addPage('About');active.undo();
+  assert.equal(active.updatePage('slug','moved-home'),false);
+  assert.equal(active.redo(),true);
+  assert.ok(active.exportSite().files['index.html']);
+});
+
+test('structurally corrupt saved drafts recover backup instead of entering a broken editor', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Validated');active.save();
+  const good=active.snapshot().project, key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(good.id)}`;
+  for(const damage of [p=>{delete p.brief;},p=>{p.revision='bad';},p=>{p.pages[0].sections.push({...p.pages[0].sections[0]});},p=>{p.pages[0].sections[0].body={bad:true};}]) {
+    const bad=JSON.parse(JSON.stringify(good));damage(bad);storage.setItem(key,JSON.stringify(bad));
+    const recovered=createRepository(storage,meridianProject.id).open(good.id);
+    assert.ok(recovered.brief);assert.equal(typeof recovered.revision,'number');
+    assert.equal(recovered.pages[0].sections.length,2);assert.equal(typeof recovered.pages[0].sections[0].body,'string');
+  }
+});
+
+test('an interrupted index update does not hide an otherwise saved website', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Discoverable');
+  storage.setItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`,'[]');
+  const restarted=controller(storage);assert.equal(restarted.snapshot().projects.length,1);
+});
+
+test('stale windows cannot silently overwrite newer website content and retain their edits', () => {
+  const storage=createMemoryStorage(),first=controller(storage,'first');first.createProject('Shared device');
+  const second=controller(storage,'second'),id=first.snapshot().project.id;second.openProject(id);
+  second.updateBrief('goal','Newer saved work');assert.equal(second.save(),true);
+  first.updateBrief('offer','Keep my unsaved work');assert.equal(first.save(),false);
+  assert.match(first.snapshot().error,/changed elsewhere/);assert.equal(first.snapshot().dirty,true);
+  assert.equal(first.snapshot().project.brief.offer,'Keep my unsaved work');
+  assert.equal(createRepository(storage,meridianProject.id).open(id).brief.goal,'Newer saved work');
+  assert.equal(first.discard(),true);first.updateBrief('offer','Reapplied after reopening');assert.equal(first.save(),true);
+});

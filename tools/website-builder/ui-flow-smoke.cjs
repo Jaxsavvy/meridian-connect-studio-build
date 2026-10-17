@@ -156,6 +156,28 @@ app.whenReady().then(async () => {
     await click(window, '.website-flow-nav [data-value="pages"]');
     await window.webContents.executeJavaScript("document.querySelector('#website-page-name').value='Services'");
     await click(window, '[data-action="website-add-page"]');
+    // Boundary regression through actual mounted controls; Undo restores the fixture.
+    const boundedName = 'q'.repeat(120);
+    for (let i=0;i<2;i++) {
+      await window.webContents.executeJavaScript(`document.querySelector('#website-page-name').value=${JSON.stringify(boundedName)}`);
+      await click(window,'[data-action="website-add-page"]');
+    }
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    const boundedSlug=await window.webContents.executeJavaScript("document.querySelector('#website-page-slug').value");
+    assert.equal(boundedSlug.length,120);assert.ok(boundedSlug.endsWith('-2'));
+    await click(window,'[data-action="website-save"]');
+    assert.equal((await metrics(window)).saveText.includes('Unsaved'),false);
+    await capture(window,'29-bounded-page-url');
+    await click(window,'[data-action="website-undo"]');
+    await click(window,'[data-action="website-undo"]');
+    await click(window,'.website-flow-nav [data-value="pages"]');
+    const boundedServicesId=await window.webContents.executeJavaScript("document.querySelector('.website-page.is-current').dataset.value");
+    await window.webContents.executeJavaScript("[...document.querySelectorAll('.website-page')].find(el=>el.querySelector('small').textContent.startsWith('/ ·')).click()");
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-page-slug').readOnly && document.querySelector('#website-home-url-help').textContent.includes('index.html')"),true);
+    await click(window,'.website-flow-nav [data-value="pages"]');
+    await click(window,`[data-action="website-page"][data-value="${boundedServicesId}"]`);
+    await fs.writeFile(join(evidence,'bounded-page-url.json'),JSON.stringify({status:'passed',duplicateTitleLength:120,uniqueSlugLength:boundedSlug.length,saveSucceeded:true,homeEntryReadOnly:true},null,2));
     await click(window, '[data-action="website-move-page-up"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page span').textContent"), 'Services');
     await click(window, '[data-action="website-remove-page"]');
