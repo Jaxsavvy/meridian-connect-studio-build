@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 long nested-page label verification
+
+- Final layout audit found the new sitemap URL label could not shrink. Allow title/slug wrapping and bound the URL column; actual Electron now uses valid 120-character unbroken title/slug through all four steps at 200%, records a screenshot/metrics, then restores original values. Exact-source verification pending; no human accessibility inference.
+
 ## 2026-10-16 reusable shared sections
 
 - Added shared-section catalogue from existing linked instances within one website. Make shared/insert linked/detach controls preserve distinct section IDs. Content, action destinations and formatting propagate to every linked copy in the same undoable transaction; detach preserves content but allows independent edits. Save/reopen/checkpoint/export preserve grouping. Validation rejects divergent copies and invalid shared identities; another website cannot insert a foreign group.

@@ -547,6 +547,14 @@ app.whenReady().then(async () => {
     assert.equal((await metrics(window)).audience, 'Combined guard retained content');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
 
+    await click(window,'.website-flow-nav [data-value="pages"]');
+    await click(window,`[data-action="website-page"][data-value="${servicesId}"]`);
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    const originalPage=await window.webContents.executeJavaScript("({title:document.querySelector('#website-page-title').value,slug:document.querySelector('#website-page-slug').value})");
+    await window.webContents.executeJavaScript(`(() => {
+      const title=document.querySelector('#website-page-title');title.value='P'.repeat(120);title.dispatchEvent(new Event('input',{bubbles:true}));
+      const slug=document.querySelector('#website-page-slug');slug.value='s'.repeat(120);slug.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
     window.setSize(1280, 900);
     window.webContents.setZoomFactor(2);
     await pause(200);
@@ -555,8 +563,18 @@ app.whenReady().then(async () => {
       assert.equal((await metrics(window)).fits, true, '200% fit: ' + step);
       assert.equal((await metrics(window)).usableHeight, true, '200% usable editor height: ' + step);
       assert.equal((await metrics(window)).focusedHeadingVisible, true, '200% focused heading visible: ' + step);
+      if(step==='pages') await capture(window,'25-long-page-labels-200pct');
     }
     await capture(window, '04-preview-200pct');
+    await fs.writeFile(join(evidence,'long-page-labels.json'),JSON.stringify({status:'passed',titleLength:120,slugLength:120,zoom:2,allStepsFit:true},null,2));
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    await window.webContents.executeJavaScript(`(() => {
+      const title=document.querySelector('#website-page-title');title.value=${JSON.stringify(originalPage.title)};title.dispatchEvent(new Event('input',{bubbles:true}));
+      const slug=document.querySelector('#website-page-slug');slug.value=${JSON.stringify(originalPage.slug)};slug.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
+    await click(window,'[data-action="website-save"]');
+    await click(window,'.website-flow-nav [data-value="preview"]');
+
     window.webContents.debugger.attach('1.3');
     await window.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{name:'prefers-reduced-motion',value:'reduce'}, {name:'forced-colors',value:'active'}] });
     const media = await window.webContents.executeJavaScript("({reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,forcedColors:matchMedia('(forced-colors: active)').matches})");
