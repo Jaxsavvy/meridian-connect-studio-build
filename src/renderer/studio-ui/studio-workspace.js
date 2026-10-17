@@ -145,6 +145,11 @@
     const unsubscribe = context.subscribe(next => {
       const nextId = next.project && next.project.id;
       if (nextId !== (state.project && state.project.id)) loadProject(next.project);
+      else if (next.project && next.project.name !== state.project.name) {
+        // Display metadata changes do not revoke the accepted identity or draft.
+        state = { ...state, project: { ...next.project } };
+        emit();
+      }
     });
 
     function openSurface(surface) {

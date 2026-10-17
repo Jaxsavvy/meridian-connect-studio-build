@@ -122,6 +122,16 @@ app.whenReady().then(async () => {
     assert.equal(result.unlabeledControls, 0);
     await capture(window, '01-brief-1440');
     await window.webContents.executeJavaScript("const input = document.querySelector('#website-brief-audience'); input.value = 'Independent local businesses'; input.dispatchEvent(new Event('input', { bubbles: true }));");
+    const renameCheck=await window.webContents.executeJavaScript(`(() => {
+      const context=window.meridianStudioContext, before=context.snapshot();
+      const renamed=before.projects.map(project=>project.id===before.project.id?{...project,name:'Renamed synthetic project'}:project);
+      context.acceptProjects(renamed,context.beginProjectList());
+      const observed={title:document.querySelector('#studio-title').textContent,audience:document.querySelector('#website-brief-audience').value,dirty:document.querySelector('.website-flow-status').textContent.includes('Unsaved changes')};
+      context.acceptProjects(before.projects,context.beginProjectList());
+      return observed;
+    })()`);
+    assert.equal(renameCheck.title,'Renamed synthetic project');assert.equal(renameCheck.audience,'Independent local businesses');assert.equal(renameCheck.dirty,true);
+    await fs.writeFile(join(evidence,'project-rename.json'),JSON.stringify({status:'passed',acceptedNameRefresh:true,unsavedWebsiteRetained:true,originalNameRestored:true},null,2));
     for (const [step, heading] of [['pages', 'website-sitemap-title'], ['edit', 'website-page-editor-title'], ['preview', 'website-preview-title']]) {
       await click(window, '.website-flow-nav [data-value="' + step + '"]');
       result = await metrics(window);

@@ -288,3 +288,16 @@ test('loaded and locally reviewed scene status survives reopening and discarding
   assert.equal(workspace.snapshot().saveState,'Needs review');
   context.reset();assert.equal(workspace.submitForReview(),false);workspace.destroy();
 });
+
+test('accepted same-project rename refreshes display context without reloading unsaved editor or job state', async () => {
+  let loads=0;const adapter=createSyntheticAdapter({delay:0}),load=adapter.load;
+  adapter.load=project=>{loads++;return load(project);};
+  const {context,workspace}=await readyWorkspace(adapter);
+  workspace.updateEditor('notes','Keep unsaved notes');workspace.simulateDevelopmentJob('running');
+  const before=workspace.snapshot(),renamed={...alpha,name:'Renamed accepted project'};
+  context.acceptProjects([renamed,beta],context.beginProjectList());
+  assert.equal(workspace.snapshot().project.name,renamed.name);
+  assert.equal(workspace.snapshot().editor.notes,'Keep unsaved notes');assert.equal(workspace.snapshot().unsaved,true);
+  assert.deepEqual(workspace.snapshot().developmentJob,before.developmentJob);assert.equal(loads,1);
+  workspace.destroy();
+});

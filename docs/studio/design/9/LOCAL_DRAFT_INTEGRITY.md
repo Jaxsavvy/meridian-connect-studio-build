@@ -43,3 +43,12 @@ check renders exported HTML with maximum site/title/body/action fields at375,
 768,1440px and200% zoom, asserting actual document/heading/action bounds and
 saving phone pixels. This checks generated pages independently of editor bounds.
 Exact-source runtime acceptance remains pending.
+
+## Accepted project display metadata
+
+A seventh regression reproduced a stale project name after an accepted context
+list rename. Update workspace display metadata for the same accepted ID without
+reloading the fixture, clearing unsaved editor/website state or resetting jobs.
+Identity/session changes retain their existing invalidation path. New Node and
+mounted renderer assertions cover name refresh and retained edits; relevant
+suite168 passes. No membership or authorization behavior changes.
