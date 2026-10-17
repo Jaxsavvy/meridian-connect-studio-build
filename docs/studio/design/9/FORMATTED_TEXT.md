@@ -43,3 +43,17 @@ Three new regressions verify destinations, removal/undo and invalid targets.
 The full relevant local suite is now 144/144. The first formatting Electron run
 failed because its test embedded a newline incorrectly; corrected before this
 combined verification run. No runtime success is claimed for that failed run.
+
+
+## Bounded checkpoint history
+
+The ten-entry checkpoint cap now has an explicit removal path. Remove checkpoint
+opens an inline confirmation naming the snapshot and explaining that removal is
+irreversible. Keep checkpoint is focused first; cancel returns to its opener.
+Confirming removes only that website's snapshot. Current saved/unsaved website
+and editor Undo are unaffected. Failed storage writes preserve previous history
+and permit retry. Removal frees a slot and survives reopen. Three new model tests
+cover slot recovery, dirty-draft/primary/history preservation and storage failure.
+The full local suite is 147/147; real UI adds cancel, failure/retry and focus checks.
+The native Enter test uses keydown, character and keyup; previous attempts lacked
+the character event and did not activate the button. No false keyboard pass.

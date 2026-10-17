@@ -181,12 +181,19 @@
       storage.setItem(checkpointKey(project.id), serialized);
       return checkpoints.map(checkpointMeta).reverse();
     }
+    function removeCheckpoint(websiteId, checkpointId) {
+      const checkpoints = readCheckpoints(websiteId);
+      if (!checkpoints.some(item => item.id === checkpointId)) throw new Error('Checkpoint was not found for this website.');
+      const retained = checkpoints.filter(item => item.id !== checkpointId);
+      storage.setItem(checkpointKey(websiteId), JSON.stringify({ schema: 'meridian.website-checkpoints.v1', meridianProjectId, websiteId, checkpoints: retained }));
+      return retained.map(checkpointMeta).reverse();
+    }
     function checkpointProject(websiteId, checkpointId) {
       const checkpoint = readCheckpoints(websiteId).find(item => item.id === checkpointId);
       if (!checkpoint) throw new Error('Checkpoint was not found for this website.');
       return copy(checkpoint.project);
     }
-    return Object.freeze({ save, open, list, listCheckpoints, saveCheckpoint, checkpointProject });
+    return Object.freeze({ save, open, list, listCheckpoints, saveCheckpoint, checkpointProject, removeCheckpoint });
   }
 
   function initialProject({ id, meridianProjectId, name, now }) {
@@ -549,6 +556,15 @@
       } catch (error) { state = { ...state, error: error.message, status: 'Checkpoint was not created. The website and existing checkpoints are unchanged.' }; emit(); return false; }
     }
 
+    function removeCheckpoint(id) {
+      if (!repository || !state.project) return false;
+      try {
+        checkpoints = repository.removeCheckpoint(state.project.id, id);
+        state = { ...state, error: null, status: 'Checkpoint removed from this device. The website and current edits are unchanged.' };
+        emit(); return true;
+      } catch (error) { state = { ...state, error: error.message, status: 'Checkpoint was not removed. Current work and previous checkpoints are unchanged.' }; emit(); return false; }
+    }
+
     function restoreCheckpoint(id) {
       if (!repository || !state.project) return false;
       try {
@@ -612,7 +628,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, readiness, undo, redo, close, discard,
+      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {

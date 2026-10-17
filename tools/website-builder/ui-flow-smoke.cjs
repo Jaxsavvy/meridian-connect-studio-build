@@ -155,6 +155,7 @@ app.whenReady().then(async () => {
     window.focus(); window.webContents.focus();
     await pause(100);
     window.webContents.sendInputEvent({type:'keyDown',keyCode:'Enter'});
+    window.webContents.sendInputEvent({type:'char',keyCode:'\r'});
     window.webContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
     try { await until(window,"document.querySelector('textarea[data-field=body]').value.startsWith('**Clear**')"); }
     catch (error) {
@@ -248,6 +249,30 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript("document.querySelector('#website-checkpoint-label').value='Retry checkpoint'");
     await click(window,'[data-action="website-checkpoint-create"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
+    await window.webContents.executeJavaScript("document.querySelector('#website-checkpoint-label').value='Temporary removable checkpoint'");
+    await click(window,'[data-action="website-checkpoint-create"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),3);
+    await click(window,'[data-action="website-checkpoint-remove"]');
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.action'),'website-checkpoint-cancel');
+    await click(window,'[data-action="website-checkpoint-cancel"]');
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.action'),'website-checkpoint-remove');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),3);
+    await click(window,'[data-action="website-checkpoint-remove"]');
+    await window.webContents.executeJavaScript("document.querySelector('.website-checkpoint-confirm').scrollIntoView({block:'center'})");
+    await capture(window,'19-checkpoint-removal');
+    const removeFailure=await window.webContents.executeJavaScript(`(() => {
+      const original=Storage.prototype.setItem;
+      try {
+        Storage.prototype.setItem=function(key,value){if(key.startsWith('meridian.website-checkpoints.'))throw Error('Synthetic removal failure');return original.call(this,key,value);};
+        document.querySelector('[data-action=website-checkpoint-confirm]').click();
+        return {error:document.querySelector('.website-builder .studio-inline-error').textContent,count:document.querySelectorAll('[data-action=website-checkpoint-restore]').length};
+      } finally { Storage.prototype.setItem=original; }
+    })()`);
+    assert.match(removeFailure.error,/Synthetic removal failure/);assert.equal(removeFailure.count,3);
+    await click(window,'[data-action="website-checkpoint-confirm"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-checkpoints-title');
+    await fs.writeFile(join(evidence,'checkpoint-removal.json'),JSON.stringify({status:'passed',cancelRetainsCheckpoint:true,removeFailure,retryCount:2,focusRestored:true},null,2));
     await window.webContents.executeJavaScript("document.querySelector('.website-checkpoints').scrollIntoView({block:'center'})");
     await capture(window,'15-local-checkpoints');
     await click(window,'.website-flow-nav [data-value="brief"]');

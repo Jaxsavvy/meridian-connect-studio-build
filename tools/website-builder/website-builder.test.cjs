@@ -547,3 +547,33 @@ test('foreign or executable action destinations are rejected without losing redo
   const invalid=active.snapshot().project;invalid.pages[0].sections[0].actionPageId='foreign-id';
   assert.throws(()=>exportSite(invalid),/destination/i);
 });
+
+
+test('removing a local checkpoint frees a bounded-history slot and survives reopen', () => {
+  const storage=createMemoryStorage(),active=controller(storage,'checkpoint-remove');active.createProject('History');
+  for(let index=0;index<10;index++) active.createCheckpoint('Checkpoint '+index);
+  const id=active.snapshot().checkpoints[0].id,website=active.snapshot().project.id;
+  assert.equal(active.removeCheckpoint(id),true);assert.equal(active.snapshot().checkpoints.length,9);
+  assert.equal(active.createCheckpoint('Replacement'),true);assert.equal(active.snapshot().checkpoints.length,10);
+  active.openProject(website);assert.equal(active.snapshot().checkpoints.some(item=>item.id===id),false);
+  assert.equal(active.restoreCheckpoint(id),false);
+});
+
+test('checkpoint removal leaves dirty edits, saved primary and editor Undo untouched', () => {
+  const storage=createMemoryStorage(),active=controller(storage,'dirty-remove');active.createProject('History');active.createCheckpoint('Saved');
+  const id=active.snapshot().checkpoints[0].id,primary=createRepository(storage,meridianProject.id).open(active.snapshot().project.id);
+  active.updateBrief('goal','Keep these unsaved edits');assert.equal(active.removeCheckpoint(id),true);
+  assert.equal(active.snapshot().project.brief.goal,'Keep these unsaved edits');assert.equal(active.snapshot().dirty,true);
+  assert.deepEqual(createRepository(storage,meridianProject.id).open(primary.id),primary);
+  active.undo();assert.equal(active.snapshot().project.brief.goal,primary.brief.goal);
+  assert.equal(active.snapshot().checkpoints.length,0);
+});
+
+test('failed or foreign checkpoint removal preserves the previous history', () => {
+  const base=createMemoryStorage();let fail=false;const storage={...base,setItem(key,value){if(fail&&key.startsWith('meridian.website-checkpoints.'))throw Error('Removal storage failure');base.setItem(key,value);}};
+  const active=controller(storage,'failed-remove');active.createProject('History');active.createCheckpoint('Keep');
+  const before=active.snapshot().checkpoints;fail=true;
+  assert.equal(active.removeCheckpoint(before[0].id),false);assert.deepEqual(active.snapshot().checkpoints,before);
+  assert.equal(active.removeCheckpoint('foreign'),false);assert.deepEqual(active.snapshot().checkpoints,before);
+  fail=false;active.openProject(active.snapshot().project.id);assert.deepEqual(active.snapshot().checkpoints,before);
+});

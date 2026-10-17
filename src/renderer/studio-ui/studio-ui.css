@@ -742,3 +742,6 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 
 .website-text-tools { display: flex; flex-wrap: wrap; gap: 8px; }
 .website-text-tools button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+.website-checkpoints li > .website-checkpoint-confirm { flex-basis: 100%; padding: 12px; border: 1px solid var(--studio-border, #6f838c); border-radius: 8px; }
+.website-checkpoint-confirm p { margin: 0; }

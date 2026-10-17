@@ -41,6 +41,7 @@
     let websiteStep = 'brief';
     let websiteProjectId = null;
     let websiteDevice = 'desktop';
+    let checkpointRemovalId = null;
     const websiteSteps = [
       { id: 'brief', label: 'Brief', hint: 'Define the audience and outcome' },
       { id: 'pages', label: 'Pages', hint: 'Organize the site' },
@@ -64,6 +65,7 @@
           websiteProjectId = nextId || null;
           websiteStep = 'brief';
           websiteDevice = 'desktop';
+          checkpointRemovalId = null;
         }
         websiteState = next;
         render();
@@ -438,12 +440,17 @@
         <p>${escapeHtml(ready.limit)}</p></section>`;
     }
 
+    function renderCheckpointRemoval(checkpoint) {
+      const id = attr(checkpoint.id);
+      return checkpointRemovalId === checkpoint.id ? `<div class="website-checkpoint-confirm" role="group" aria-label="Remove checkpoint ${attr(checkpoint.label)}"><p>Remove “${escapeHtml(checkpoint.label)}” from this device? This cannot be undone. The saved website and current edits stay unchanged.</p><div class="website-item-actions"><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-cancel" data-value="${id}">Keep checkpoint</button><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-confirm" data-value="${id}">Permanently remove checkpoint</button></div></div>` : `<button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-remove" data-value="${id}" aria-label="Remove checkpoint ${attr(checkpoint.label)}">Remove checkpoint…</button>`;
+    }
+
     function renderWebsiteCheckpoints(state) {
       return `<section class="website-checkpoints" aria-labelledby="website-checkpoints-title"><h3 id="website-checkpoints-title" tabindex="-1">Saved checkpoints on this device</h3>
         <p>Save the project first. A checkpoint keeps a local draft snapshot, not an approved version. Up to 10 checkpoints are kept; existing ones are never automatically removed. ${websiteStoragePersistent ? 'No team sync or service backup.' : 'Session-only storage: checkpoints will be lost when this window reloads.'}</p>
         <div class="website-add-row"><label class="studio-field"><span>Checkpoint label</span><input id="website-checkpoint-label" maxlength="120" placeholder="Before review" data-focus-key="website-checkpoint-label"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-create" ${state.dirty || state.checkpoints.length >= 10 ? 'disabled' : ''}>Create saved checkpoint</button></div>
         <p>Save or discard current edits before restoring. Restore creates an unsaved draft; Undo reverses it. The saved primary stays unchanged until Save project.</p>
-        ${state.checkpoints.length ? `<ol>${state.checkpoints.map(checkpoint => `<li><div><strong>${escapeHtml(checkpoint.label)}</strong><span>Saved revision ${checkpoint.revision} · ${checkpoint.pageCount} pages · ${escapeHtml(checkpoint.createdAt)}</span></div><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-restore" data-value="${attr(checkpoint.id)}" ${state.dirty ? 'disabled' : ''}>Restore ${escapeHtml(checkpoint.label)}</button></li>`).join('')}</ol>` : '<p>No saved checkpoints for this website.</p>'}</section>`;
+        ${state.checkpoints.length ? `<ol>${state.checkpoints.map(checkpoint => `<li><div><strong>${escapeHtml(checkpoint.label)}</strong><span>Saved revision ${checkpoint.revision} · ${checkpoint.pageCount} pages · ${escapeHtml(checkpoint.createdAt)}</span></div><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-restore" data-value="${attr(checkpoint.id)}" ${state.dirty ? 'disabled' : ''}>Restore ${escapeHtml(checkpoint.label)}</button>${renderCheckpointRemoval(checkpoint)}</li>`).join('')}</ol>` : '<p>No saved checkpoints for this website.</p>'}</section>`;
     }
 
     function renderWebsiteStyles(project) {
@@ -668,6 +675,19 @@
       else if (action === 'website-checkpoint-create') {
         website.createCheckpoint(host.querySelector('#website-checkpoint-label')?.value || '');
         host.querySelector('#website-checkpoints-title')?.focus({ preventScroll: true });
+      }
+      else if (action === 'website-checkpoint-remove') {
+        checkpointRemovalId = value; render();
+        host.querySelector('[data-action=website-checkpoint-cancel]')?.focus();
+      }
+      else if (action === 'website-checkpoint-cancel') {
+        checkpointRemovalId = null; render();
+        [...host.querySelectorAll('[data-action=website-checkpoint-remove]')].find(item => item.dataset.value === value)?.focus({ preventScroll: true });
+      }
+      else if (action === 'website-checkpoint-confirm') {
+        if (checkpointRemovalId !== value) return;
+        if (website.removeCheckpoint(value)) checkpointRemovalId = null;
+        render();host.querySelector('#website-checkpoints-title')?.focus({ preventScroll: true });
       }
       else if (action === 'website-checkpoint-restore') {
         website.restoreCheckpoint(value);

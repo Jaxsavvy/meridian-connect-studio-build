@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 bounded checkpoint-history management
+
+- Added explicit two-step device-local checkpoint removal so the ten-entry cap is recoverable. Inline confirmation focuses Keep checkpoint first and identifies the item and irreversible removal; cancel restores the exact opener. Removal preserves saved website, dirty edits and editor Undo; failed writes preserve history and support retry. Wrong-site/missing IDs fail without mutation.
+- Three new regressions reproduce the missing operation; full local suite 147/147. Runtime adds cancel, retained-history write failure, confirmation/retry, focus return and screenshot. Existing formatting keyboard check now sends the full native Enter key/character sequence; keydown/up alone had not activated the button, as retained diagnostics showed. Exact-source runtime remains pending.
+
 ## 2026-10-16 Website action destinations
 
 - Export audit found all actions linked to #contact although no target was generated. Added page destinations selected from the current website. Targets follow stable page identity through slug changes; deleting a destination clears affected links and Undo restores both. Unset actions are omitted from preview/export and flagged in local readiness. Preview actions are inert. Foreign IDs/URLs are rejected; export validates references.
