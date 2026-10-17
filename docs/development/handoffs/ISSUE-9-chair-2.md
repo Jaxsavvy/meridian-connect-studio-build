@@ -2,7 +2,7 @@
 
 ## 2026-10-17 recheck: recovery catalogue visibility
 
-- Current published cross-chair heads unchanged. Two more failures reproduced: missing-index recovery-only records invisible, and all-malformed candidates silently hidden. Discover primary/backup/pending identities and show retained-record warning/retry separately from readable projects. Preserve suffix identities, expected identity validation and project scope.174 relevant tests pass; mounted visibility/retry flow added. RECOVERY_CATALOGUE.md records exact scope; fresh runtime acceptance pending. No deletion, replacement draft, authority or merge.
+- Current published cross-chair heads unchanged. Two more failures reproduced: missing-index recovery-only records invisible, and all-malformed candidates silently hidden. Discover primary/backup/pending identities and show retained-record warning/retry separately from readable projects. Preserve suffix identities, expected identity validation and project scope.174 relevant tests pass; mounted visibility/retry flow added. RECOVERY_CATALOGUE.md records exact scope; Final sourcee665915 also preserves failed-retry focus, focuses reopened editor and uses readable errors. Source/Linux/combined pass; Windows attempt1 installer fails-1073741819 after UI/Contrast pass, one explicit same-source retry passes including installed-source/startup/keyboard/gate checks.174 local/201 composed tests, all four workflows pass; original failure remains recorded. RECOVERY_CATALOGUE.md records archive hashes/pixel evidence and final retry result. No deletion, replacement draft, authority or merge.
 
 ## 2026-10-17 continued full build audit and recovery work
 

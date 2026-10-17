@@ -3,6 +3,21 @@
 This is an ownership and acceptance audit, not a claim that the entire Studio
 roadmap or every possible enhancement is complete.
 
+## Additional recheck — 2026-10-17
+
+Published owner/Cassy heads remained unchanged. Further #9 recovery review found
+and fixed two additional concrete gaps: backup/pending-only records after index
+loss were invisible, and all-malformed saved records silently disappeared. The
+catalogue now discovers recovery candidates and reports retained unreadable
+records separately, with an explicit retry. Valid suffix identities remain
+compatible. Failed retries leave bytes untouched; errors use readable wording.
+No deletion, replacement draft, guessed content or service integration added.
+174 local tests and201 current disposable composed tests pass. Sourcee665915;
+RECOVERY_CATALOGUE.md records exact runtime acceptance and inspected pixels.
+All four workflows pass; Windows needs one explicit same-source retry after
+installer-1073741819. Both attempts retained; no installer fix claimed.
+The specific cross-chair/service/human blockers below remain unchanged.
+
 ## Fresh build-wide audit — 2026-10-17 continuation
 
 Re-fetched all20 issues and their comments, all19 PR records, eight open PR

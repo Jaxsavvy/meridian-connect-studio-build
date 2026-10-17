@@ -1,7 +1,8 @@
 # Local Website draft integrity follow-up
 
-Current executable source:0d440502aedaf1031da81eaa258f57999e54dee4;
+Verified integrity milestone source:0d440502aedaf1031da81eaa258f57999e54dee4;
 tree047c94c7ed8c383de7a5be788d9cec5a924d4a58.171 local tests pass.
+The later recovery catalogue follow-up is in RECOVERY_CATALOGUE.md.
 Earlier pending/count entries below preserve implementation checkpoints; final
 runtime acceptance is recorded at the end. All PRs remain unmerged.
 
