@@ -795,7 +795,7 @@ test('unrecoverable local websites remain visible as retained-record warnings an
   for(const suffix of ['', '.backup','.pending'])storage.setItem(key+suffix,'{malformed');
   const restarted=controller(storage);assert.equal(restarted.snapshot().projects.length,0);
   assert.equal(restarted.snapshot().unavailableProjects.length,1);assert.equal(restarted.snapshot().unavailableProjects[0].id,good.id);
-  assert.equal(restarted.openProject(good.id),false);assert.equal(storage.getItem(key),'{malformed');
+  assert.equal(restarted.openProject(good.id),false);assert.match(restarted.snapshot().error,/Saved website data could not be opened/);assert.doesNotMatch(restarted.snapshot().error,/JSON|malformed/);assert.equal(storage.getItem(key),'{malformed');
   storage.setItem(key,JSON.stringify(good));assert.equal(restarted.openProject(good.id),true);
   restarted.close();assert.deepEqual(restarted.snapshot().unavailableProjects,[]);
   restarted.selectContext({id:'other-project',name:'Other'});assert.deepEqual(restarted.snapshot().unavailableProjects,[]);

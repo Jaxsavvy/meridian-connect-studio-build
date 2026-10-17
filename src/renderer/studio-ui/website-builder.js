@@ -481,7 +481,8 @@
         refreshCheckpoints();
         emit(); return true;
       } catch (error) {
-        state = { ...state, error: error.message, status: 'Website project could not be opened.' }; emit(); return false;
+        const message = error.message.startsWith('Website project could not be recovered:') ? 'Saved website data could not be opened. Its local copies have been kept.' : error.message;
+        state = { ...state, error: message, status: 'Website project could not be opened.' }; emit(); return false;
       }
     }
 
