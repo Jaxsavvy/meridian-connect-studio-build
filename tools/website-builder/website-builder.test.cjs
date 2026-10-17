@@ -740,3 +740,11 @@ test('stale windows cannot silently overwrite newer website content and retain t
   assert.equal(createRepository(storage,meridianProject.id).open(id).brief.goal,'Newer saved work');
   assert.equal(first.discard(),true);first.updateBrief('offer','Reapplied after reopening');assert.equal(first.save(),true);
 });
+
+test('a save interrupted after its primary write can be retried without a false stale-window conflict', () => {
+  const base=createMemoryStorage();let failIndex=false;
+  const storage={get length(){return base.length;},key:i=>base.key(i),getItem:k=>base.getItem(k),removeItem:k=>base.removeItem(k),setItem(k,v){if(failIndex&&k.endsWith('.index'))throw Error('Index write failed');base.setItem(k,v);}};
+  const active=controller(storage);active.createProject('Interrupted own save');active.updateBrief('goal','Retained goal');
+  failIndex=true;assert.equal(active.save(),false);assert.equal(active.snapshot().dirty,true);
+  failIndex=false;assert.equal(active.save(),true);assert.equal(active.snapshot().dirty,false);
+});

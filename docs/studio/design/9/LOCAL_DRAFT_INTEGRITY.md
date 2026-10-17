@@ -31,3 +31,15 @@ inspected all seven changed paths. Its full-byte preview/export path now refuses
 non-synthetic mode before transport. Only disposable composition pins update;
 Cassy files are neither rewritten nor added to Tyler's branch. Current source
 remains synthetic-only; no preview/export permission or service authority added.
+
+## Retry and exported-page follow-up
+
+A sixth regression catches primary-success/index-failure: retain the exact own
+attempt baseline only when persisted content matches that attempt, allowing an
+explicit retry while keeping the original failure and dirty state visible.
+167 relevant Node tests pass. Further export CSS wraps long unbroken content,
+constrains CTA width and allows grid/header items to shrink. A real Chromium
+check renders exported HTML with maximum site/title/body/action fields at375,
+768,1440px and200% zoom, asserting actual document/heading/action bounds and
+saving phone pixels. This checks generated pages independently of editor bounds.
+Exact-source runtime acceptance remains pending.

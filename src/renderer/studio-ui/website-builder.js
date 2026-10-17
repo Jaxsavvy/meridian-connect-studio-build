@@ -355,7 +355,7 @@
       const action = !section.action || !target ? '' : preview ? `<span class="action">${escapeHtml(section.action)}</span>` : `<a class="action" href="${escapeHtml(pageFilename(target))}">${escapeHtml(section.action)}</a>`;
       return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1>${renderBody(section)}${action}</div></section>`;
     }).join('');
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{min-width:0}nav ul{list-style:none;margin:0;padding:0}nav>ul{display:flex;flex-wrap:wrap;gap:18px}nav li{min-width:0;overflow-wrap:anywhere}nav li>ul{display:grid;gap:6px;margin-top:6px;padding-left:12px;border-left:1px solid #6f838c}nav li>ul :is(a,span){font-size:14px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{min-width:0;font-size:18px}nav{min-width:0}nav ul{list-style:none;margin:0;padding:0}nav>ul{display:flex;flex-wrap:wrap;gap:18px}nav li{min-width:0;overflow-wrap:anywhere}nav li>ul{display:grid;gap:6px;margin-top:6px;padding-left:12px;border-left:1px solid #6f838c}nav li>ul :is(a,span){font-size:14px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{min-width:0;width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;max-width:100%;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
   }
 
   function exportSite(project) {
@@ -707,17 +707,25 @@
 
     function save() {
       if (!repository || !state.project) return false;
+      let attemptedSave = null;
       try {
         const persisted = repository.open(state.project.id);
         if (JSON.stringify(persisted) !== savedBaseline) throw new Error('Website changed elsewhere. Your edits remain here; reopen the saved website before applying them again.');
         const project = copy(state.project);
         project.revision += 1;
         project.updatedAt = now();
+        attemptedSave = JSON.stringify(project);
         repository.save(project);
         savedBaseline = JSON.stringify(project);
         state = { ...state, project, dirty: false, error: null, status: 'Website project saved to durable local application storage.' };
         refreshList(); emit(); return true;
       } catch (error) {
+        // A primary write may succeed before the index/cleanup fails. Recognize
+        // only this exact attempted content so an explicit retry stays possible.
+        if (attemptedSave) {
+          try { if (JSON.stringify(repository.open(state.project.id)) === attemptedSave) savedBaseline = attemptedSave; }
+          catch (_) { /* Preserve the original save failure and unsaved work. */ }
+        }
         state = { ...state, dirty: true, error: error.message || 'Save failed.', status: 'Save failed. Your edits remain in this window.' }; emit(); return false;
       }
     }
