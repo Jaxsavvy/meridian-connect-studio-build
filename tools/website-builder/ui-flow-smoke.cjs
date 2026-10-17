@@ -320,6 +320,21 @@ app.whenReady().then(async () => {
     await click(window, '[data-action="asset-place"]');
     await click(window, '[data-action="save"]');
     await until(window, "[...document.querySelectorAll('.studio-save-cluster .studio-pill')].some(x=>x.textContent==='Saved')");
+    await window.webContents.executeJavaScript(`(() => {
+      const field=document.querySelector('#studio-scene-format');field.value='9:16 vertical';field.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
+    await click(window, '[data-action="save"]');
+    await until(window, "[...document.querySelectorAll('.studio-save-cluster .studio-pill')].some(x=>x.textContent==='Saved')");
+    await window.webContents.executeJavaScript(`(() => {
+      const field=document.querySelector('#studio-scene-format');field.value='1:1 square';field.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
+    await click(window, '[data-action="surface"][data-value="operations"]');
+    await waitFor(window, '#studio-leave-title');
+    await click(window, '[data-action="discard-leave"]');
+    await click(window, '[data-action="surface"][data-value="editor"]');
+    await waitFor(window, '#studio-scene-format');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-scene-format').value"),'9:16 vertical');
+    await fs.writeFile(join(evidence,'scene-format.json'),JSON.stringify({status:'passed',saved:'9:16 vertical',discarded:'1:1 square',restored:'9:16 vertical'},null,2));
     await capture(window, '06-storyboard-material');
     await click(window, '[data-action="scene-to-website"]');
     await waitFor(window, '#website-page-editor-title');

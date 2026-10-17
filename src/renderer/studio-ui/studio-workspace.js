@@ -84,7 +84,7 @@
           selectedSceneId: firstScene ? firstScene.id : null,
           editor: {
             title: firstScene ? firstScene.name : 'Untitled synthetic scene',
-            format: '16:9 landscape',
+            format: firstScene?.format || '16:9 landscape',
             notes: firstScene ? firstScene.note : '',
             assetIds: firstScene ? copy(firstScene.assetIds || []) : [],
           },
@@ -182,12 +182,12 @@
         ...state,
         editor: {
           title: scene ? scene.name : 'Untitled synthetic scene',
-          format: '16:9 landscape',
+          format: scene?.format || '16:9 landscape',
           notes: scene ? scene.note : '',
           assetIds: scene ? copy(scene.assetIds || []) : [],
         },
         unsaved: false,
-        saveState: 'Draft',
+        saveState: scene?.status === 'Saved' ? 'Saved' : 'Draft',
         error: null,
         statusMessage: 'Unsaved synthetic changes discarded.',
       };

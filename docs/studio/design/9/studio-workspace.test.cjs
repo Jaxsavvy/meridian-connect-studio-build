@@ -194,3 +194,28 @@ test('an earlier save acknowledgement cannot mark newer scene edits as saved', a
   assert.equal(workspace.snapshot().data.scenes[0].note, 'Earlier edit');
   workspace.destroy();
 });
+
+
+test('discard retains the saved scene format and saved status', async () => {
+  const { workspace } = await readyWorkspace();
+  workspace.updateEditor('format', '9:16 vertical');
+  await workspace.saveDraft();
+  workspace.updateEditor('format', '1:1 square');
+  workspace.discardChanges();
+  assert.equal(workspace.snapshot().editor.format, '9:16 vertical');
+  assert.equal(workspace.snapshot().saveState, 'Saved');
+  assert.equal(workspace.snapshot().unsaved, false);
+  workspace.destroy();
+});
+
+test('reload restores the first saved scene format', async () => {
+  const adapter = {
+    async load(project) { const data = createProjectFixture(project); data.scenes[0].format = '1:1 square'; return data; },
+    async save(payload) { return { ...payload, savedAt: new Date(0).toISOString() }; },
+  };
+  const { workspace } = await readyWorkspace(adapter);
+  assert.equal(workspace.snapshot().editor.format, '1:1 square');
+  await workspace.retryLoad();
+  assert.equal(workspace.snapshot().editor.format, '1:1 square');
+  workspace.destroy();
+});

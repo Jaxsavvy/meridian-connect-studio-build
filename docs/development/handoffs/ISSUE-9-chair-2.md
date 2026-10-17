@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 saved scene format correction
+
+- Audit reproduced two format resets: initial loaded scene ignored adapter format, and discard always restored landscape/Draft. Renderer now reads stored scene format and retains Saved status when discarding edits to a saved scene. Two targeted regressions failed before the fix; all 137 relevant tests pass after it.
+- Real Electron flow now saves vertical, edits square, discards through the existing navigation warning, returns to the editor and asserts vertical. Exact-source CI is pending at publication; no new runtime pass claimed yet. No provider, adapter persistence, service, bridge or packaging behavior changed.
+
 ## 2026-10-16 resumed checkpoint evidence verification
 
 - Resumed clean branch at published 3e44413; PR #39 head matches. All four exact-head workflows pass. Repeated 135 local regressions with no failures.
