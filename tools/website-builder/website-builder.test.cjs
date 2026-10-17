@@ -577,3 +577,49 @@ test('failed or foreign checkpoint removal preserves the previous history', () =
   assert.equal(active.removeCheckpoint('foreign'),false);assert.deepEqual(active.snapshot().checkpoints,before);
   fail=false;active.openProject(active.snapshot().project.id);assert.deepEqual(active.snapshot().checkpoints,before);
 });
+
+
+test('nested pages persist and export semantic grouped navigation with unchanged URLs', () => {
+  const active=controller();active.createProject('Nested');
+  active.addPage('Services');const services=active.snapshot().selectedPageId;
+  active.addPage('Repairs');const repairs=active.snapshot().selectedPageId;
+  assert.equal(active.updatePage('parentPageId',services),true);
+  let html=active.exportSite().files['index.html'];
+  assert.match(html,/<a href="services.html">Services<\/a><ul><li><a href="repairs.html">Repairs<\/a>/);
+  assert.match(active.preview(),/<span>Services<\/span><ul><li><span aria-current="page">Repairs<\/span>/);
+  assert.doesNotMatch(active.preview(),/href="repairs.html"/);
+  assert.deepEqual(Object.keys(active.exportSite().files),['index.html','services.html','repairs.html']);
+  active.save();active.createCheckpoint('Grouped');const checkpoint=active.snapshot().checkpoints[0].id;
+  active.updatePage('parentPageId','');active.save();active.restoreCheckpoint(checkpoint);
+  assert.equal(active.snapshot().project.pages.find(page=>page.id===repairs).parentPageId,services);
+  active.save();active.openProject(active.snapshot().project.id);
+  assert.equal(active.snapshot().project.pages.find(page=>page.id===repairs).parentPageId,services);
+});
+
+test('page hierarchy rejects cycles, unknown parents, nested home and excessive depth without losing redo', () => {
+  const active=controller();active.createProject('Bounds');const home=active.snapshot().selectedPageId;
+  active.addPage('Services');const services=active.snapshot().selectedPageId;
+  active.addPage('Repairs');const repairs=active.snapshot().selectedPageId;active.updatePage('parentPageId',services);
+  active.addPage('Emergency');const emergency=active.snapshot().selectedPageId;active.updatePage('parentPageId',repairs);
+  active.addPage('Fourth');assert.equal(active.updatePage('parentPageId',emergency),false);
+  active.selectPage(services);assert.equal(active.updatePage('parentPageId',repairs),false);
+  active.selectPage(home);assert.equal(active.updatePage('parentPageId',services),false);
+  assert.equal(active.updatePage('parentPageId','foreign-id'),false);
+  active.undo();assert.equal(active.redo(),true,'Rejected hierarchy edits retain history');
+  const invalid=active.snapshot().project;invalid.pages.find(page=>page.id===services).parentPageId=repairs;
+  assert.throws(()=>exportSite(invalid),/hierarchy|cycle|parent/i);
+});
+
+test('sibling ordering and parent removal preserve descendants and undo restores the hierarchy', () => {
+  const active=controller();active.createProject('Order');active.addPage('Services');const services=active.snapshot().selectedPageId;
+  active.addPage('Repairs');const repairs=active.snapshot().selectedPageId;active.updatePage('parentPageId',services);
+  active.addPage('Consulting');const consulting=active.snapshot().selectedPageId;active.updatePage('parentPageId',services);
+  assert.equal(active.movePage(consulting,-1),true);
+  assert.match(active.exportSite().files['index.html'],/<a href="services.html">Services<\/a><ul><li><a href="consulting.html">Consulting<\/a><\/li><li><a href="repairs.html">Repairs<\/a>/);
+  assert.equal(active.movePage(consulting,-1),false);
+  active.removePage(services);let pages=active.snapshot().project.pages;
+  assert.equal(pages.find(page=>page.id===repairs).parentPageId,'');assert.equal(pages.find(page=>page.id===consulting).parentPageId,'');
+  active.undo();pages=active.snapshot().project.pages;
+  assert.equal(pages.find(page=>page.id===repairs).parentPageId,services);
+  active.save();assert.ok(active.exportSite().files['repairs.html']);
+});

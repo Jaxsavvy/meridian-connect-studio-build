@@ -135,6 +135,33 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"), 2);
     await window.webContents.executeJavaScript("document.querySelector('[data-website-panel=pages] .website-item-actions').scrollIntoView({block:'center'})");
     await capture(window, '11-page-management');
+    const servicesId=await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.value");
+    const homeId=await window.webContents.executeJavaScript("[...document.querySelectorAll('.website-page')].find(button=>button.querySelector('span').textContent==='Home').dataset.value");
+    await window.webContents.executeJavaScript("document.querySelector('#website-page-name').value='Repairs'");
+    await click(window,'[data-action="website-add-page"]');
+    const repairsId=await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.value");
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#website-page-parent');control.focus();control.value=${JSON.stringify(servicesId)};control.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-page-parent');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.depth"),'1');
+    await window.webContents.executeJavaScript("document.querySelector('#website-page-name').value='Emergency'");
+    await click(window,'[data-action="website-add-page"]');
+    const emergencyId=await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.value");
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#website-page-parent');control.value=${JSON.stringify(repairsId)};control.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.depth"),'2');
+    await click(window,`[data-action="website-page"][data-value="${servicesId}"]`);
+    const parentOptions=await window.webContents.executeJavaScript("[...document.querySelector('#website-page-parent').options].map(option=>option.value)");
+    assert.ok(!parentOptions.includes(repairsId)&&!parentOptions.includes(emergencyId));
+    await click(window,'[data-action="website-remove-page"]');
+    assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-action="website-page"][data-value="${repairsId}"]').dataset.depth`),'0');
+    await click(window,'[data-action="website-undo"]');
+    await click(window,`[data-action="website-page"][data-value="${emergencyId}"]`);await click(window,'[data-action="website-remove-page"]');
+    await click(window,`[data-action="website-page"][data-value="${repairsId}"]`);await click(window,'[data-action="website-remove-page"]');
+    await click(window,`[data-action="website-page"][data-value="${servicesId}"]`);
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#website-page-parent');control.value=${JSON.stringify(homeId)};control.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('.website-page-list').scrollIntoView({block:'start'});})()`);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-page').length"),2);
+    await capture(window,'20-nested-page-navigation');
+    await fs.writeFile(join(evidence,'nested-navigation.json'),JSON.stringify({status:'passed',threeLevels:true,cyclesExcluded:true,removePromotesChildren:true,undoRestoresHierarchy:true,focusRetained:true,finalParent:homeId,finalChild:servicesId},null,2));
+
     await click(window, '.website-flow-nav [data-value="edit"]');
     await window.webContents.executeJavaScript("document.querySelector('#website-section-type').value='cta'");
     await click(window, '[data-action="website-add-section"]');
@@ -212,6 +239,7 @@ app.whenReady().then(async () => {
     assert.doesNotMatch(formattedHTML,/<script>/);
     assert.match(formattedHTML,/<span class="action">Contact us<\/span>/);
     assert.doesNotMatch(formattedHTML,/href="#contact"/);
+    assert.match(formattedHTML,/<span>Home<\/span><ul><li><span aria-current="page">Services<\/span>/);
     const download = new Promise((resolve, reject) => {
       const timer=setTimeout(()=>reject(Error('ZIP download timed out')),15000);
       window.webContents.session.once('will-download', (_event,item) => {
@@ -230,6 +258,7 @@ app.whenReady().then(async () => {
     assert.doesNotMatch(zip.toString('utf8'),/<script>/);
     assert.match(zip.toString('utf8'),/<a class="action" href="index.html">Contact us<\/a>/);
     assert.doesNotMatch(zip.toString('utf8'),/href="#contact"/);
+    assert.match(zip.toString('utf8'),/<a href="index.html">Home<\/a><ul><li><a href="services.html" aria-current="page">Services<\/a>/);
     await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
     await capture(window, '13-multipage-preview');
     // Device-local checkpoints and real storage-failure recovery; no service approval.

@@ -745,3 +745,7 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 
 .website-checkpoints li > .website-checkpoint-confirm { flex-basis: 100%; padding: 12px; border: 1px solid var(--studio-border, #6f838c); border-radius: 8px; }
 .website-checkpoint-confirm p { margin: 0; }
+
+.website-page { margin-inline-start: calc(var(--page-depth, 0) * 16px); width: calc(100% - var(--page-depth, 0) * 16px); }
+.website-page span { min-width: 0; overflow-wrap: anywhere; }
+.website-page small { flex-shrink: 0; }

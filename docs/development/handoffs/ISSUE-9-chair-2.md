@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 nested navigation continuation
+
+- Continued unfinished local builder backlog under #9/PR #39; coordination comment 6229051901. Added three-level page parents, depth-labeled sitemap, sibling ordering and undoable child promotion on parent removal. Hierarchy validation rejects cycles, unknown/foreign parents, nested home and excessive depth; rejected edits preserve history. Parent selection omits invalid moves.
+- Semantic nested lists share the same structure across inert preview/static export; filenames stay flat and unchanged. Save/reopen/checkpoint restoration retains parents. Three new regressions reproduce missing behavior; all 150 relevant tests pass locally. Real Electron now exercises three levels, focus retention, invalid options, parent removal/undo and actual nested ZIP output. Exact-source CI/visual evidence pending. No service/bridge/Cassy/dependency/package changes or PR merges. See NESTED_NAVIGATION.md.
+
 ## 2026-10-16 new Website contributions verified
 
 - Executable c8566b6 / tree 074ca47ed8b0f1b02c800a8714512dcd8b6da1fe passes source 38998525617, Linux 38998525632, Windows 38998525641 and cross-chair 38998525616. Local 147/147. Both real Electron flows, native Enter/focus, formatting, safe real action links and checkpoint removal/cancel/failure/retry pass. Actual OS Contrast restoration and existing NSIS install/source/AX/Tab/employee gate pass.

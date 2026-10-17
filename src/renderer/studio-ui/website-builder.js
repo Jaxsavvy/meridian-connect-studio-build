@@ -40,6 +40,43 @@
     return (luminance + .05) / .05 >= 1.05 / (luminance + .05) ? '#000' : '#fff';
   }
 
+  function navigationRows(project) {
+    const pages = project.pages;
+    if (!Array.isArray(pages) || !pages.length || pages.length > 50) throw new Error('Page hierarchy is invalid.');
+    const byId = new Map(pages.map(page => [page.id, page]));
+    for (const page of pages) {
+      if (page.parentPageId !== undefined && typeof page.parentPageId !== 'string') throw new Error('Page parent must be from this website.');
+      if (!page.slug && page.parentPageId) throw new Error('Keep the home page at the top navigation level.');
+      const seen = new Set([page.id]);
+      let parent = page.parentPageId, depth = 0;
+      while (parent) {
+        if (!byId.has(parent) || seen.has(parent)) throw new Error('Page hierarchy contains an unknown parent or cycle.');
+        seen.add(parent); depth += 1;
+        if (depth > 2) throw new Error('Navigation supports up to three levels.');
+        parent = byId.get(parent).parentPageId;
+      }
+    }
+    const rows = [];
+    function visit(parent, depth) {
+      for (const page of pages.filter(item => (item.parentPageId || '') === parent)) {
+        rows.push({ id: page.id, title: page.title, slug: page.slug, parentPageId: parent, depth });
+        visit(page.id, depth + 1);
+      }
+    }
+    visit('', 0);
+    return rows;
+  }
+
+  function pageParentOptions(project, pageId) {
+    const page = project.pages.find(item => item.id === pageId);
+    if (!page || !page.slug) return [];
+    return navigationRows(project).filter(candidate => {
+      const draft = copy(project);
+      draft.pages.find(item => item.id === pageId).parentPageId = candidate.id;
+      try { navigationRows(draft); return true; } catch (_) { return false; }
+    });
+  }
+
   function validateProject(input, expectedProjectId, expectedWebsiteId) {
     if (!input || input.schema !== SCHEMA || typeof input.id !== 'string' || !input.id) throw new Error('Invalid website project.');
     if (expectedWebsiteId !== undefined && input.id !== expectedWebsiteId) throw new Error('Website identity does not match the requested record.');
@@ -65,6 +102,7 @@
     for (const page of input.pages) for (const section of page.sections) {
       if (section.actionPageId !== undefined && (typeof section.actionPageId !== 'string' || (section.actionPageId && !pageIds.has(section.actionPageId)))) throw new Error('Action destination must be a page in this website.');
     }
+    navigationRows(input);
     return copy(input);
   }
 
@@ -255,16 +293,23 @@
     const page = project.pages.find(item => item.id === pageId) || project.pages[0];
     const accent = /^#[0-9a-f]{6}$/i.test(project.design?.accent) ? project.design.accent : '#1f6fd6';
     const font = Object.hasOwn(FONTS, project.design?.font) ? FONTS[project.design.font] : FONTS['system-ui'];
-    const navigation = project.pages.map(item => {
-      const current = item.id === page.id ? ' aria-current="page"' : '';
-      return preview ? `<span${current}>${escapeHtml(item.title)}</span>` : `<a href="${escapeHtml(pageFilename(item))}"${current}>${escapeHtml(item.title)}</a>`;
-    }).join('');
+    const rows = navigationRows(project);
+    function navigationGroup(parent = '') {
+      const items = rows.filter(item => item.parentPageId === parent);
+      if (!items.length) return '';
+      return `<ul>${items.map(item => {
+        const current = item.id === page.id ? ' aria-current="page"' : '';
+        const label = preview ? `<span${current}>${escapeHtml(item.title)}</span>` : `<a href="${escapeHtml(pageFilename(item))}"${current}>${escapeHtml(item.title)}</a>`;
+        return `<li>${label}${navigationGroup(item.id)}</li>`;
+      }).join('')}</ul>`;
+    }
+    const navigation = navigationGroup();
     const sections = page.sections.map(section => {
       const target = project.pages.find(item => item.id === section.actionPageId);
       const action = !section.action || !target ? '' : preview ? `<span class="action">${escapeHtml(section.action)}</span>` : `<a class="action" href="${escapeHtml(pageFilename(target))}">${escapeHtml(section.action)}</a>`;
       return `<section class="section section-${escapeHtml(section.type)}"><div><p class="eyebrow">${escapeHtml(project.name)}</p><h1>${escapeHtml(section.heading)}</h1>${renderBody(section)}${action}</div></section>`;
     }).join('');
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{display:flex;flex-wrap:wrap;gap:18px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(page.title)} · ${escapeHtml(project.name)}</title><style>:root{--accent:${accent};color-scheme:light}*{box-sizing:border-box}body{margin:0;color:#122033;background:#f7f9fc;font:16px/1.6 ${font}}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:20px clamp(20px,6vw,88px);background:#fff;border-bottom:1px solid #dce4ee}header strong{font-size:18px}nav{min-width:0}nav ul{list-style:none;margin:0;padding:0}nav>ul{display:flex;flex-wrap:wrap;gap:18px}nav li{min-width:0;overflow-wrap:anywhere}nav li>ul{display:grid;gap:6px;margin-top:6px;padding-left:12px;border-left:1px solid #6f838c}nav li>ul :is(a,span){font-size:14px}nav :is(a,span){color:#29415f;text-decoration:none}nav [aria-current]{color:#122033;font-weight:700;border-bottom:2px solid var(--accent)}.section{display:grid;place-items:center;min-height:360px;padding:64px clamp(20px,9vw,140px)}.section>div{width:min(820px,100%)}.section:nth-child(even){background:#fff}.section-hero{min-height:560px;color:#fff;background:linear-gradient(135deg,#07101d,#17385d)}.eyebrow{color:#29415f;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.section-hero .eyebrow{color:#c7e4fb}h1{max-width:18ch;margin:.25em 0;font-size:clamp(38px,7vw,76px);line-height:1.04}.section:not(.section-hero) h1{font-size:clamp(30px,5vw,54px)}.action{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;color:${accentInk(accent)};background:var(--accent);font-weight:700;text-decoration:none}@media(max-width:620px){header{align-items:flex-start;flex-direction:column}.section{min-height:300px;padding-block:48px}}</style></head><body><header><strong>${escapeHtml(project.name)}</strong><nav aria-label="Primary">${navigation}</nav></header><main>${sections}</main></body></html>`;
   }
 
   function exportSite(project) {
@@ -411,7 +456,15 @@
     }
 
     function movePage(id, direction) {
-      return mutate(project => moveItem(project.pages, id, direction), 'Page order updated.');
+      return mutate(project => {
+        const page = project.pages.find(item => item.id === id);
+        if (!page) throw new Error('Page was not found.');
+        const siblings = project.pages.filter(item => (item.parentPageId || '') === (page.parentPageId || ''));
+        const index = siblings.findIndex(item => item.id === id), target = index + direction;
+        if (![1, -1].includes(direction) || target < 0 || target >= siblings.length) throw new Error('That page cannot move further among its siblings.');
+        const from = project.pages.indexOf(page), to = project.pages.indexOf(siblings[target]);
+        [project.pages[from], project.pages[to]] = [project.pages[to], project.pages[from]];
+      }, 'Navigation order updated within this parent.');
     }
 
     function removePage(id) {
@@ -420,10 +473,12 @@
         if (index < 0) throw new Error('Page was not found.');
         if (project.pages.length === 1) throw new Error('Keep at least one page in the website.');
         if (!project.pages[index].slug) throw new Error('Keep the home page. Its content can be edited or its sections removed.');
+        const parent = project.pages[index].parentPageId || '';
+        for (const page of project.pages) if (page.parentPageId === id) page.parentPageId = parent;
         project.pages.splice(index, 1);
         for (const page of project.pages) for (const section of page.sections) if (section.actionPageId === id) section.actionPageId = '';
         if (state.selectedPageId === id) state.selectedPageId = project.pages[Math.min(index, project.pages.length - 1)].id;
-      }, 'Page removed. Actions pointing to it need a new destination. Undo restores the page and its links.');
+      }, 'Page removed; its children move up one level. Actions pointing to it need a new destination. Undo restores the hierarchy and links.');
     }
 
     function moveSection(id, direction) {
@@ -474,12 +529,15 @@
     }
 
     function updatePage(field, value) {
-      if (!['title', 'slug'].includes(field)) return false;
+      if (!['title', 'slug', 'parentPageId'].includes(field)) return false;
       return mutate(project => {
         const page = project.pages.find(item => item.id === state.selectedPageId);
         if (!page) return;
         if (field === 'title') page.title = cleanText(value, 120);
-        else {
+        else if (field === 'parentPageId') {
+          if (typeof value !== 'string') throw new Error('Choose a parent from this website.');
+          page.parentPageId = value; navigationRows(project);
+        } else {
           const slug = safeId(value, 'page');
           if (project.pages.some(item => item.id !== page.id && pageFilename(item) === pageFilename({ slug }))) throw new Error('Each page needs a unique URL slug and export filename.');
           page.slug = slug;
@@ -638,5 +696,5 @@
       } });
   }
 
-  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, renderPage, exportSite, exportArchive, validateProject });
+  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, navigationRows, pageParentOptions, renderPage, exportSite, exportArchive, validateProject });
 });
