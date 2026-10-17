@@ -410,7 +410,24 @@
       </div>`;
     }
 
-    function renderStates() {
+    function renderDevelopmentJobs(state) {
+      if (state.data?.developmentOnly !== true) return '<section class="studio-section"><h3>Job services unavailable</h3><p>No development job fixture is loaded.</p></section>';
+      const job = state.developmentJob;
+      const view = root.MeridianStudioWorkspace.developmentJobPresentation(job);
+      const scenarios = root.MeridianStudioWorkspace.DEVELOPMENT_JOB_SCENARIOS;
+      return `<section class="studio-section studio-job-patterns" aria-labelledby="studio-job-pattern-title"><span class="studio-kicker">Development-only recovery patterns</span><h2 id="studio-job-pattern-title">Job and permission recovery</h2><p>No job or provider service is connected. These controls change synthetic state only; they cannot grant project access, spending approval or output rights.</p>
+        <div class="website-add-row"><label class="studio-field"><span>Synthetic job scenario</span><select id="studio-job-scenario" data-focus-key="studio-job-scenario">${scenarios.map(scenario => `<option value="${scenario}"${scenario === (job?.scenario || 'running') ? ' selected' : ''}>${escapeHtml(scenario.replaceAll('-',' '))}</option>`).join('')}</select></label><button type="button" class="studio-button studio-button--secondary" data-action="job-scenario-load">Load synthetic scenario</button></div>
+        <div class="studio-job-status" data-job-status="${view.status}" data-job-project="${attr(state.project?.id || '')}" data-job-attempt="${job?.attempt || 0}" data-job-request="${attr(job?.requestId || '')}" role="status" aria-live="polite" aria-atomic="true"><h3 id="studio-job-state-title" tabindex="-1">${escapeHtml(view.title)}</h3><p>${escapeHtml(view.detail)}</p>${job ? `<p>Project-scoped fixture · attempt ${job.attempt} of at most 3</p>` : ''}${['queued','running','cancelling','uncertain','completed'].includes(view.status) ? `<progress max="100"${view.progress === null ? '' : ` value="${view.progress}"`} aria-label="${attr(view.title)}"></progress><p>${view.progress === null ? 'No reliable progress estimate.' : `${view.progress}% synthetic progress`}</p>` : ''}</div>
+        <div class="website-item-actions" role="group" aria-label="Synthetic job recovery actions">${view.canCancel ? '<button type="button" class="studio-button studio-button--secondary" data-action="job-cancel">Request simulated cancellation</button>' : ''}${view.canConfirmCancel ? '<button type="button" class="studio-button studio-button--secondary" data-action="job-resolve" data-value="cancelled">Confirm simulated cancellation</button><button type="button" class="studio-button studio-button--secondary" data-action="job-resolve" data-value="completed">Simulate completion arriving first</button>' : ''}${view.canReconcile ? '<button type="button" class="studio-button studio-button--secondary" data-action="job-resolve" data-value="not-started">Simulate confirmed not started</button><button type="button" class="studio-button studio-button--secondary" data-action="job-resolve" data-value="completed">Simulate already completed</button>' : ''}<button type="button" class="studio-button studio-button--secondary" data-action="job-retry" ${view.canRetry ? '' : 'disabled'} aria-describedby="studio-job-retry-reason">Retry synthetic job</button><button type="button" class="studio-button studio-button--secondary" disabled aria-describedby="studio-job-output-reason">Service output unavailable</button></div>
+        <p id="studio-job-retry-reason">${view.canRetry ? 'A known failed or cancelled fixture can be retried explicitly. No automatic retry.' : escapeHtml(view.retryReason)}</p><p id="studio-job-output-reason">No output asset is created, registered, approved or downloaded by this state exercise.</p></section>`;
+    }
+
+    function focusDevelopmentJob() {
+      const heading = host.querySelector('#studio-job-state-title');
+      heading?.focus({ preventScroll: true });heading?.scrollIntoView({ block: 'nearest' });
+    }
+
+    function renderStates(state) {
       const cards = [
         ['Empty', 'No scenes yet', 'Create a development-only draft without implying service persistence.', 'Create synthetic draft', 'create-draft'],
         ['Loading', 'Work remains in context', 'Run a visible text-based loading state with motion treated as optional.', 'Simulate reload', 'retry-load'],
@@ -418,7 +435,7 @@
         ['Unsaved', 'Leave decisions are explicit', 'Open the editor and create a local change to test Keep editing, Discard, and Save.', 'Create unsaved change', 'create-draft'],
       ];
       return `<div class="studio-surface" data-surface="states"><section class="studio-editor-heading"><div><span class="studio-kicker">Operational states</span><h2>Actionable under pressure.</h2><p>Each state includes a recovery action and truthful development-only language.</p></div></section>
-        <div class="studio-state-grid">${cards.map(([code, title, copy, action, id]) => `<article class="studio-state-card"><span class="studio-state__code">${code}</span><h3>${title}</h3><p>${copy}</p><button type="button" class="studio-button studio-button--secondary" data-action="${id}">${action}</button></article>`).join('')}</div>
+        ${renderDevelopmentJobs(state)}<div class="studio-state-grid">${cards.map(([code, title, copy, action, id]) => `<article class="studio-state-card"><span class="studio-state__code">${code}</span><h3>${title}</h3><p>${copy}</p><button type="button" class="studio-button studio-button--secondary" data-action="${id}">${action}</button></article>`).join('')}</div>
         <section class="studio-section"><div class="studio-section-heading"><div><span class="studio-kicker">Save recovery</span><h2>Failed saves preserve local work.</h2></div></div><p>Open the campaign editor, create a local edit, and trigger a deterministic synthetic save failure.</p><button type="button" class="studio-button studio-button--secondary" data-action="simulate-save-error">Simulate failed save</button></section>
       </div>`;
     }
@@ -617,6 +634,11 @@
       if (action === 'surface' && value !== viewState.surface) requestTransition(() => workspace.openSurface(value), 'change Studio workspace');
       else if (action === 'focus-project') host.querySelector('#studio-project-select')?.focus();
       else if (action === 'retry-load') workspace.retryLoad();
+      else if (action === 'job-scenario-load') { workspace.simulateDevelopmentJob(host.querySelector('#studio-job-scenario')?.value);focusDevelopmentJob(); }
+      else if (action === 'job-cancel') { workspace.requestDevelopmentCancel();focusDevelopmentJob(); }
+      else if (action === 'job-resolve') { workspace.resolveDevelopmentJob(viewState.developmentJob?.requestId,value);focusDevelopmentJob(); }
+      else if (action === 'job-retry') { workspace.retryDevelopmentJob();focusDevelopmentJob(); }
+
       else if (action === 'continue-campaign') requestTransition(() => viewState.data.scenes[0] ? workspace.selectScene(viewState.data.scenes[0].id) : workspace.createEmptyDraft(), 'open the storyboard draft');
       else if (action === 'scene') requestTransition(() => workspace.selectScene(value), 'open another scene');
       else if (action === 'scene-to-website') requestTransition(() => {

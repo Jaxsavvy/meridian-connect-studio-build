@@ -8,6 +8,39 @@
 
   const SURFACES = new Set(['operations', 'editor', 'assets', 'website', 'handoff', 'states']);
 
+  const DEVELOPMENT_JOB_SCENARIOS = Object.freeze(['queued','running','failed','uncertain','denied','cost-denied','revoked']);
+  const JOB_COPY = Object.freeze({
+    idle: ['No job scenario loaded', 'Choose a development-only scenario. No job is submitted.'],
+    queued: ['Synthetic job queued', 'Waiting to start. No provider or job service is connected.'],
+    running: ['Synthetic job running', 'Progress is a fixture value, not a provider estimate.'],
+    cancelling: ['Cancellation requested', 'Cancellation is not confirmed. The job may still complete; do not submit a duplicate.'],
+    cancelled: ['Synthetic cancellation confirmed', 'The simulated outcome is known. Existing work remains unchanged.'],
+    completed: ['Synthetic completion recorded', 'This fixture creates no output asset or service record.'],
+    failed: ['Synthetic attempt failed', 'Failure or a not-started outcome is known. Retry is explicit and bounded.'],
+    uncertain: ['Completion unknown', 'Reconcile the recorded outcome before retrying, to avoid duplicate work.'],
+    denied: ['Project action denied', 'No simulated job was submitted. Request project access through the owner.'],
+    'cost-denied': ['Spending approval missing', 'No simulated job was submitted. A local control cannot grant spending approval.'],
+    revoked: ['Project access revoked', 'Project output is unavailable. Actual session or membership loss clears scoped client state.'],
+    unavailable: ['Job state unavailable', 'Unknown states stay closed. Authoritative job services are not connected.'],
+  });
+
+  function developmentJobPresentation(job) {
+    const known = job?.developmentOnly === true && typeof job.status === 'string' && Object.hasOwn(JOB_COPY, job.status);
+    const status = !job ? 'idle' : known ? job.status : 'unavailable';
+    const allowed = known && job.permission === 'allowed';
+    const attempt = Number.isSafeInteger(job?.attempt) ? job.attempt : 0;
+    return {
+      status, title: JOB_COPY[status][0], detail: JOB_COPY[status][1],
+      progress: known && Number.isFinite(job.progress) ? Math.min(100,Math.max(0,job.progress)) : null,
+      canCancel: allowed && ['queued','running'].includes(status),
+      canConfirmCancel: allowed && status === 'cancelling',
+      canReconcile: allowed && status === 'uncertain',
+      canRetry: allowed && job.completionKnown === true && ['failed','cancelled'].includes(status) && attempt > 0 && attempt < 3,
+      canExport: false,
+      retryReason: status === 'uncertain' ? 'Check the outcome before retrying.' : attempt >= 3 ? 'Three synthetic attempts reached; no automatic retry.' : !allowed ? 'Project/spending authority is unavailable.' : 'Retry requires a known failed or cancelled outcome.',
+    };
+  }
+
   function copy(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
@@ -23,6 +56,9 @@
     let saveSequence = 0;
     let editSequence = 0;
     let draftCounter = 0;
+    let developmentJobCounter = 0;
+    let developmentRequestCounter = 0;
+    let developmentJobTicket = null;
     let state = {
       surface: 'operations',
       phase: 'idle',
@@ -39,6 +75,7 @@
       error: null,
       reviewedDecisionId: null,
       toolDetailId: null,
+      developmentJob: null,
     };
 
     function emit() {
@@ -50,6 +87,7 @@
     }
 
     async function loadProject(project) {
+      developmentJobTicket = null;
       saveSequence += 1;
       editSequence += 1;
       const sequence = ++loadSequence;
@@ -69,6 +107,7 @@
         error: null,
         reviewedDecisionId: null,
         toolDetailId: null,
+        developmentJob: null,
         statusMessage: project ? `Loading synthetic Studio workspace for ${project.name}.` : 'Select an authenticated project to begin.',
       };
       emit();
@@ -272,6 +311,50 @@
       emit();
     }
 
+    function simulateDevelopmentJob(scenario) {
+      if (destroyed || !DEVELOPMENT_JOB_SCENARIOS.includes(scenario) || !state.project || state.data?.developmentOnly !== true) return false;
+      const ticket = context.beginProjectRequest();
+      if (!ticket) return false;
+      const allowed = !['denied','cost-denied','revoked'].includes(scenario);
+      developmentJobTicket = ticket;
+      state = { ...state, developmentJob: {
+        developmentOnly: true, id: `synthetic-job-${++developmentJobCounter}`, projectId: state.project.id,
+        requestId: allowed ? `synthetic-request-${++developmentRequestCounter}` : null,
+        scenario, status: scenario, permission: allowed ? 'allowed' : scenario,
+        attempt: allowed ? 1 : 0, completionKnown: !['queued','running','uncertain'].includes(scenario),
+        progress: scenario === 'queued' ? 0 : scenario === 'running' ? 45 : null,
+      }, statusMessage: 'Development-only job scenario loaded. No service or provider was called.' };
+      emit();return true;
+    }
+
+    function currentDevelopmentJob() {
+      return !destroyed && state.data?.developmentOnly === true && context.isCurrentRequest(developmentJobTicket) ? state.developmentJob : null;
+    }
+
+    function requestDevelopmentCancel() {
+      const job = currentDevelopmentJob();
+      if (!job || !developmentJobPresentation(job).canCancel) return false;
+      state = { ...state, developmentJob: { ...job, status: 'cancelling', completionKnown: false }, statusMessage: 'Synthetic cancellation requested; outcome is not yet confirmed.' };
+      emit();return true;
+    }
+
+    function resolveDevelopmentJob(requestId, outcome) {
+      const job = currentDevelopmentJob();
+      if (!job || !requestId || requestId !== job.requestId || job.permission !== 'allowed' || !['queued','running','cancelling','uncertain'].includes(job.status)) return false;
+      if (!['completed','failed','cancelled','not-started'].includes(outcome) || (outcome === 'cancelled' && job.status !== 'cancelling') || (outcome === 'not-started' && job.status !== 'uncertain')) return false;
+      const status = outcome === 'not-started' ? 'failed' : outcome;
+      state = { ...state, developmentJob: { ...job, status, completionKnown: true, progress: status === 'completed' ? 100 : null }, statusMessage: 'Synthetic outcome recorded. No output was registered or downloaded.' };
+      emit();return true;
+    }
+
+    function retryDevelopmentJob() {
+      const job = currentDevelopmentJob();
+      if (!job || !developmentJobPresentation(job).canRetry) return false;
+      developmentJobTicket = context.beginProjectRequest();
+      state = { ...state, developmentJob: { ...job, attempt: job.attempt + 1, requestId: `synthetic-request-${++developmentRequestCounter}`, status: 'queued', completionKnown: false, progress: 0 }, statusMessage: 'Synthetic retry queued once. No real job was submitted.' };
+      emit();return true;
+    }
+
     function simulateLoadFailure() {
       if (typeof adapter.failNext === 'function') adapter.failNext('load');
       return loadProject(state.project);
@@ -303,6 +386,8 @@
     }
 
     function destroy() {
+      developmentJobTicket = null;
+      state = { ...state, developmentJob: null };
       destroyed = true;
       loadSequence += 1;
       saveSequence += 1;
@@ -316,8 +401,8 @@
     return Object.freeze({ snapshot, openSurface, selectScene, updateEditor, saveDraft, discardChanges,
       submitForReview, setAssetFilter, setAssetQuery, filteredAssets, selectAsset, placeSelectedAsset,
       openDecision, resolveDecision, showToolDetail, closeToolDetail, simulateLoadFailure,
-      simulateSaveFailure, retryLoad, createEmptyDraft, destroy });
+      simulateSaveFailure, retryLoad, createEmptyDraft, simulateDevelopmentJob, requestDevelopmentCancel, resolveDevelopmentJob, retryDevelopmentJob, destroy });
   }
 
-  return Object.freeze({ createWorkspace });
+  return Object.freeze({ createWorkspace, DEVELOPMENT_JOB_SCENARIOS, developmentJobPresentation });
 });

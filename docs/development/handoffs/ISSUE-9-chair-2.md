@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 development job/permission recovery UI
+
+- Continued #9 job/progress/error-state scope in coordination comment 6229226693; supports future owner #20 without implementing its authority. Added labeled development scenarios for queued/running, failed, uncertain completion, denied, cost-denied and revoked states. Cancellation is pending until confirmed and may lose a race to completion. Retry requires known failure/cancellation, uses a fresh synthetic request identity and is explicitly capped at three attempts.
+- No adapter/provider/bridge call, output asset, permission grant, spending approval or availability change. Scenario methods require an explicit development fixture. Context reset/switch/destroy clear job state; old request/attempt outcomes are ignored. Five new model regressions pass; total relevant local suite160. Actual UI verifies reconciliation-before-retry, cancellation/completion race, blocked scenarios and project switches; exact-source runtime pending.
+
 ## 2026-10-16 long nested-page label verification
 
 - Final layout audit found the new sitemap URL label could not shrink. Allow title/slug wrapping and bound the URL column; actual Electron now uses valid 120-character unbroken title/slug through all four steps at 200%, records a screenshot/metrics, then restores original values. Exact-source verification pending; no human accessibility inference.

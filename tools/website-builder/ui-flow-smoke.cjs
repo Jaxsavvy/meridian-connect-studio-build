@@ -547,6 +547,42 @@ app.whenReady().then(async () => {
     assert.equal((await metrics(window)).audience, 'Combined guard retained content');
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('[data-action=website-checkpoint-restore]').length"),2);
 
+    await click(window,'[data-action="surface"][data-value="states"]');
+    await waitFor(window,'#studio-job-scenario');
+    await window.webContents.executeJavaScript("document.querySelector('#studio-job-scenario').value='uncertain'");
+    await click(window,'[data-action="job-scenario-load"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-action=job-retry]').disabled"),true);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status progress').hasAttribute('value')"),false);
+    await capture(window,'26-job-unknown-completion');
+    const firstRequest=await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobRequest");
+    await click(window,'[data-action="job-resolve"][data-value="not-started"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobStatus"),'failed');
+    await click(window,'[data-action="job-retry"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobAttempt"),'2');
+    assert.notEqual(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobRequest"),firstRequest);
+    await click(window,'[data-action="job-cancel"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobStatus"),'cancelling');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-action=job-retry]').disabled"),true);
+    await capture(window,'27-job-cancellation-pending');
+    await click(window,'[data-action="job-resolve"][data-value="completed"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobStatus"),'completed');
+    for(const scenario of ['denied','cost-denied','revoked']) {
+      await window.webContents.executeJavaScript(`document.querySelector('#studio-job-scenario').value=${JSON.stringify(scenario)}`);
+      await click(window,'[data-action="job-scenario-load"]');
+      const blocked=await window.webContents.executeJavaScript("({status:document.querySelector('.studio-job-status').dataset.jobStatus,retry:document.querySelector('[data-action=job-retry]').disabled,cancel:!!document.querySelector('[data-action=job-cancel]'),resolve:!!document.querySelector('[data-action=job-resolve]')})");
+      assert.equal(blocked.status,scenario);assert.equal(blocked.retry,true);assert.equal(blocked.cancel,false);assert.equal(blocked.resolve,false);
+      if(scenario==='denied')await capture(window,'28-job-action-denied');
+    }
+    const jobProject=await window.webContents.executeJavaScript("document.querySelector('#studio-project-select').value");
+    const otherJobProject=await window.webContents.executeJavaScript("[...document.querySelector('#studio-project-select').options].find(option=>option.value&&option.value!==document.querySelector('#studio-project-select').value).value");
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#studio-project-select');control.value=${JSON.stringify(otherJobProject)};control.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await until(window,`document.querySelector('.studio-job-status')?.dataset.jobStatus==='idle' && document.querySelector('.studio-job-status')?.dataset.jobProject===${JSON.stringify(otherJobProject)}`);
+    await window.webContents.executeJavaScript(`(() => {const control=document.querySelector('#studio-project-select');control.value=${JSON.stringify(jobProject)};control.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await until(window,`document.querySelector('.studio-job-status')?.dataset.jobStatus==='idle' && document.querySelector('.studio-job-status')?.dataset.jobProject===${JSON.stringify(jobProject)}`);
+    await fs.writeFile(join(evidence,'job-recovery-states.json'),JSON.stringify({status:'passed',unknownBlocksRetry:true,reconciliationBeforeRetry:true,newAttemptIdentity:true,cancelWaitsForOutcome:true,completionRace:true,deniedActionsBlocked:true,projectSwitchClears:true,limits:'Development-only state exercise, no service calls or real permission/job authority'},null,2));
+    await click(window,'[data-action="surface"][data-value="website"]');
+    await waitFor(window,'#website-new-name');
+    await click(window,'[data-action="website-open"]');
     await click(window,'.website-flow-nav [data-value="pages"]');
     await click(window,`[data-action="website-page"][data-value="${servicesId}"]`);
     await click(window,'.website-flow-nav [data-value="edit"]');
