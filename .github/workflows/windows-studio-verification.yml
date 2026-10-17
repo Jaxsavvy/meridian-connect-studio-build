@@ -1,0 +1,61 @@
+name: Windows Studio verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-studio:
+    if: github.head_ref == 'feature/tyler-dev006-combined'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7 (Node 24)
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci --no-audit --no-fund
+      - name: Windows renderer and context regressions
+        run: node --test tools/website-builder/*.test.cjs tools/studio-context/*.test.cjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/integration/32/capture-guard.test.cjs
+      - name: Real Windows synthetic guided UI
+        run: node_modules/.bin/electron.cmd tools/website-builder/ui-flow-smoke.cjs
+      - name: Real Windows Asset lifecycle and warning capture
+        run: node_modules/.bin/electron.cmd docs/studio/integration/32/runtime-check.cjs
+      - name: Actual OS High Contrast walkthrough and restoration
+        run: ./tools/website-builder/windows-high-contrast.ps1
+      - name: Build existing NSIS package without publishing
+        run: npm run build -- --config.directories.output="$env:RUNNER_TEMP/meridian-package"
+      - name: Install only on disposable runner
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "$env:RUNNER_TEMP/meridian-package" -Filter 'Meridian-Connect-Setup-*.exe' | Select-Object -First 1
+          if (!$installer) { throw 'NSIS installer missing' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'meridian-installed'
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$installDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exit $($process.ExitCode)" }
+          $exe = Join-Path $installDir 'Meridian Connect.exe'
+          if (!(Test-Path $exe)) { throw 'Installed executable missing' }
+          Get-Process -Name 'Meridian Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
+          "MERIDIAN_INSTALLED_EXE=$exe" >> $env:GITHUB_ENV
+      - name: Verify installed source, startup, keyboard and employee gate
+        run: node tools/website-builder/windows-installed-smoke.cjs
+      - name: Attach evidence only, never the installer
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7 (Node 24)
+        with:
+          name: windows-studio-verification
+          retention-days: 14
+          path: |
+            ui-flow-evidence/
+            docs/studio/integration/32/renders/
+            test-output/windows-installed/
+            test-output/windows-high-contrast/
+          if-no-files-found: warn

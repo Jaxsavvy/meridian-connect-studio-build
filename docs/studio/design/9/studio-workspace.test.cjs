@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { createStudioContext } = require('../../../../src/renderer/studio-context.js');
-const { createWorkspace } = require('../../../../src/renderer/studio-ui/studio-workspace.js');
+const { createWorkspace, developmentJobPresentation } = require('../../../../src/renderer/studio-ui/studio-workspace.js');
 const { createProjectFixture, createSyntheticAdapter } = require('../../../../src/renderer/studio-ui/studio-fixtures.js');
 
 const alpha = { id: 'alpha-project', name: 'Synthetic Alpha Project With A Deliberately Long Name For Layout Verification' };
@@ -168,4 +168,136 @@ test('primary action blue meets WCAG AA contrast for normal white text', () => {
     return (lighter + 0.05) / (darker + 0.05);
   }
   assert.ok(contrast([255, 255, 255], [31, 111, 214]) >= 4.5);
+});
+
+test('saved synthetic scene edits and placed references survive reopening the scene', async () => {
+  const { workspace } = await readyWorkspace();
+  workspace.updateEditor('title', 'Revised opening');
+  workspace.selectAsset('asset-ridge'); workspace.placeSelectedAsset();
+  assert.equal(await workspace.saveDraft(), true);
+  workspace.selectScene('scene-proof'); workspace.selectScene('scene-opening');
+  assert.equal(workspace.snapshot().editor.title, 'Revised opening');
+  assert.deepEqual(workspace.snapshot().editor.assetIds, ['asset-ridge']);
+  assert.equal(workspace.snapshot().data.assets[0].version, 'v1');
+  workspace.destroy();
+});
+
+test('an earlier save acknowledgement cannot mark newer scene edits as saved', async () => {
+  let finish;
+  const adapter = { load: project => Promise.resolve(createProjectFixture(project)), save: payload => new Promise(resolve => { finish = () => resolve({ ...payload, savedAt: new Date(0).toISOString() }); }) };
+  const { workspace } = await readyWorkspace(adapter);
+  workspace.updateEditor('notes', 'Earlier edit'); const saving = workspace.saveDraft();
+  workspace.updateEditor('notes', 'Newer edit'); finish();
+  assert.equal(await saving, true);
+  assert.equal(workspace.snapshot().editor.notes, 'Newer edit');
+  assert.equal(workspace.snapshot().unsaved, true);
+  assert.equal(workspace.snapshot().data.scenes[0].note, 'Earlier edit');
+  workspace.destroy();
+});
+
+
+test('discard retains the saved scene format and saved status', async () => {
+  const { workspace } = await readyWorkspace();
+  workspace.updateEditor('format', '9:16 vertical');
+  await workspace.saveDraft();
+  workspace.updateEditor('format', '1:1 square');
+  workspace.discardChanges();
+  assert.equal(workspace.snapshot().editor.format, '9:16 vertical');
+  assert.equal(workspace.snapshot().saveState, 'Saved');
+  assert.equal(workspace.snapshot().unsaved, false);
+  workspace.destroy();
+});
+
+test('reload restores the first saved scene format', async () => {
+  const adapter = {
+    async load(project) { const data = createProjectFixture(project); data.scenes[0].format = '1:1 square'; return data; },
+    async save(payload) { return { ...payload, savedAt: new Date(0).toISOString() }; },
+  };
+  const { workspace } = await readyWorkspace(adapter);
+  assert.equal(workspace.snapshot().editor.format, '1:1 square');
+  await workspace.retryLoad();
+  assert.equal(workspace.snapshot().editor.format, '1:1 square');
+  workspace.destroy();
+});
+
+
+test('development cancellation waits for confirmation and a completion race stays honest', async () => {
+  const { workspace }=await readyWorkspace();workspace.simulateDevelopmentJob('running');
+  const request=workspace.snapshot().developmentJob.requestId;
+  assert.equal(workspace.requestDevelopmentCancel(),true);assert.equal(workspace.snapshot().developmentJob.status,'cancelling');
+  assert.equal(workspace.retryDevelopmentJob(),false);
+  assert.equal(workspace.resolveDevelopmentJob(request,'completed'),true);
+  assert.equal(workspace.snapshot().developmentJob.status,'completed');
+  assert.equal(workspace.requestDevelopmentCancel(),false);
+  workspace.simulateDevelopmentJob('queued');workspace.requestDevelopmentCancel();
+  assert.equal(workspace.resolveDevelopmentJob(workspace.snapshot().developmentJob.requestId,'cancelled'),true);
+  assert.equal(workspace.snapshot().developmentJob.status,'cancelled');workspace.destroy();
+});
+
+test('unknown completion blocks retry until a synthetic outcome is reconciled and ignores old attempts', async () => {
+  let saves=0;const adapter=createSyntheticAdapter({delay:0});const original=adapter.save;adapter.save=payload=>{saves++;return original(payload);};
+  const { workspace }=await readyWorkspace(adapter);workspace.updateEditor('notes','Keep this unsaved note');
+  workspace.simulateDevelopmentJob('uncertain');const request=workspace.snapshot().developmentJob.requestId;
+  assert.equal(workspace.retryDevelopmentJob(),false);assert.equal(workspace.snapshot().developmentJob.attempt,1);
+  assert.equal(workspace.resolveDevelopmentJob(request,'not-started'),true);assert.equal(workspace.retryDevelopmentJob(),true);
+  assert.equal(workspace.snapshot().developmentJob.attempt,2);
+  assert.notEqual(workspace.snapshot().developmentJob.requestId,request);
+  assert.equal(workspace.resolveDevelopmentJob(request,'completed'),false);
+  assert.equal(workspace.snapshot().editor.notes,'Keep this unsaved note');assert.equal(workspace.snapshot().unsaved,true);
+  assert.equal(saves,0,'No save/provider adapter is called by job scenarios');workspace.destroy();
+});
+
+test('denied, cost-denied and revoked scenarios never grant actions or output authority', async () => {
+  const { workspace }=await readyWorkspace();
+  for(const scenario of ['denied','cost-denied','revoked']) {
+    assert.equal(workspace.simulateDevelopmentJob(scenario),true);
+    const job=workspace.snapshot().developmentJob,view=developmentJobPresentation(job);
+    assert.equal(view.canRetry,false);assert.equal(view.canCancel,false);assert.equal(view.canExport,false);
+    assert.equal(workspace.retryDevelopmentJob(),false);assert.equal(workspace.requestDevelopmentCancel(),false);
+    assert.equal(workspace.resolveDevelopmentJob(job.requestId,'completed'),false);
+  }
+  const view=developmentJobPresentation({status:'arbitrary',permission:'allowed'});assert.equal(view.canRetry,false);assert.equal(view.canExport,false);
+  workspace.destroy();
+});
+
+test('development jobs clear on project switch, sign-out and destruction, and stale results cannot repopulate them', async () => {
+  const { context,workspace }=await readyWorkspace();workspace.simulateDevelopmentJob('running');const request=workspace.snapshot().developmentJob.requestId;
+  context.selectProject(beta.id);assert.equal(workspace.snapshot().developmentJob,null);await tick();
+  context.selectProject(alpha.id);await tick();assert.equal(workspace.resolveDevelopmentJob(request,'completed'),false);
+  workspace.simulateDevelopmentJob('running');const next=workspace.snapshot().developmentJob.requestId;
+  context.reset();assert.equal(workspace.snapshot().developmentJob,null);assert.equal(workspace.resolveDevelopmentJob(next,'completed'),false);
+  workspace.destroy();assert.equal(workspace.simulateDevelopmentJob('queued'),false);
+});
+
+test('synthetic retries are explicit and bounded, and non-development data cannot start scenarios', async () => {
+  const { workspace }=await readyWorkspace();workspace.simulateDevelopmentJob('failed');
+  for(let attempt=2;attempt<=3;attempt++) {assert.equal(workspace.retryDevelopmentJob(),true);assert.equal(workspace.snapshot().developmentJob.attempt,attempt);workspace.resolveDevelopmentJob(workspace.snapshot().developmentJob.requestId,'failed');}
+  assert.equal(workspace.retryDevelopmentJob(),false);const before=workspace.snapshot().developmentJob;
+  assert.equal(workspace.simulateDevelopmentJob('unknown'),false);assert.deepEqual(workspace.snapshot().developmentJob,before);workspace.destroy();
+  const adapter={async load(project){const data=createProjectFixture(project);delete data.developmentOnly;return data;},async save(){throw Error('Must not call');}};
+  const other=await readyWorkspace(adapter);assert.equal(other.workspace.simulateDevelopmentJob('queued'),false);other.workspace.destroy();
+});
+
+
+test('loaded and locally reviewed scene status survives reopening and discarding later edits', async () => {
+  const { context,workspace }=await readyWorkspace();
+  assert.equal(workspace.snapshot().saveState,'Saved');
+  assert.equal(workspace.submitForReview(),true);workspace.selectScene('scene-proof');workspace.selectScene('scene-opening');
+  assert.equal(workspace.snapshot().saveState,'Needs review');
+  workspace.updateEditor('notes','Discard this');workspace.discardChanges();
+  assert.equal(workspace.snapshot().saveState,'Needs review');
+  context.reset();assert.equal(workspace.submitForReview(),false);workspace.destroy();
+});
+
+test('accepted same-project rename refreshes display context without reloading unsaved editor or job state', async () => {
+  let loads=0;const adapter=createSyntheticAdapter({delay:0}),load=adapter.load;
+  adapter.load=project=>{loads++;return load(project);};
+  const {context,workspace}=await readyWorkspace(adapter);
+  workspace.updateEditor('notes','Keep unsaved notes');workspace.simulateDevelopmentJob('running');
+  const before=workspace.snapshot(),renamed={...alpha,name:'Renamed accepted project'};
+  context.acceptProjects([renamed,beta],context.beginProjectList());
+  assert.equal(workspace.snapshot().project.name,renamed.name);
+  assert.equal(workspace.snapshot().editor.notes,'Keep unsaved notes');assert.equal(workspace.snapshot().unsaved,true);
+  assert.deepEqual(workspace.snapshot().developmentJob,before.developmentJob);assert.equal(loads,1);
+  workspace.destroy();
 });

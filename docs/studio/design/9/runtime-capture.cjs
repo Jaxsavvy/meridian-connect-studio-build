@@ -54,6 +54,12 @@ app.whenReady().then(async () => {
     await window.loadFile(renderer);
     window.webContents.setZoomFactor(1);
     await waitForSelector(window, '#projectsMasterList .project-item');
+    await window.webContents.executeJavaScript(`(() => {
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key && key.startsWith('meridian.website.')) localStorage.removeItem(key);
+      }
+    })()`);
     await pause(700);
     await window.webContents.executeJavaScript("switchView('studio')");
     await waitForSelector(window, '#studioCenter:not([hidden]) .studio-campaign');
@@ -136,12 +142,92 @@ app.whenReady().then(async () => {
     }))()`);
     await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=operations]').click()");
 
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=website]').click()");
+    await waitForSelector(window, '[data-surface=website]');
+    await window.webContents.executeJavaScript(`(() => {
+      const input = document.querySelector('#website-new-name');
+      if (!input) return;
+      input.value = 'Summit Roofing Website';
+      document.querySelector('[data-action="website-create"]').click();
+    })()`);
+    await waitForSelector(window, '#website-brief-audience');
+    for (const [selector, value] of [
+      ['#website-brief-audience', 'Oregon homeowners planning roof replacement'],
+      ['#website-brief-goal', 'Build trust and request an estimate'],
+      ['#website-brief-tone', 'Clear, capable, neighborly'],
+      ['#website-brief-offer', 'No-pressure roof assessment'],
+    ]) {
+      await window.webContents.executeJavaScript(`(() => { const input = document.querySelector(${JSON.stringify(selector)}); input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    }
+    await window.webContents.executeJavaScript(`(() => {
+      const input = document.querySelector('#website-page-name');
+      input.value = 'Services';
+      document.querySelector('[data-action="website-add-page"]').click();
+    })()`);
+    await waitForSelector(window, '#website-page-title');
+    await window.webContents.executeJavaScript(`(() => {
+      const heading = document.querySelector('[data-website-section][data-field="heading"]');
+      heading.value = 'Roofing built for Northwest weather';
+      heading.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('[data-action="website-save"]').click();
+    })()`);
+    await pause(200);
+    await capture(window, 'website-builder-editor-1440x1000.png');
+    await window.webContents.executeJavaScript("document.querySelector('.studio-workspace').scrollTop = document.querySelector('.studio-workspace').scrollHeight");
+    await pause(180);
+    await capture(window, 'website-builder-preview-1440x1000.png');
+    await window.webContents.executeJavaScript("document.querySelector('.studio-workspace').scrollTop = 0");
+    const websiteMetrics = await window.webContents.executeJavaScript(`(() => ({
+      saved: document.querySelector('.website-builder .studio-kicker').textContent.includes('Saved locally'),
+      pageCount: document.querySelectorAll('.website-page').length,
+      sectionCount: document.querySelectorAll('.website-section-card').length,
+      previewSandboxed: document.querySelector('.website-preview iframe').hasAttribute('sandbox'),
+      previewHasRenderedBody: document.querySelector('.website-preview iframe').srcdoc.includes('Roofing built for Northwest weather'),
+      documentFitsHorizontally: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      workspaceFitsHorizontally: document.querySelector('.studio-workspace').scrollWidth <= document.querySelector('.studio-workspace').clientWidth,
+      unlabeledControls: [...document.querySelectorAll('.website-builder input, .website-builder textarea, .website-builder select')].filter(control => !(control.getAttribute('aria-label') || document.querySelector('label[for="' + control.id + '"]') || control.closest('label'))).map(control => control.id),
+    }))()`);
+
+    await window.webContents.reload();
+    await waitForSelector(window, '#projectsMasterList .project-item');
+    await pause(500);
+    await window.webContents.executeJavaScript("switchView('studio')");
+    await waitForSelector(window, '#studioCenter:not([hidden]) [data-action="surface"][data-value="website"]');
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=website]').click()");
+    await waitForSelector(window, '[data-action="website-open"]');
+    const websiteListMetrics = await window.webContents.executeJavaScript(`(() => ({
+      projectName: document.querySelector('.website-project-list h3').textContent,
+      projectCount: document.querySelectorAll('.website-project-list article').length,
+    }))()`);
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=website-open]').click()");
+    await waitForSelector(window, '#website-brief-audience');
+    const websiteReopenMetrics = await window.webContents.executeJavaScript(`(() => ({
+      audience: document.querySelector('#website-brief-audience').value,
+      pageCount: document.querySelectorAll('.website-page').length,
+      selectedPage: document.querySelector('.website-page[aria-current="page"] span').textContent,
+    }))()`);
+    await capture(window, 'website-builder-reopened-1440x1000.png');
+    await window.webContents.executeJavaScript(`(() => {
+      const input = document.querySelector('#website-brief-tone');
+      input.value += ' and reassuring';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      switchView('overview');
+    })()`);
+    await waitForSelector(window, '#studio-leave-title');
+    const websiteLeaveMetrics = await window.webContents.executeJavaScript(`(() => ({
+      dialogOpen: Boolean(document.querySelector('#studio-leave-title')),
+      identifiesWebsiteChanges: document.querySelector('#studio-leave-title').textContent.includes('website changes'),
+      hasSaveChoice: Boolean(document.querySelector('[data-action="save-leave"]')),
+      hasDiscardChoice: Boolean(document.querySelector('[data-action="discard-leave"]')),
+    }))()`);
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=keep-editing]').click(); document.querySelector('[data-action=website-save]').click()");
+    await waitForSelector(window, '[data-surface=website]');
+
     window.setSize(1280, 900);
     window.webContents.setZoomFactor(2);
-    await window.webContents.executeJavaScript("document.querySelector('[data-action=surface][data-value=operations]').click()");
-    await waitForSelector(window, '[data-surface=operations]');
+    await waitForSelector(window, '[data-surface=website]');
     await pause(300);
-    await capture(window, 'studio-operations-1280x900-200pct.png');
+    await capture(window, 'website-builder-1280x900-200pct.png');
     const zoomMetrics = await window.webContents.executeJavaScript(`(() => ({
       viewport: { width: innerWidth, height: innerHeight, zoom: 2 },
       documentFitsHorizontally: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -180,7 +266,7 @@ app.whenReady().then(async () => {
       toolDialog: { ...toolDialogOpenMetrics, ...toolDialogCloseMetrics },
       unsavedLeaveDialog: { ...leaveDialogOpenMetrics, ...leaveDialogCloseMetrics },
     };
-    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, zoomMetrics, employeeMetrics, accessibilityMetrics }, null, 2) + '\n');
+    await writeFile(join(evidenceDirectory, 'runtime-results.json'), JSON.stringify({ standardMetrics, websiteMetrics, websiteListMetrics, websiteReopenMetrics, websiteLeaveMetrics, zoomMetrics, employeeMetrics, accessibilityMetrics }, null, 2) + '\n');
   } finally {
     if (!window.isDestroyed()) window.destroy();
     if (employeeWindow && !employeeWindow.isDestroyed()) employeeWindow.destroy();

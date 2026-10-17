@@ -49,6 +49,31 @@
     "unlabeledFormControls": [],
     "assetResultCountIsLive": true
   },
+  "websiteMetrics": {
+    "saved": true,
+    "pageCount": 2,
+    "sectionCount": 1,
+    "previewSandboxed": true,
+    "previewHasRenderedBody": true,
+    "documentFitsHorizontally": true,
+    "workspaceFitsHorizontally": true,
+    "unlabeledControls": []
+  },
+  "websiteListMetrics": {
+    "projectName": "Summit Roofing Website",
+    "projectCount": 1
+  },
+  "websiteReopenMetrics": {
+    "audience": "Oregon homeowners planning roof replacement",
+    "pageCount": 2,
+    "selectedPage": "Home"
+  },
+  "websiteLeaveMetrics": {
+    "dialogOpen": true,
+    "identifiesWebsiteChanges": true,
+    "hasSaveChoice": true,
+    "hasDiscardChoice": true
+  },
   "zoomMetrics": {
     "viewport": {
       "width": 632,

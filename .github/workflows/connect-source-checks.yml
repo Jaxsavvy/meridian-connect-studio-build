@@ -12,16 +12,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7 (Node 24)
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Verify locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check JavaScript syntax
         run: find src -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+      - name: Exercise development Studio and Asset Library contracts
+        run: |
+          node --test --test-isolation=none \
+            tools/studio-context/studio-context.test.cjs \
+            tools/studio-context/renderer-integration.test.cjs \
+            tools/studio-context/asset-host.test.cjs \
+            tools/studio-context/dev-asset-transport.test.cjs \
+            tools/studio-context/dev-asset-mount.test.cjs \
+            docs/studio/assets/8/component.test.cjs \
+            docs/studio/assets/8/view.test.cjs \
+            docs/studio/assets/8/native.test.cjs \
+            docs/studio/assets/8/worker.test.cjs \
+            docs/studio/design/9/studio-workspace.test.cjs \
+            docs/studio/integration/32/capture-guard.test.cjs
       - name: Check source and packaging inputs
         run: |
           node <<'NODE'
@@ -64,3 +79,27 @@ jobs:
             echo 'Prohibited tracked path found.' >&2
             exit 1
           fi
+
+  dev020-electron-smoke:
+    if: github.head_ref == 'feature/dev-020-asset-mount'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7 (Node 24)
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install Electron for isolated runtime evidence
+        run: npm ci --no-audit --no-fund
+      - name: Run synthetic Studio Asset Library in Electron
+        run: timeout --signal=TERM --kill-after=5s 95s xvfb-run -a ./node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
+      - name: Attach synthetic runtime screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7 (Node 24)
+        with:
+          name: dev020-synthetic-electron-evidence
+          path: docs/studio/integration/32/renders/
+          if-no-files-found: warn

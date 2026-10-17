@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "396137468c1043aea0c658c9be4418ac774195c0",
+  "runUrl": "https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/38846745481",
+  "artifactId": 12023392691,
+  "archiveSha256": "d1f374c7002a7a1328133edd86aae5ed1c1c678123c80d0079742503b05c826d",
+  "images": {
+    "docs/studio/integration/32/renders/asset-project-switch.png": "ad51a8bec06f1739f1abaec2dca83847cbff8713a4b158f876a6a4081ce172da",
+    "docs/studio/integration/32/renders/asset-selected-clean-1440.png": "db4d9e1859c9f5988a530d13af8f340961230bca669cf95c09467544a5bc3301",
+    "docs/studio/integration/32/renders/asset-view-1440.png": "24fab4bcda55ff157f1b8f303abd4240729cc8709d65f4fd7a85c3c9e11aefda",
+    "docs/studio/integration/32/renders/asset-view-200pct.png": "3e0af15e254dd55c1171ab0426f71294f24e12abe9f5ad8e5acd06bbf7efeb1f",
+    "docs/studio/integration/32/renders/unsaved-asset-leave.png": "52f7ec291197b9ed35c6c18b6f7ee3dff9c44ca37ad4c5fbbfda3cd0ebd52d32",
+    "ui-flow-evidence/00-project-overview.png": "5e0988ad94d2a9b39e6524a7e8c72230ed5cd53fe4e70dd7395c341a82ed482c",
+    "ui-flow-evidence/01-brief-1440.png": "1b1922e5d1e4b5a0379e9f79741efeef9f3b524c4e0951267f8ab95d44b4cf7b",
+    "ui-flow-evidence/02-edit-1440.png": "c8a48b96ee2fa1a93ffc7736af427b4a2af9c9bf8a9638c06151c5d628b9ab46",
+    "ui-flow-evidence/02-pages-1440.png": "4dfb33c3fde0cc5097627b7160c085135169e3dcdc08efb810898424244f7b78",
+    "ui-flow-evidence/02-preview-1440.png": "8132141b0750da05bf16cfa6a9e9139ce87908ea10684edecec566abb2c1ef98",
+    "ui-flow-evidence/03-phone-preview.png": "c215cba011234a7b9bf67edc60589fb6de8be7bfa49ad0c4636cfaf8d572057e",
+    "ui-flow-evidence/04-preview-200pct.png": "ca7dcd9bf3854b201eacb29ed944e1e3b68900d61f1c83b6b38720cc6523d7c2",
+    "ui-flow-evidence/05-composed-asset-warning.png": "26c923e43c32cce9cf3cea64019a0daa6dc2cb519fc2fc15d98ac3e5d83ed81f",
+    "ui-flow-evidence/06-storyboard-material.png": "84189722fdee47631337c62bc361a5257b615f68d59bf54f0bf7f5c12e6584af",
+    "ui-flow-evidence/07-review-handoff.png": "97000915ca3e766b7a27a160cdf1876fc3b04e047f26b0435d6b45e11ed79a07",
+    "ui-flow-evidence/08-emulated-forced-colors.png": "517db80d4937ab5222d25dd874e978888340d61935fa19ba1e6e2a978cd3c4d8",
+    "ui-flow-evidence/09-employee-unavailable.png": "2712ce2209e8310501380c69de9604a2d0c4b196d15b7e4c130b3b9bb08c29a9"
+  }
+}

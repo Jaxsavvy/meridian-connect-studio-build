@@ -1,0 +1,36 @@
+name: Website guided UI
+on:
+  pull_request:
+    branches: [main, feature/tyler-website-studio-ui]
+permissions:
+  contents: read
+jobs:
+  guided-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7 (Node 24)
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci --no-audit --no-fund
+      - name: Syntax and regression
+        run: |
+          node --check src/renderer/studio-ui/studio-shell.js
+          node --check tools/website-builder/ui-flow-smoke.cjs
+          node --test tools/website-builder/*.test.cjs tools/studio-context/*.test.cjs tools/board-sync/*.test.mjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/assets/8/*.test.cjs docs/studio/integration/32/capture-guard.test.cjs
+      - name: Synthetic Electron workflow
+        run: xvfb-run -a node_modules/.bin/electron --no-sandbox tools/website-builder/ui-flow-smoke.cjs
+      - name: Combined Asset lifecycle and real warning capture
+        run: timeout --signal=TERM --kill-after=5s 95s xvfb-run -a node_modules/.bin/electron --no-sandbox docs/studio/integration/32/runtime-check.cjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7 (Node 24)
+        if: always()
+        with:
+          name: website-guided-ui-evidence
+          path: |
+            ui-flow-evidence/
+            docs/studio/integration/32/renders/
+          if-no-files-found: warn

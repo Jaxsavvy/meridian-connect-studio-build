@@ -43,12 +43,13 @@ function appHarness() {
     elements.set(id, element());
   }
   const pending = [];
+  const authenticatedRoots = [element(), element()];
   let sends = 0;
   const document = {
     addEventListener() {},
     getElementById(id) { return elements.get(id) || null; },
     createElement: element,
-    querySelectorAll() { return []; },
+    querySelectorAll(selector) { return selector === '[data-authenticated-ui]' ? authenticatedRoots : []; },
   };
   const window = { meridianStudioContext: studio, meridian: { api: {
     getProjects() { const request = deferred(); pending.push(request); return request.promise; },
@@ -57,8 +58,22 @@ function appHarness() {
   const context = vm.createContext({ document, window, console, Set, Date, Promise });
   vm.runInContext(readFileSync(join(renderer, 'app.js'), 'utf8'), context, { filename: 'app.js' });
   context.selectProject = () => {};
-  return { context, studio, elements, pending, get sends() { return sends; } };
+  return { context, studio, elements, pending, authenticatedRoots, get sends() { return sends; } };
 }
+
+test('login removes authenticated UI from focus/accessibility until profile validation enables it', () => {
+  const h = appHarness();
+  h.context.setAuthenticatedUIEnabled(true);
+  assert.ok(h.authenticatedRoots.every(node => node.inert === false));
+  h.context.showLogin();
+  assert.ok(h.authenticatedRoots.every(node => node.inert === true));
+  h.context.setAuthenticatedUIEnabled(true);
+  assert.ok(h.authenticatedRoots.every(node => node.inert === false));
+  const html = readFileSync(join(renderer, 'index.html'), 'utf8');
+  assert.equal((html.match(/data-authenticated-ui inert/g) || []).length, 5);
+  const source = readFileSync(join(renderer, 'app.js'), 'utf8');
+  assert.ok(source.indexOf('setAuthenticatedUIEnabled(true)') > source.indexOf('currentMe = Object.assign'));
+});
 
 test('project refresh failure clears old cards and refuses a stale response', async () => {
   const h = appHarness();
