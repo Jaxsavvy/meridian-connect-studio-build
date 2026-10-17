@@ -698,6 +698,7 @@ app.whenReady().then(async () => {
       return {originalGoal:original.brief.goal,copies:copies.length,copyGoal:copies[0]?.brief.goal,identityDistinct:copies[0]?.id!==original.id};
     })()`);
     assert.equal(copyCheck.originalGoal,'Newer external-window goal');assert.equal(copyCheck.copyGoal,'Keep my separate copy');assert.equal(copyCheck.copies,1);assert.equal(copyCheck.identityDistinct,true);
+    assert.equal(await window.webContents.executeJavaScript("(() => {const r=document.querySelector('.website-flow-status').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return document.activeElement.classList.contains('website-flow-status')&&r.top>=w.top-1&&r.bottom<=w.bottom+1;})()"),true,'Copy outcome must be focused and visible');
     await capture(window,'31-separate-copy-saved');
     await fs.writeFile(join(evidence,'separate-copy.json'),JSON.stringify({status:'passed',...copyCheck,limits:'Observed committed local change is simulated; not atomic cross-process CAS'},null,2));
     await require('./export-layout-check.cjs').checkExportLayout(evidence);

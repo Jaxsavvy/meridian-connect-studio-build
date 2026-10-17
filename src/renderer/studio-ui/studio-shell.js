@@ -537,7 +537,7 @@
       return `<div class="studio-surface website-builder" data-surface="website">
         <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder</span><h2 id="website-builder-title">${escapeHtml(project.name)}</h2><p>One website, four focused steps. Return to any step without losing your current edits.</p></div><div class="studio-save-cluster"><button type="button" class="studio-button studio-button--secondary" data-action="website-list">All websites</button><button type="button" class="studio-button studio-button--secondary" data-action="website-undo">Undo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-redo">Redo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-save-copy" title="Save your current edits as a new website on this device">Save separate copy</button><button type="button" class="studio-button studio-button--primary" data-action="website-save" ${state.dirty ? '' : 'disabled'}>Save project</button></div></section>
         ${state.error ? `<div class="studio-inline-error" role="alert"><div><strong>Website action needs attention.</strong><p>${escapeHtml(state.error)}</p></div></div>` : ''}
-        <div class="website-flow-status" role="status" aria-live="polite"><strong class="website-save-state${state.dirty ? ' is-dirty' : ''}">${escapeHtml(saveLabel)}</strong><span>${escapeHtml(saveHelp)}</span><span>${escapeHtml(state.status)}</span></div>
+        <div class="website-flow-status" role="status" aria-live="polite" tabindex="-1"><strong class="website-save-state${state.dirty ? ' is-dirty' : ''}">${escapeHtml(saveLabel)}</strong><span>${escapeHtml(saveHelp)}</span><span>${escapeHtml(state.status)}</span></div>
         <nav class="website-flow-nav" aria-label="Website workflow">
           ${websiteSteps.map((item, index) => `<button type="button" data-action="website-step" data-value="${item.id}" ${item.id === websiteStep ? 'aria-current="step"' : ''}><span class="website-flow-number" aria-hidden="true">${index + 1}</span><span><strong>${item.label}</strong><small>${item.hint}</small></span></button>`).join('')}
         </nav>
@@ -720,7 +720,12 @@
         if (status) status.textContent = 'Use Move up or Move down to reorder this section from the keyboard.';
       }
       else if (action === 'website-save') website.save();
-      else if (action === 'website-save-copy') website.saveSeparateCopy();
+      else if (action === 'website-save-copy') {
+        if (website.saveSeparateCopy()) {
+          const status = host.querySelector('.website-flow-status');
+          status?.focus({ preventScroll: true }); status?.scrollIntoView({ block: 'start' });
+        }
+      }
       else if (action === 'website-undo') website.undo();
       else if (action === 'website-redo') website.redo();
       else if (action === 'website-checkpoint-create') {
