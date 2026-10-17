@@ -8,6 +8,7 @@
 
   const SCHEMA = 'meridian.website-project.v1';
   const SECTION_TYPES = new Set(['hero', 'content', 'features', 'cta']);
+  const SHARED_FIELDS = ['type','heading','body','action','bodyFormat','actionPageId'];
   const FONTS = Object.freeze({ 'system-ui': 'system-ui,sans-serif', serif: 'Georgia,serif', monospace: 'ui-monospace,monospace' });
 
   function copy(value) {
@@ -38,6 +39,27 @@
     const channels = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
     const luminance = channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
     return (luminance + .05) / .05 >= 1.05 / (luminance + .05) ? '#000' : '#fff';
+  }
+
+  function sharedSections(project) {
+    const groups = new Map();
+    for (const page of project.pages) for (const section of page.sections) {
+      if (!section.sharedId) continue;
+      if (!groups.has(section.sharedId)) groups.set(section.sharedId, { id: section.sharedId, label: cleanText(section.heading || 'Untitled shared section', 120), copies: 0 });
+      groups.get(section.sharedId).copies += 1;
+    }
+    return [...groups.values()];
+  }
+
+  function synchronizeSharedSection(project, source) {
+    if (!source.sharedId) return;
+    for (const page of project.pages) for (const section of page.sections) {
+      if (section.sharedId !== source.sharedId || section === source) continue;
+      for (const field of SHARED_FIELDS) {
+        if (Object.hasOwn(source, field)) section[field] = copy(source[field]);
+        else delete section[field];
+      }
+    }
   }
 
   function navigationRows(project) {
@@ -101,6 +123,14 @@
     }
     for (const page of input.pages) for (const section of page.sections) {
       if (section.actionPageId !== undefined && (typeof section.actionPageId !== 'string' || (section.actionPageId && !pageIds.has(section.actionPageId)))) throw new Error('Action destination must be a page in this website.');
+    }
+    const shared = new Map();
+    for (const page of input.pages) for (const section of page.sections) {
+      if (section.sharedId === undefined) continue;
+      if (typeof section.sharedId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(section.sharedId)) throw new Error('Shared section identity is invalid.');
+      const shape = JSON.stringify(SHARED_FIELDS.map(field => section[field] ?? (field === 'bodyFormat' ? 'plain' : '')));
+      if (shared.has(section.sharedId) && shared.get(section.sharedId) !== shape) throw new Error('Shared section copies disagree. Reopen a valid saved draft.');
+      shared.set(section.sharedId, shape);
     }
     navigationRows(input);
     return copy(input);
@@ -590,6 +620,35 @@
       }, 'Section added.');
     }
 
+    function makeSectionShared(sectionId) {
+      return mutate(project => {
+        const source = project.pages.find(page => page.id === state.selectedPageId)?.sections.find(section => section.id === sectionId);
+        if (!source || source.sharedId) throw new Error('Choose an independent section to share.');
+        const sharedId = makeId('shared-section');
+        if (project.pages.some(page => page.sections.some(section => section.sharedId === sharedId))) throw new Error('Shared section identity already exists.');
+        source.sharedId = sharedId;
+      }, 'Section is now shared within this website. Insert linked copies from the shared section list.');
+    }
+
+    function addSharedSection(sharedId) {
+      if (typeof sharedId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(sharedId)) return false;
+      return mutate(project => {
+        const source = project.pages.flatMap(page => page.sections).find(section => section.sharedId === sharedId);
+        const page = project.pages.find(item => item.id === state.selectedPageId);
+        if (!source || !page) throw new Error('Shared section was not found in this website.');
+        if (page.sections.length >= 100) throw new Error('This page already has 100 sections.');
+        page.sections.push({ ...copy(source), id: makeId('section') });
+      }, 'Linked section inserted. Editing its content updates every linked copy in this website.');
+    }
+
+    function detachSection(sectionId) {
+      return mutate(project => {
+        const source = project.pages.find(page => page.id === state.selectedPageId)?.sections.find(section => section.id === sectionId);
+        if (!source?.sharedId) throw new Error('Choose a shared section to detach.');
+        delete source.sharedId;
+      }, 'Section detached. Its content now changes independently; Undo links it again.');
+    }
+
     function updateSection(sectionId, field, value) {
       if (!['heading', 'body', 'action', 'bodyFormat', 'actionPageId'].includes(field)) return false;
       if (field === 'bodyFormat' && !['plain', 'formatted'].includes(value)) return false;
@@ -599,6 +658,7 @@
         if (!section) throw new Error('Section was not found.');
         if (field === 'actionPageId' && (typeof value !== 'string' || (value && !project.pages.some(item => item.id === value)))) throw new Error('Choose an action destination from this website.');
         section[field] = field === 'actionPageId' ? value : cleanText(value, field === 'body' ? 8000 : 200);
+        synchronizeSharedSection(project, section);
       }, 'Page content updated.');
     }
 
@@ -623,6 +683,7 @@
         const next = body.slice(0, start) + selection + body.slice(end);
         if (next.length > 8000) throw new Error('Formatting would exceed the 8,000-character body limit. Shorten this section first.');
         section.body = next; section.bodyFormat = 'formatted';
+        synchronizeSharedSection(project, section);
       }, 'Text formatting inserted. Preview shows the result; Undo reverses this edit.');
     }
 
@@ -722,7 +783,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, movePageTo, removePage, addSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
+      updatePage, movePage, movePageTo, removePage, addSection, makeSectionShared, addSharedSection, detachSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {
@@ -732,5 +793,5 @@
       } });
   }
 
-  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, navigationRows, pageParentOptions, renderPage, exportSite, exportArchive, validateProject });
+  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, navigationRows, pageParentOptions, sharedSections, renderPage, exportSite, exportArchive, validateProject });
 });

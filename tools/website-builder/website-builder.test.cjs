@@ -653,3 +653,43 @@ test('section drop reordering keeps content and no-op or invalid drops preserve 
   assert.equal(active.moveSectionTo(first.id,other.id,'before'),false);
   assert.deepEqual(active.snapshot().project.pages[0].sections,original);
 });
+
+
+test('shared sections update linked copies across pages and survive save, checkpoint and export', () => {
+  const active=controller();active.createProject('Shared');const home=active.snapshot().selectedPageId,section=active.snapshot().project.pages[0].sections[1];
+  assert.equal(active.makeSectionShared(section.id),true);const shared=active.snapshot().project.pages[0].sections[1].sharedId;
+  active.addPage('About');const about=active.snapshot().selectedPageId;
+  assert.equal(active.addSharedSection(shared),true);const linked=active.snapshot().project.pages[1].sections.at(-1);
+  assert.notEqual(linked.id,section.id);assert.equal(linked.sharedId,shared);
+  active.updateSection(linked.id,'heading','One shared promise');active.updateSection(linked.id,'body','Shared useful content');
+  for(const html of Object.values(active.exportSite().files)) assert.match(html,/One shared promise/);
+  active.save();active.createCheckpoint('Linked');const checkpoint=active.snapshot().checkpoints[0].id;
+  active.updateSection(linked.id,'heading','Later');active.save();active.restoreCheckpoint(checkpoint);active.save();active.openProject(active.snapshot().project.id);
+  assert.equal(active.snapshot().project.pages[0].sections[1].heading,'One shared promise');
+  active.selectPage(about);active.formatSectionText(linked.id,'bold',0,6);
+  assert.equal(active.snapshot().project.pages[0].sections[1].bodyFormat,'formatted');
+  assert.match(active.exportSite().files['index.html'],/<strong>Shared<\/strong> useful content/);
+  active.selectPage(home);
+});
+
+test('detaching shared sections and editing linked groups are undoable without changing independent copies', () => {
+  const active=controller();active.createProject('Detach');const source=active.snapshot().project.pages[0].sections[1];
+  active.makeSectionShared(source.id);const shared=active.snapshot().project.pages[0].sections[1].sharedId;
+  active.addPage('About');active.addSharedSection(shared);const linked=active.snapshot().project.pages[1].sections.at(-1);
+  active.detachSection(linked.id);assert.equal(active.snapshot().project.pages[1].sections.at(-1).sharedId,undefined);
+  active.updateSection(linked.id,'body','Independent copy');assert.notEqual(active.snapshot().project.pages[0].sections[1].body,'Independent copy');
+  active.undo();active.undo();assert.equal(active.snapshot().project.pages[1].sections.at(-1).sharedId,shared);
+  active.updateSection(linked.id,'heading','Both');assert.equal(active.snapshot().project.pages[0].sections[1].heading,'Both');
+  active.undo();assert.equal(active.snapshot().project.pages[0].sections[1].heading,source.heading);
+});
+
+test('shared-section identities and divergent imported copies fail validation, and other websites cannot insert them', () => {
+  const active=controller();active.createProject('Scoped');const source=active.snapshot().project.pages[0].sections[1];
+  active.makeSectionShared(source.id);const shared=active.snapshot().project.pages[0].sections[1].sharedId;
+  active.addPage('About');active.addSharedSection(shared);
+  const invalid=active.snapshot().project;invalid.pages[1].sections.at(-1).body='Unrelated';
+  assert.throws(()=>exportSite(invalid),/shared/i);
+  active.createProject('Other');assert.equal(active.addSharedSection(shared),false);
+  assert.equal(active.addSharedSection(undefined),false);assert.equal(active.addSharedSection(null),false);
+  assert.equal(active.makeSectionShared('foreign-section'),false);
+});

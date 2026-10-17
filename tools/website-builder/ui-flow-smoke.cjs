@@ -262,6 +262,36 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-field=actionPageId]').value"),destination);
     await window.webContents.executeJavaScript("document.querySelector('[data-field=actionPageId]').scrollIntoView({block:'center'})");
     await capture(window,'18-action-destination');
+    await click(window,'.website-section-card:first-child [data-action="website-make-shared"]');
+    const sharedId=await window.webContents.executeJavaScript("document.querySelector('#website-shared-section').value");
+    assert.ok(sharedId);
+    await click(window,'.website-flow-nav [data-value="pages"]');
+    await click(window,`[data-action="website-page"][data-value="${homeId}"]`);
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    await click(window,'[data-action="website-add-shared"]');
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.dataset.field'),'heading');
+    await window.webContents.executeJavaScript(`(() => {
+      const heading=document.querySelector('.website-section-card:last-child [data-field=heading]');heading.value='Shared invitation';heading.dispatchEvent(new Event('input',{bubbles:true}));
+      document.querySelector('.website-shared-library').scrollIntoView({block:'start'});
+    })()`);
+    assert.match(await window.webContents.executeJavaScript("document.querySelector('#website-shared-section').selectedOptions[0].textContent"),/2 linked copies/);
+    await capture(window,'23-shared-section-library');
+    await window.webContents.executeJavaScript("document.querySelector('.website-section-card:last-child .website-item-actions').scrollIntoView({block:'start'})");
+    await capture(window,'24-linked-section-controls');
+    await click(window,'.website-section-card:last-child [data-action="website-detach-shared"]');
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('.website-section-card:last-child [data-action=website-make-shared]'))"),true);
+    await click(window,'[data-action="website-undo"]');
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('.website-section-card:last-child [data-action=website-detach-shared]'))"),true);
+    await click(window,'[data-action="website-redo"]');
+    await window.webContents.executeJavaScript(`(() => {
+      const heading=document.querySelector('.website-section-card:last-child [data-field=heading]');heading.value='Independent invitation';heading.dispatchEvent(new Event('input',{bubbles:true}));
+    })()`);
+    await click(window,'.website-flow-nav [data-value="pages"]');
+    await click(window,`[data-action="website-page"][data-value="${servicesId}"]`);
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-section-card:first-child [data-field=heading]').value"),'Shared invitation');
+    await fs.writeFile(join(evidence,'shared-sections.json'),JSON.stringify({status:'passed',sharedId,linkedEditPropagates:true,insertFocus:true,detachIndependent:true,detachUndoRedo:true,limits:'Linked sections within this website; catalogue consists of existing linked instances, not a separate global service'},null,2));
+
 
 
     await click(window, '.website-flow-nav [data-value="preview"]');
@@ -274,6 +304,8 @@ app.whenReady().then(async () => {
       assert.ok(preview.html.includes('<title>' + page.title));
       assert.ok(preview.html.includes('--accent:#16715a'));
       assert.ok(preview.html.includes('Georgia,serif'));
+      if(page.title==='Services') assert.match(preview.html,/Shared invitation/);
+      if(page.title==='Home') assert.match(preview.html,/Independent invitation/);
       assert.ok(!preview.html.includes('href="index.html"') && !preview.html.includes('href="services.html"'));
     }
     const formattedPreview=await window.webContents.executeJavaScript("[...document.querySelector('#website-preview-page').options].find(x=>x.textContent==='Services').value");
@@ -304,6 +336,7 @@ app.whenReady().then(async () => {
     assert.doesNotMatch(zip.toString('utf8'),/<script>/);
     assert.match(zip.toString('utf8'),/<a class="action" href="index.html">Contact us<\/a>/);
     assert.doesNotMatch(zip.toString('utf8'),/href="#contact"/);
+    assert.match(zip.toString('utf8'),/Shared invitation/);assert.match(zip.toString('utf8'),/Independent invitation/);
     assert.match(zip.toString('utf8'),/<a href="index.html">Home<\/a><ul><li><a href="services.html" aria-current="page">Services<\/a>/);
     await fs.writeFile(join(evidence,'website-management.json'),JSON.stringify({status:'passed',previewPages,download:{name:downloaded.name,bytes:zip.length,sha256:require('node:crypto').createHash('sha256').update(zip).digest('hex')},sandbox:'',globalStyle:{accent:'#16715a',font:'serif'},verified:['page reorder/remove/undo','section type/reorder/remove/undo','every preview page','actual ZIP download']},null,2));
     await capture(window, '13-multipage-preview');

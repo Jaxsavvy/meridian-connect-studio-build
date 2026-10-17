@@ -754,3 +754,7 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-drop-target[data-drop-placement=before] { box-shadow: inset 0 4px 0 var(--studio-action, #1f6fd6); }
 .website-drop-target[data-drop-placement=after] { box-shadow: inset 0 -4px 0 var(--studio-action, #1f6fd6); }
 @media (forced-colors: active) { .website-drop-target { outline: 3px solid Highlight; } }
+
+.website-shared-library { margin-block: 18px; padding: 14px; border: 1px solid var(--studio-line); border-radius: 10px; }
+.website-shared-library h4 { margin: 0; }
+.website-shared-library p { color: var(--studio-muted); }

@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 reusable shared sections
+
+- Added shared-section catalogue from existing linked instances within one website. Make shared/insert linked/detach controls preserve distinct section IDs. Content, action destinations and formatting propagate to every linked copy in the same undoable transaction; detach preserves content but allows independent edits. Save/reopen/checkpoint/export preserve grouping. Validation rejects divergent copies and invalid shared identities; another website cannot insert a foreign group.
+- Three new regressions reproduce the missing feature; relevant local suite 155/155. Real Electron now makes a section shared, inserts it on Home, propagates an edit to Services, detaches/undoes/redoes, verifies independent edits and both preview/export outputs. Exact-source runtime pending. No global service, header/footer system or standalone template catalogue claimed.
+
 ## 2026-10-16 drag reorder continuation
 
 - Added drag handles/targets and before/after indicators for pages within a parent and sections within the open page. Drop operations are undoable and reject missing/cross-parent/cross-page IDs; no-op drops retain redo. Shell tracks the source website/context/page and ignores external transferred content.
