@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-17 current continuation acceptance
+
+- Source872b31f/tree0626e525: all four workflows pass,161 local tests. Downloaded four artifacts, checked digests/provenance, all six real website ZIPs and final Windows Contrast recovery/200% label pixels. See `docs/studio/design/9/CONTINUATION_ACCEPTANCE.md` for exact evidence and limits; earlier pending entries below are historical.
+- Nested navigation, drag reorder, linked sections, long-label layout, development job/permission recovery and retained synthetic scene review status delivered. Independent/human review and authoritative services remain separate. Root audit updated; all PRs remain unmerged. Board not freshly read back.
+
 ## 2026-10-16 verification Action runtime maintenance
 
 - Actual build logs repeatedly report Node20 Action deprecation. Verified official v7 commit/manifests for checkout, setup-node and upload-artifact use Node24. Pin exact official SHAs in all four verification workflows; explicitly disable automatic package-manager caching. YAML comparison proves only uses refs and cache-off input differ: triggers, permissions, credentials-off, commands, fixture refs, artifact paths/retention and app dependencies unchanged. Coordinated in PR39 comment6229348733. Exact-source workflow/artifact acceptance pending.

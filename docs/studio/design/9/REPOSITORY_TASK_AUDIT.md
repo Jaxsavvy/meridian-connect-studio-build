@@ -3,6 +3,19 @@
 This is an ownership and acceptance audit, not a claim that the entire Studio
 roadmap or every possible enhancement is complete.
 
+## Continuation update — 2026-10-17
+
+Source `872b31f` now delivers nested navigation, sibling/section drag reorder,
+linked shared sections, 200% long-label wrapping, development-only job recovery
+and permission states, and retained local scene review state. Basic formatting,
+internal CTA destinations and checkpoint management were already delivered.
+161 local tests and all four exact-source workflows pass. See
+`CONTINUATION_ACCEPTANCE.md` for current evidence and limits. Statements below
+that list these capabilities as backlog are historical snapshots superseded by
+this update. Full WYSIWYG, cross-project templates and authoritative integrations
+remain separate. Board state is not freshly read back in this update; no new
+assignment, completion, issue closure or merge is implied.
+
 ## Sources inspected
 
 - All 20 repository issues (open and closed), all eight open PRs, their

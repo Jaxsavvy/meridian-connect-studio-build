@@ -24,8 +24,8 @@ Set package-manager-cache:false explicitly so automatic caching is not introduce
 by the action upgrade. Parsed old/new YAML with BaseLoader and compared their
 complete graph after normalizing these two intended changes: no other semantic
 difference in any of the four workflows. Whitespace passes. Existing app source
-and local 161-test suite are unchanged. New full Linux/Windows/composed runs and
-artifact readback must succeed before accepting the maintenance; currently pending.
+and local 161-test suite are unchanged. All four exact-source workflows and downloaded artifact readback now pass;
+see CONTINUATION_ACCEPTANCE.md for run IDs, trees and archive hashes.
 
 No installer stability fix or app dependency/audit remediation is claimed. All
 PRs remain unmerged. Rollback restores the four old workflow refs/inputs without

@@ -2,26 +2,30 @@
 
 ## Current delivery record
 
-The table below is the historical foundation audit, not a current task-completion
-claim. Combined DEV-006 work and current evidence are in
-`docs/studio/design/9/DEV006_ACCEPTANCE.md`, `DEV006_VERIFICATION.md`,
-`WINDOWS_REVIEW.md` and `REPOSITORY_TASK_AUDIT.md` on PR #39. Preview device
-controls, mounted synthetic Assets, composed leave guards and same-project
-synthetic scene-text copying have since landed. Current source `837559b` also
-delivers undoable page/section reorder/remove, four section types, safe global
-styles, multi-page preview and real whole-site ZIP export. See
-`docs/studio/design/9/LOCAL_WEBSITE_COMPLETION.md` for fresh Linux/Windows,
-actual OS Contrast, installed-app and ZIP evidence. Rich text, drag/drop,
-reusable global components, nested navigation and live service/provider
-integration remain undelivered; the table below retains the initial baseline.
+Current executable source is `872b31f` on PR #39 (application changes through
+`4114056`). The 161-test local suite and all four exact-source workflows pass:
+source checks, Linux guided UI, Windows installed application/actual OS Contrast,
+and disposable cross-chair Linux/Windows runtime with Asset source `3fab5ef`.
+Current continuation details are in `docs/studio/design/9/CONTINUATION_ACCEPTANCE.md`.
 
-Continuation c8566b6 delivers safe opt-in body formatting (bold/italic/paragraphs/
-lists), validated internal action destinations and explicit checkpoint-history
-removal with confirmation/cancel/failure retry. All 147 local tests and four
-exact-source workflows pass; actual preview/controls/OS Contrast captures and
-six real ZIPs were independently inspected. See
-`docs/studio/design/9/FORMATTED_TEXT.md`. This is basic text formatting, not
-WYSIWYG/full Markdown or authoritative publishing.
+| Delivered local capability | Scope and limit |
+| --- | --- |
+| Page hierarchy | Three navigation levels, validated parents/cycles/depth, nested preview/export navigation |
+| Reordering | Page siblings and sections support drag/drop plus keyboard controls; automation constructs renderer DragEvents, not OS pointer gestures |
+| Linked sections | Shared copies synchronize within one website; detach/Undo supported; not a cross-project template store |
+| Text and links | Safe basic bold/italic/lists and validated internal CTA destinations; not full WYSIWYG |
+| Recovery and jobs | Checkpoint removal/retry and development-only job/retry/cancel/permission states; no service authority |
+| Scene state | Loaded Saved and locally submitted Needs review survive scene selection; local synthetic review only |
+| Layout and export | Long labels wrap at 200%; whole-site ZIP and multi-page preview retained |
+
+Authoritative storage, media, AI, publishing and permission enforcement require
+owner service contracts. Independent review, human Narrator observations and
+native pointer/touch evaluation remain outstanding. All PRs remain unmerged.
+
+## Historical foundation audit
+
+The table and initial priorities below record the original baseline; they do
+not describe the current delivered local capability table above.
 
 Audit baseline: `main` at `29a0df6` on 2026-10-14 PDT. This document distinguishes source evidence from runtime and external-service evidence.
 
