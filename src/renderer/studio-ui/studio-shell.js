@@ -424,7 +424,7 @@
 
     function focusDevelopmentJob() {
       const heading = host.querySelector('#studio-job-state-title');
-      heading?.focus({ preventScroll: true });heading?.scrollIntoView({ block: 'nearest' });
+      heading?.focus({ preventScroll: true });heading?.scrollIntoView({ block: 'start' });
     }
 
     function renderStates(state) {

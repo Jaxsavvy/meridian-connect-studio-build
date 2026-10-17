@@ -61,6 +61,14 @@ async function rendererDrag(window, kind, sourceId, targetId, placement, capture
     return {focusedKind:document.activeElement.dataset.dragKind,focusedId:document.activeElement.dataset.dragId,indicators:document.querySelectorAll('.website-drop-target').length};
   })()`);
 }
+async function jobRecoveryVisible(window) {
+  return window.webContents.executeJavaScript(`(() => {
+    const heading=document.querySelector('#studio-job-state-title').getBoundingClientRect();
+    const controls=document.querySelector('.studio-job-status').nextElementSibling.getBoundingClientRect();
+    const workspace=document.querySelector('.studio-workspace').getBoundingClientRect();
+    return heading.top>=workspace.top-1 && controls.bottom<=workspace.bottom+1;
+  })()`);
+}
 async function metrics(window) {
   return window.webContents.executeJavaScript('(' + (() => ({
     visiblePanels: [...document.querySelectorAll('[data-website-panel]')].filter(panel => !panel.hidden && getComputedStyle(panel).display !== 'none').map(panel => panel.dataset.websitePanel),
@@ -553,6 +561,7 @@ app.whenReady().then(async () => {
     await click(window,'[data-action="job-scenario-load"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-action=job-retry]').disabled"),true);
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status progress').hasAttribute('value')"),false);
+    assert.equal(await jobRecoveryVisible(window),true,'Recovery state and controls fit: 26-job-unknown-completion');
     await capture(window,'26-job-unknown-completion');
     const firstRequest=await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobRequest");
     await click(window,'[data-action="job-resolve"][data-value="not-started"]');
@@ -563,6 +572,7 @@ app.whenReady().then(async () => {
     await click(window,'[data-action="job-cancel"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobStatus"),'cancelling');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('[data-action=job-retry]').disabled"),true);
+    assert.equal(await jobRecoveryVisible(window),true,'Recovery state and controls fit: 27-job-cancellation-pending');
     await capture(window,'27-job-cancellation-pending');
     await click(window,'[data-action="job-resolve"][data-value="completed"]');
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.studio-job-status').dataset.jobStatus"),'completed');
@@ -571,7 +581,7 @@ app.whenReady().then(async () => {
       await click(window,'[data-action="job-scenario-load"]');
       const blocked=await window.webContents.executeJavaScript("({status:document.querySelector('.studio-job-status').dataset.jobStatus,retry:document.querySelector('[data-action=job-retry]').disabled,cancel:!!document.querySelector('[data-action=job-cancel]'),resolve:!!document.querySelector('[data-action=job-resolve]')})");
       assert.equal(blocked.status,scenario);assert.equal(blocked.retry,true);assert.equal(blocked.cancel,false);assert.equal(blocked.resolve,false);
-      if(scenario==='denied')await capture(window,'28-job-action-denied');
+      if(scenario==='denied') {assert.equal(await jobRecoveryVisible(window),true,'Denied state and reason fit');await capture(window,'28-job-action-denied');}
     }
     const jobProject=await window.webContents.executeJavaScript("document.querySelector('#studio-project-select').value");
     const otherJobProject=await window.webContents.executeJavaScript("[...document.querySelector('#studio-project-select').options].find(option=>option.value&&option.value!==document.querySelector('#studio-project-select').value).value");

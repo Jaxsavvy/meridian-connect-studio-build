@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 job recovery visibility correction
+
+- ac3cefe passes all four workflows, but visual inspection caught the unknown-state heading aligned at the bottom of a smaller Windows viewport with recovery choices below view. Align the focused job heading at the start of the workspace; add explicit heading/action bounds assertions before unknown/cancellation/denied captures. Fresh exact-source evidence pending; no clipped capture accepted as visible recovery evidence.
+
 ## 2026-10-16 development job/permission recovery UI
 
 - Continued #9 job/progress/error-state scope in coordination comment 6229226693; supports future owner #20 without implementing its authority. Added labeled development scenarios for queued/running, failed, uncertain completion, denied, cost-denied and revoked states. Cancellation is pending until confirmed and may lose a race to completion. Retry requires known failure/cancellation, uses a fresh synthetic request identity and is explicitly capped at three attempts.
