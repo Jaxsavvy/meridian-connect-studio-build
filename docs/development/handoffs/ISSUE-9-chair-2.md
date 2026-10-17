@@ -3,7 +3,7 @@
 ## 2026-10-16 saved scene format correction
 
 - Audit reproduced two format resets: initial loaded scene ignored adapter format, and discard always restored landscape/Draft. Renderer now reads stored scene format and retains Saved status when discarding edits to a saved scene. Two targeted regressions failed before the fix; all 137 relevant tests pass after it.
-- Real Electron flow now saves vertical, edits square, discards through the existing navigation warning, returns to the editor and asserts vertical. Exact-source CI is pending at publication; no new runtime pass claimed yet. No provider, adapter persistence, service, bridge or packaging behavior changed.
+- Real Electron flow now saves vertical, edits square, discards through the existing navigation warning, returns to the editor and asserts vertical. Exact-source e85e0aa source/Linux/Windows/cross-chair CI all passed. Downloaded both UI artifacts and both cross-chair artifacts; archive hashes match GitHub, source trees match their pinned inputs. Linux scene capture visibly retains vertical/Saved after discard; normal/OS Contrast/cross-chair scene-format metrics pass. Installed source/startup/AX/Tab/gate and OS Contrast restoration pass. See SCENE_FORMAT_VERIFICATION.md. No provider, adapter persistence, service, bridge or packaging behavior changed.
 
 ## 2026-10-16 resumed checkpoint evidence verification
 
