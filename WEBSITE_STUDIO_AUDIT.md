@@ -15,6 +15,14 @@ actual OS Contrast, installed-app and ZIP evidence. Rich text, drag/drop,
 reusable global components, nested navigation and live service/provider
 integration remain undelivered; the table below retains the initial baseline.
 
+Continuation c8566b6 delivers safe opt-in body formatting (bold/italic/paragraphs/
+lists), validated internal action destinations and explicit checkpoint-history
+removal with confirmation/cancel/failure retry. All 147 local tests and four
+exact-source workflows pass; actual preview/controls/OS Contrast captures and
+six real ZIPs were independently inspected. See
+`docs/studio/design/9/FORMATTED_TEXT.md`. This is basic text formatting, not
+WYSIWYG/full Markdown or authoritative publishing.
+
 Audit baseline: `main` at `29a0df6` on 2026-10-14 PDT. This document distinguishes source evidence from runtime and external-service evidence.
 
 | Capability | Status | Evidence and limit |

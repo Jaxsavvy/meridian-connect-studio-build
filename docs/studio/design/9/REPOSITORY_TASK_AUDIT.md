@@ -106,3 +106,18 @@ retains follow-through. Until confirmation and actual observations arrive,
 there is no confirmed appointment or human accessibility pass. CI/source
 inspection and an accessibility tree cannot hear Narrator speech. Keep all
 PRs unmerged under the user's instruction.
+
+
+## Further actionable work completed after the review-gate audit
+
+The user directed continued work beyond external review gates. On c8566b6,
+Tyler added safe section-body formatting, repaired all generated action links
+(previously #contact without a target) with validated page destinations, and
+made bounded checkpoint history manageable with explicit removal/confirmation.
+147 local tests and source/Linux/Windows/cross-chair workflows pass. Actual
+controls/preview/OS Contrast captures, four archive digests/source trees and six
+real website ZIPs were inspected independently. FORMATTED_TEXT.md records exact
+evidence and prior failed harness attempts. Existing reviews/human/service gates
+remain separate. Advanced WYSIWYG, drag/drop, reusable global components and
+nested navigation remain backlog; this record does not call the entire roadmap
+complete or use external gates as proof there is no further client work.

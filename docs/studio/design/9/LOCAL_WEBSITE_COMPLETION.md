@@ -77,3 +77,13 @@ session-local. No packages, bridge, backend, employee gate or Cassy modules chan
 Local reproduction: run the relevant Node command in `DEV006_VERIFICATION.md`.
 Real runtime: use the existing guided workflow or the Windows interactive
 synthetic reviewer in `WINDOWS_REVIEW.md`; this Linux workspace has no display.
+
+
+## Later contribution c8566b6
+
+Safe formatted section text, validated action page destinations and explicit
+checkpoint-history removal are now delivered and verified. See FORMATTED_TEXT.md
+for 147 tests, exact Linux/Windows/cross-chair runs, four downloaded archive
+hashes, six independently decoded ZIPs and actual visual/OS Contrast evidence.
+Earlier "rich text undelivered" refers to full advanced/WYSIWYG editing; the
+listed basic source-text formatting is implemented. All PRs remain unmerged.

@@ -57,3 +57,40 @@ cover slot recovery, dirty-draft/primary/history preservation and storage failur
 The full local suite is 147/147; real UI adds cancel, failure/retry and focus checks.
 The native Enter test uses keydown, character and keyup; previous attempts lacked
 the character event and did not activate the button. No false keyboard pass.
+
+
+## Final exact-source acceptance
+
+Executable source: c8566b6f7d408b1dd1966fff65460e896ed4c69d; source tree
+074ca47ed8b0f1b02c800a8714512dcd8b6da1fe. All four workflows pass:
+source 38998525617, Linux 38998525632, Windows 38998525641, cross-chair
+38998525616. Relevant local suite: 147/147. Both actual Electron flows, full
+native Enter activation/focus return, formatting undo/redo, inert preview,
+real ZIP output, checkpoint cancel/confirm/write-failure retry and reopen pass.
+Windows also passes actual OS Contrast readback/restoration (126 -> 127 -> 126),
+existing NSIS build/install, installed-source match and login AX/Tab/employee gate.
+
+Downloaded archives and SHA-256 matched GitHub:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Linux 12088376176 | 950d606ebd7bbd7b0350bbe18c4f6b71306f4ce36796ce9a8682bc128da18fee |
+| Windows 12088141874 | 41a9bbe1f3d50ee94e57bac100deac02674f7b1f54624e8f23d586378a1864b5 |
+| Cross-chair Linux 12087854206 | 581b3e02a58ea54e31eb034e3243089b128a8025f6b2dfabf3590e1e805c56ec |
+| Cross-chair Windows 12088490695 | b2db931d7900c24934e375684c361bd2ed8caeb624051061b255c9c4f5a009d7 |
+
+Installed/capture tree matches the executable source above. Both cross-chair
+archives pin that UI head and Cassy's 3fab5ef; composed tree is
+9c81d49593ed1b4722dd2367d1a0b7ee965fe1d2, clean before runtime.
+Independently decoded all six actual site ZIPs from Linux/Windows/composed/OS
+Contrast variants: filenames/UTF-8/CRCs, semantic emphasis/list tags, escaped
+script text, real index.html CTA and absence of the old #contact link all pass.
+Inspected actual Linux formatting/destination/removal/preview captures, composed
+Windows OS Contrast formatting/removal and standalone OS Contrast destination.
+The preview visibly shows bold/italic/list output and script input as text.
+The removal capture visibly shows the named irreversible action, both choices
+and initial Keep checkpoint focus. No screenshot was substituted or inferred.
+
+Historical failed runs above remain failed, not counted as acceptance. This is
+local development UI evidence; human Narrator speech, independent review and
+accepted service/release authority remain unverified. All PRs remain unmerged.

@@ -1,5 +1,11 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 new Website contributions verified
+
+- Executable c8566b6 / tree 074ca47ed8b0f1b02c800a8714512dcd8b6da1fe passes source 38998525617, Linux 38998525632, Windows 38998525641 and cross-chair 38998525616. Local 147/147. Both real Electron flows, native Enter/focus, formatting, safe real action links and checkpoint removal/cancel/failure/retry pass. Actual OS Contrast restoration and existing NSIS install/source/AX/Tab/employee gate pass.
+- Downloaded all four archives, checked GitHub digests and source/composed trees; independently decoded all six real site ZIPs and inspected new controls, actual preview formatting and OS Contrast captures. Exact hashes/limits: FORMATTED_TEXT.md. Earlier pending text and failed attempts below are historical, not current acceptance.
+- Completed work: safe formatted body text, actual internal CTA destinations, and usable bounded checkpoint history. Advanced WYSIWYG, drag/drop, reusable global components and nested navigation remain visible backlog. No new contract/backend/bridge/dependency/package change, self-review, merge or issue closure.
+
 ## 2026-10-16 bounded checkpoint-history management
 
 - Added explicit two-step device-local checkpoint removal so the ten-entry cap is recoverable. Inline confirmation focuses Keep checkpoint first and identifies the item and irreversible removal; cancel restores the exact opener. Removal preserves saved website, dirty edits and editor Undo; failed writes preserve history and support retry. Wrong-site/missing IDs fail without mutation.
