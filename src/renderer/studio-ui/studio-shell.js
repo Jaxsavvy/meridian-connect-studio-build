@@ -42,6 +42,7 @@
     let websiteProjectId = null;
     let websiteDevice = 'desktop';
     let checkpointRemovalId = null;
+    let dragging = null;
     const websiteSteps = [
       { id: 'brief', label: 'Brief', hint: 'Define the audience and outcome' },
       { id: 'pages', label: 'Pages', hint: 'Organize the site' },
@@ -65,7 +66,7 @@
           websiteProjectId = nextId || null;
           websiteStep = 'brief';
           websiteDevice = 'desktop';
-          checkpointRemovalId = null;
+          checkpointRemovalId = null; dragging = null;
         }
         websiteState = next;
         render();
@@ -480,6 +481,7 @@
 
     function renderWebsiteSectionActions(section, index, length) {
       return `<div class="website-item-actions" role="group" aria-label="Manage section ${index + 1}">
+        <button type="button" class="studio-button studio-button--secondary website-drag-handle" draggable="true" data-action="website-drag-help" data-drag-kind="section" data-drag-id="${attr(section.id)}" data-focus-key="drag-section-${attr(section.id)}" aria-label="Drag section ${index + 1}; activate for keyboard move controls" aria-describedby="website-section-drag-help">Drag section</button>
         <button type="button" class="studio-button studio-button--secondary" data-action="website-move-section-up" data-value="${attr(section.id)}" ${index === 0 ? 'disabled' : ''}>Move up</button>
         <button type="button" class="studio-button studio-button--secondary" data-action="website-move-section-down" data-value="${attr(section.id)}" ${index === length - 1 ? 'disabled' : ''}>Move down</button>
         <button type="button" class="studio-button studio-button--secondary" data-action="website-remove-section" data-value="${attr(section.id)}">Remove section</button></div>`;
@@ -520,10 +522,10 @@
         <div class="website-step-heading"><span class="studio-kicker">Step ${stepIndex + 1} of ${websiteSteps.length}</span><p>${step.id === 'brief' ? 'Start with who this website serves and what it should achieve.' : step.id === 'pages' ? 'Choose a page to work on, or add the next page your site needs.' : step.id === 'edit' ? 'Edit the selected page. Use Pages to move to a different page.' : 'Choose any page to preview at different widths. Download one HTML page or the whole static website.'}</p></div>
         <div class="website-builder-grid website-guided-grid">
           <aside class="website-panel website-brief-panel" data-website-panel="brief" ${websiteStep === 'brief' ? '' : 'hidden'} aria-labelledby="website-brief-title"><span class="studio-kicker">Strategy</span><h3 id="website-brief-title" tabindex="-1">Client brief</h3>${['audience', 'goal', 'tone', 'offer'].map(field => `<div class="studio-field"><label for="website-brief-${field}">${field[0].toUpperCase()}${field.slice(1)}</label><textarea id="website-brief-${field}" rows="3" data-website-brief="${field}" data-focus-key="website-brief-${field}">${escapeHtml(project.brief[field])}</textarea></div>`).join('')}${renderWebsiteStyles(project)}</aside>
-          <section class="website-panel" data-website-panel="pages" ${websiteStep === 'pages' ? '' : 'hidden'} aria-labelledby="website-sitemap-title"><span class="studio-kicker">Structure</span><h3 id="website-sitemap-title" tabindex="-1">Sitemap</h3><div class="website-page-list">${root.MeridianWebsiteBuilder.navigationRows(project).map(item => `<button type="button" data-depth="${item.depth}" style="--page-depth:${item.depth}" class="website-page${item.id === page.id ? ' is-current' : ''}" data-action="website-page" data-focus-key="website-page-${attr(item.id)}" data-value="${attr(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ''}><span>${escapeHtml(item.title)}</span><small>/${escapeHtml(item.slug)} · Level ${item.depth + 1}</small></button>`).join('')}</div>${renderWebsitePageActions(project, page)}<div class="website-add-row"><label class="studio-field"><span>New page title</span><input id="website-page-name" maxlength="120" placeholder="Services"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-page">Add page</button></div></section>
+          <section class="website-panel" data-website-panel="pages" ${websiteStep === 'pages' ? '' : 'hidden'} aria-labelledby="website-sitemap-title"><span class="studio-kicker">Structure</span><h3 id="website-sitemap-title" tabindex="-1">Sitemap</h3><p id="website-page-drag-help">Drag pages above or below siblings. To change groups, choose Navigation parent. Move page controls support keyboard reordering.</p><div class="website-page-list">${root.MeridianWebsiteBuilder.navigationRows(project).map(item => `<button type="button" draggable="true" data-drag-kind="page" data-drag-id="${attr(item.id)}" data-drop-kind="page" data-drop-id="${attr(item.id)}" aria-describedby="website-page-drag-help" data-depth="${item.depth}" style="--page-depth:${item.depth}" class="website-page${item.id === page.id ? ' is-current' : ''}" data-action="website-page" data-focus-key="website-page-${attr(item.id)}" data-value="${attr(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ''}><span>${escapeHtml(item.title)}</span><small>/${escapeHtml(item.slug)} · Level ${item.depth + 1}</small></button>`).join('')}</div>${renderWebsitePageActions(project, page)}<div class="website-add-row"><label class="studio-field"><span>New page title</span><input id="website-page-name" maxlength="120" placeholder="Services"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-page">Add page</button></div></section>
           <section class="website-panel website-page-editor" data-website-panel="edit" ${websiteStep === 'edit' ? '' : 'hidden'} aria-labelledby="website-page-editor-title"><div class="studio-section-heading"><div><span class="studio-kicker">Page construction</span><h3 id="website-page-editor-title" tabindex="-1">Edit ${escapeHtml(page.title)}</h3></div><div class="website-add-row"><label class="studio-field"><span>Section type</span><select id="website-section-type"><option value="content">Content</option><option value="hero">Hero</option><option value="features">Features</option><option value="cta">Call to action</option></select></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-section">Add section</button></div></div>
             <div class="website-page-settings"><div class="studio-field"><label for="website-page-title">Page title</label><input id="website-page-title" value="${attr(page.title)}" data-website-page="title" data-focus-key="website-page-title"></div><div class="studio-field"><label for="website-page-slug">URL slug</label><input id="website-page-slug" value="${attr(page.slug)}" data-website-page="slug" data-focus-key="website-page-slug"></div></div>
-            <div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong></div>${renderWebsiteSectionActions(section, index, page.sections.length)}<div class="studio-field"><label for="website-${section.id}-heading">Heading</label><input id="website-${section.id}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div>${renderWebsiteBody(section, index)}<div class="studio-field"><label for="website-${section.id}-action">Action label</label><input id="website-${section.id}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div><div class="studio-field"><label for="website-${attr(section.id)}-action-destination">Action destination</label><select id="website-${attr(section.id)}-action-destination" data-website-section="${attr(section.id)}" data-field="actionPageId" data-focus-key="website-${attr(section.id)}-action-destination" aria-describedby="website-${attr(section.id)}-action-help"><option value="">Choose a page</option>${project.pages.map(target => `<option value="${attr(target.id)}"${target.id === section.actionPageId ? ' selected' : ''}>${escapeHtml(target.title)}</option>`).join('')}</select><small id="website-${attr(section.id)}-action-help">${section.action && !section.actionPageId ? 'Choose a destination to include this action in preview and downloads.' : 'Links follow the selected page even if its URL changes. Preview shows actions without opening links.'}</small></div></article>`).join('')}</div>
+            <p id="website-section-drag-help">Drag a section above or below another section in this page. Move up and Move down provide the same ordering controls from the keyboard.</p><div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card" data-drop-kind="section" data-drop-id="${attr(section.id)}"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong></div>${renderWebsiteSectionActions(section, index, page.sections.length)}<div class="studio-field"><label for="website-${section.id}-heading">Heading</label><input id="website-${section.id}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div>${renderWebsiteBody(section, index)}<div class="studio-field"><label for="website-${section.id}-action">Action label</label><input id="website-${section.id}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div><div class="studio-field"><label for="website-${attr(section.id)}-action-destination">Action destination</label><select id="website-${attr(section.id)}-action-destination" data-website-section="${attr(section.id)}" data-field="actionPageId" data-focus-key="website-${attr(section.id)}-action-destination" aria-describedby="website-${attr(section.id)}-action-help"><option value="">Choose a page</option>${project.pages.map(target => `<option value="${attr(target.id)}"${target.id === section.actionPageId ? ' selected' : ''}>${escapeHtml(target.title)}</option>`).join('')}</select><small id="website-${attr(section.id)}-action-help">${section.action && !section.actionPageId ? 'Choose a destination to include this action in preview and downloads.' : 'Links follow the selected page even if its URL changes. Preview shows actions without opening links.'}</small></div></article>`).join('')}</div>
           </section>
           <section class="website-panel website-preview" data-website-panel="preview" ${websiteStep === 'preview' ? '' : 'hidden'} aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title" tabindex="-1">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(root.MeridianWebsiteBuilder.pageFilename(page))}</button><button type="button" class="studio-button studio-button--secondary" data-action="website-export-archive">Download whole website (.zip)</button></div>${renderWebsitePreviewSelector(project, page)}<div class="website-device-bar" role="group" aria-label="Preview width">${[['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([id, label]) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-device" data-value="${id}" aria-pressed="${websiteDevice === id}">${label}</button>`).join('')}<span>${websiteDevice === 'desktop' ? 'Fits the workspace' : websiteDevice === 'tablet' ? '768 px target · fits available space' : '375 px target · fits available space'}</span></div><div class="website-preview-stage"><iframe class="website-device-${websiteDevice}" title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></div>${renderWebsiteCheckpoints(state)}</section>
         </div>
@@ -672,6 +674,12 @@
           next?.scrollIntoView({ block: 'nearest' });
         }
       }
+      else if (action === 'website-drag-help') {
+        const control = button.closest('.website-item-actions')?.querySelector('[data-action^="website-move-section"]:not([disabled])');
+        (control || host.querySelector('#website-page-editor-title'))?.focus({ preventScroll: true });
+        const status = host.querySelector('.studio-live-status');
+        if (status) status.textContent = 'Use Move up or Move down to reorder this section from the keyboard.';
+      }
       else if (action === 'website-save') website.save();
       else if (action === 'website-undo') website.undo();
       else if (action === 'website-redo') website.redo();
@@ -736,6 +744,61 @@
           if (callback) requestTransition(callback, reason);
         }
       }
+    });
+
+    function clearDropTargets() {
+      host.querySelectorAll('.website-drop-target').forEach(item => { item.classList.remove('website-drop-target'); delete item.dataset.dropPlacement; });
+    }
+
+    function dropTarget(event) {
+      const target = event.target.closest('[data-drop-kind]');
+      if (!dragging || !target || !host.contains(target) || !websiteState?.project || dragging.website !== websiteState.project.id || dragging.context !== websiteContextId || target.dataset.dropKind !== dragging.kind) return null;
+      if (dragging.kind === 'section' && dragging.page !== websiteState.selectedPageId) return null;
+      if (dragging.kind === 'page') {
+        const pages = websiteState.project.pages;
+        const from = pages.find(page => page.id === dragging.id), to = pages.find(page => page.id === target.dataset.dropId);
+        if (!from || !to || (from.parentPageId || '') !== (to.parentPageId || '')) return null;
+      }
+      return target;
+    }
+
+    host.addEventListener('dragstart', event => {
+      const source = event.target.closest('[data-drag-kind]');
+      if (!source || !host.contains(source) || !websiteState?.project || !['page','section'].includes(source.dataset.dragKind)) return;
+      dragging = { kind: source.dataset.dragKind, id: source.dataset.dragId, context: websiteContextId, website: websiteState.project.id, page: websiteState.selectedPageId };
+      if (event.dataTransfer) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', 'Meridian local reorder'); }
+      const status = host.querySelector('.studio-live-status');
+      if (status) status.textContent = 'Drag above or below another item in the same group. Move controls are also available from the keyboard.';
+    });
+    host.addEventListener('dragover', event => {
+      const target = dropTarget(event);
+      clearDropTargets();
+      if (!target) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      target.classList.add('website-drop-target');
+      const bounds = target.getBoundingClientRect();
+      target.dataset.dropPlacement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+    });
+    host.addEventListener('drop', event => {
+      const target = dropTarget(event), source = dragging;
+      // Ignore transferred content. Only an active in-shell drag can reorder.
+      if (event.target.closest('[data-drop-kind]') && !event.target.closest('input,textarea,select')) event.preventDefault();
+      if (!target) { dragging = null; clearDropTargets(); return; }
+      event.preventDefault();
+      const bounds = target.getBoundingClientRect();
+      const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+      const targetId = target.dataset.dropId;
+      dragging = null; clearDropTargets();
+      if (source.kind === 'page') website.movePageTo(source.id, targetId, placement);
+      else website.moveSectionTo(source.id, targetId, placement);
+      const control = [...host.querySelectorAll('[data-drag-kind]')].find(item => item.dataset.dragKind === source.kind && item.dataset.dragId === source.id);
+      control?.focus({ preventScroll: true }); control?.scrollIntoView({ block: 'nearest' });
+    });
+    host.addEventListener('dragend', () => {
+      dragging = null; clearDropTargets();
+      const status = host.querySelector('.studio-live-status');
+      if (status) status.textContent = websiteState?.status || viewState.statusMessage;
     });
 
     host.addEventListener('change', event => {
@@ -808,6 +871,7 @@
     }
 
     function destroy() {
+      dragging = null;
       clearTimeout(announcementTimer);
       dialogReturnFocus = null;
       workspace.destroy();

@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 drag reorder continuation
+
+- Added drag handles/targets and before/after indicators for pages within a parent and sections within the open page. Drop operations are undoable and reject missing/cross-parent/cross-page IDs; no-op drops retain redo. Shell tracks the source website/context/page and ignores external transferred content.
+- Existing Move controls remain available. Activating a section drag handle from the keyboard focuses its available Move control; native Enter is tested. Two new model regressions pass; full local suite 152/152. Real runtime tests dispatch DragEvent sequences through actual mounted handlers, inspect indicators/focus/order/Undo and ignore foreign drops. This is not OS pointer/auto-scroll acceptance. Exact-source CI/visual evidence pending.
+
 ## 2026-10-16 nested navigation continuation
 
 - Continued unfinished local builder backlog under #9/PR #39; coordination comment 6229051901. Added three-level page parents, depth-labeled sitemap, sibling ordering and undoable child promotion on parent removal. Hierarchy validation rejects cycles, unknown/foreign parents, nested home and excessive depth; rejected edits preserve history. Parent selection omits invalid moves.

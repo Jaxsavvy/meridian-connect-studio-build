@@ -40,6 +40,27 @@ async function until(window, condition) {
   }
   throw Error('Condition timed out: ' + condition);
 }
+async function rendererDrag(window, kind, sourceId, targetId, placement, captureName) {
+  const input={kind,sourceId,targetId,placement};
+  const over=await window.webContents.executeJavaScript(`(() => {
+    const input=${JSON.stringify(input)};
+    const source=[...document.querySelectorAll('[data-drag-kind]')].find(item=>item.dataset.dragKind===input.kind&&item.dataset.dragId===input.sourceId);
+    const target=[...document.querySelectorAll('[data-drop-kind]')].find(item=>item.dataset.dropKind===input.kind&&item.dataset.dropId===input.targetId);
+    source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:new DataTransfer()}));
+    target.scrollIntoView({block:'start'});const bounds=target.getBoundingClientRect();
+    const event=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:new DataTransfer(),clientY:input.placement==='before'?bounds.top+2:bounds.bottom-2});
+    target.dispatchEvent(event);return {accepted:event.defaultPrevented,indicator:target.dataset.dropPlacement};
+  })()`);
+  assert.equal(over.accepted,true);assert.equal(over.indicator,placement);
+  await capture(window,captureName);
+  return window.webContents.executeJavaScript(`(() => {
+    const input=${JSON.stringify(input)};
+    const target=[...document.querySelectorAll('[data-drop-kind]')].find(item=>item.dataset.dropKind===input.kind&&item.dataset.dropId===input.targetId);
+    const bounds=target.getBoundingClientRect();
+    target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:new DataTransfer(),clientY:input.placement==='before'?bounds.top+2:bounds.bottom-2}));
+    return {focusedKind:document.activeElement.dataset.dragKind,focusedId:document.activeElement.dataset.dragId,indicators:document.querySelectorAll('.website-drop-target').length};
+  })()`);
+}
 async function metrics(window) {
   return window.webContents.executeJavaScript('(' + (() => ({
     visiblePanels: [...document.querySelectorAll('[data-website-panel]')].filter(panel => !panel.hidden && getComputedStyle(panel).display !== 'none').map(panel => panel.dataset.websitePanel),
@@ -137,6 +158,12 @@ app.whenReady().then(async () => {
     await capture(window, '11-page-management');
     const servicesId=await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.value");
     const homeId=await window.webContents.executeJavaScript("[...document.querySelectorAll('.website-page')].find(button=>button.querySelector('span').textContent==='Home').dataset.value");
+    const pageDrop=await rendererDrag(window,'page',servicesId,homeId,'after','21-page-drop-indicator');
+    assert.equal(pageDrop.focusedId,servicesId);assert.equal(pageDrop.indicators,0);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page span').textContent"),'Home');
+    await click(window,'[data-action="website-undo"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-page span').textContent"),'Services');
+
     await window.webContents.executeJavaScript("document.querySelector('#website-page-name').value='Repairs'");
     await click(window,'[data-action="website-add-page"]');
     const repairsId=await window.webContents.executeJavaScript("document.querySelector('.website-page[aria-current=page]').dataset.value");
@@ -172,6 +199,25 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('.website-section-card').length"), 2);
     await window.webContents.executeJavaScript("document.querySelector('.website-section-card').scrollIntoView({block:'start'})");
     await capture(window, '12-section-management');
+    const sectionIds=await window.webContents.executeJavaScript("[...document.querySelectorAll('.website-section-card')].map(item=>item.dataset.dropId)");
+    await window.webContents.executeJavaScript("document.querySelector('[data-drag-kind=section]').focus()");
+    window.focus();window.webContents.focus();
+    window.webContents.sendInputEvent({type:'keyDown',keyCode:'Enter'});window.webContents.sendInputEvent({type:'char',keyCode:'\r'});window.webContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
+    await until(window,"document.activeElement.dataset.action==='website-move-section-down'");
+
+    const sectionDrop=await rendererDrag(window,'section',sectionIds[0],sectionIds[1],'after','22-section-drop-indicator');
+    assert.equal(sectionDrop.focusedId,sectionIds[0]);assert.equal(sectionDrop.focusedKind,'section');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-section-card .studio-pill').textContent"),'content');
+    await click(window,'[data-action="website-undo"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-section-card .studio-pill').textContent"),'cta');
+    const externalDrop=await window.webContents.executeJavaScript(`(() => {
+      const target=document.querySelector('.website-section-card');const before=[...document.querySelectorAll('.website-section-card')].map(item=>item.dataset.dropId).join();
+      const transfer=new DataTransfer();transfer.setData('text/plain','foreign page or file');target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+      return before===[...document.querySelectorAll('.website-section-card')].map(item=>item.dataset.dropId).join();
+    })()`);
+    assert.equal(externalDrop,true);
+    await fs.writeFile(join(evidence,'drag-reorder.json'),JSON.stringify({status:'passed',pageDrop,sectionDrop,externalDropIgnored:externalDrop,undoRestoresOrder:true,keyboardMoveControls:true,method:'Constructed renderer DragEvent sequence through real mounted handlers; not OS pointer/auto-scroll acceptance'},null,2));
+
     // Opt-in text formatting through real controls, including native Enter activation.
     await window.webContents.executeJavaScript(`(() => {
       const mode=document.querySelector('[data-field=bodyFormat]');mode.value='formatted';mode.dispatchEvent(new Event('change',{bubbles:true}));

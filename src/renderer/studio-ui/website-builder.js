@@ -467,6 +467,42 @@
       }, 'Navigation order updated within this parent.');
     }
 
+    function dropIsUnchanged(items, id, targetId, placement) {
+      const from = items.findIndex(item => item.id === id), to = items.findIndex(item => item.id === targetId);
+      return from >= 0 && to >= 0 && (from === to || (placement === 'before' ? from + 1 === to : from === to + 1));
+    }
+
+    function reorderByDrop(items, id, targetId, placement) {
+      const from = items.findIndex(item => item.id === id);
+      if (from < 0 || !items.some(item => item.id === targetId)) throw new Error('The dragged item is no longer in this workspace.');
+      const [item] = items.splice(from, 1);
+      const to = items.findIndex(candidate => candidate.id === targetId) + (placement === 'after' ? 1 : 0);
+      items.splice(to, 0, item);
+    }
+
+    function movePageTo(id, targetId, placement) {
+      if (!state.project || !['before', 'after'].includes(placement)) return false;
+      const page = state.project.pages.find(item => item.id === id);
+      const siblings = page ? state.project.pages.filter(item => (item.parentPageId || '') === (page.parentPageId || '')) : [];
+      if (dropIsUnchanged(siblings, id, targetId, placement)) return false;
+      return mutate(project => {
+        const source = project.pages.find(item => item.id === id), target = project.pages.find(item => item.id === targetId);
+        if (!source || !target || (source.parentPageId || '') !== (target.parentPageId || '')) throw new Error('Drag pages within one parent. Use Navigation parent to change groups.');
+        reorderByDrop(project.pages, id, targetId, placement);
+      }, 'Page moved by drag and drop. Undo restores its previous order.');
+    }
+
+    function moveSectionTo(id, targetId, placement) {
+      if (!state.project || !['before', 'after'].includes(placement)) return false;
+      const sections = state.project.pages.find(page => page.id === state.selectedPageId)?.sections || [];
+      if (dropIsUnchanged(sections, id, targetId, placement)) return false;
+      return mutate(project => {
+        const page = project.pages.find(item => item.id === state.selectedPageId);
+        if (!page) throw new Error('Choose a page before moving sections.');
+        reorderByDrop(page.sections, id, targetId, placement);
+      }, 'Section moved by drag and drop. Undo restores its previous order.');
+    }
+
     function removePage(id) {
       return mutate(project => {
         const index = project.pages.findIndex(page => page.id === id);
@@ -686,7 +722,7 @@
     }
 
     return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
-      updatePage, movePage, removePage, addSection, updateSection, moveSection, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
+      updatePage, movePage, movePageTo, removePage, addSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },
       exportArchive() {

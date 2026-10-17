@@ -749,3 +749,8 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-page { margin-inline-start: calc(var(--page-depth, 0) * 16px); width: calc(100% - var(--page-depth, 0) * 16px); }
 .website-page span { min-width: 0; overflow-wrap: anywhere; }
 .website-page small { flex-shrink: 0; }
+
+.website-page[draggable=true], .website-drag-handle { cursor: grab; }
+.website-drop-target[data-drop-placement=before] { box-shadow: inset 0 4px 0 var(--studio-action, #1f6fd6); }
+.website-drop-target[data-drop-placement=after] { box-shadow: inset 0 -4px 0 var(--studio-action, #1f6fd6); }
+@media (forced-colors: active) { .website-drop-target { outline: 3px solid Highlight; } }

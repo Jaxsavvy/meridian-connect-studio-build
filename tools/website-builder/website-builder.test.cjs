@@ -623,3 +623,33 @@ test('sibling ordering and parent removal preserve descendants and undo restores
   assert.equal(pages.find(page=>page.id===repairs).parentPageId,services);
   active.save();assert.ok(active.exportSite().files['repairs.html']);
 });
+
+
+test('drop reordering is undoable, preserves hierarchy and rejects cross-parent moves', () => {
+  const active=controller();active.createProject('Drop');const home=active.snapshot().selectedPageId;
+  active.addPage('Services');const services=active.snapshot().selectedPageId;
+  active.addPage('Contact');const contact=active.snapshot().selectedPageId;
+  assert.equal(active.movePageTo(contact,home,'before'),true);
+  assert.deepEqual(active.snapshot().project.pages.map(page=>page.id),[contact,home,services]);
+  active.undo();assert.deepEqual(active.snapshot().project.pages.map(page=>page.id),[home,services,contact]);active.redo();
+  active.selectPage(contact);active.updatePage('parentPageId',services);
+  assert.equal(active.movePageTo(contact,home,'after'),false);
+  assert.equal(active.snapshot().project.pages.find(page=>page.id===contact).parentPageId,services);
+  active.save();active.openProject(active.snapshot().project.id);
+  assert.match(active.exportSite().files['index.html'],/<a href="services.html">Services<\/a><ul><li><a href="contact.html">Contact<\/a>/);
+});
+
+test('section drop reordering keeps content and no-op or invalid drops preserve redo', () => {
+  const active=controller();active.createProject('Sections');const first=active.snapshot().project.pages[0].sections[0];
+  active.addSection('cta');const last=active.snapshot().project.pages[0].sections.at(-1);
+  assert.equal(active.moveSectionTo(last.id,first.id,'before'),true);
+  assert.deepEqual(active.snapshot().project.pages[0].sections[0],last);
+  active.undo();assert.equal(active.moveSectionTo(first.id,first.id,'before'),false);
+  assert.equal(active.moveSectionTo(first.id,last.id,'invalid'),false);
+  assert.equal(active.redo(),true);
+  active.undo();assert.equal(active.moveSectionTo('foreign',first.id,'before'),false);assert.equal(active.redo(),true);
+  const original=active.snapshot().project.pages[0].sections;
+  active.addPage('Other');const other=active.snapshot().project.pages[1].sections[0];
+  assert.equal(active.moveSectionTo(first.id,other.id,'before'),false);
+  assert.deepEqual(active.snapshot().project.pages[0].sections,original);
+});
