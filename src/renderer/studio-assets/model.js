@@ -60,10 +60,22 @@
     const base = safeName(filename).replace(/\.[^.]+$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     return base.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || 'untitled-asset';
   }
+  function assertContinuation(prior, asset) {
+    if (!prior) return asset;
+    if (prior.id !== asset.id || prior.projectId !== asset.projectId) fail('PROJECT_DENIED');
+    if (asset.revision < prior.revision) return asset;
+    if (asset.originalVersionId !== prior.originalVersionId || asset.originalFilename !== prior.originalFilename) fail('IMMUTABLE_VERSION_CHANGED');
+    const versions = new Map(asset.versions.map(v => [v.id,v]));
+    for (const original of prior.versions) {
+      const incoming = versions.get(original.id);
+      if (!incoming || ['assetId','projectId','originalVersionId','parentVersionId','sequence','operation','bytes','sha256','mediaType','originalFilename'].some(key => incoming[key] !== original[key])) fail('IMMUTABLE_VERSION_CHANGED');
+    }
+    return asset;
+  }
   function exportName(asset, version) {
     const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'text/plain': 'txt' }[version.mediaType];
     if (!ext) fail('UNSUPPORTED_MEDIA');
     return `${safeName(asset.name)}__v${version.sequence}.${ext}`;
   }
-  return { validate, safeName, suggestName, exportName, text, clone, fail };
+  return { validate, assertContinuation, safeName, suggestName, exportName, text, clone, fail };
 });

@@ -36,14 +36,16 @@
         switchProject(project.value);
       };
       if(!hostOwned)host.append(project,button('Sign out',()=> api.signOut()));
-      const status = element('p',errorText[state.error] || state.error || ({ready:'Project assets loaded',loading:'Loading assets…',saving:'Saving…',cancelled:'Cancelled'}[state.phase] || 'Choose a project to begin'));
+      const status = element('p',errorText[state.error] || state.error || (state.phase==='ready' && state.notice) || ({ready:'Project assets loaded',loading:'Loading assets…',saving:'Saving…',cancelled:'Cancelled'}[state.phase] || 'Choose a project to begin'));
       status.setAttribute('role',state.error ? 'alert' : 'status'); status.setAttribute('aria-live','polite'); host.append(status);
       if(leave){
         const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved host transition');
+        notice.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();settleLeave(false);render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}});
         notice.append(element('p','Unsaved asset metadata will be discarded if you leave this project.'),button('Keep editing',()=>{settleLeave(false);render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}),button('Discard changes and leave',()=>{drafts.clear();conflicts.clear();settleLeave(true);render(controller.snapshot());}));host.append(notice);
       }
       if(pendingProjectId!==null){
         const notice=element('section');notice.setAttribute('role','alert');notice.setAttribute('aria-label','Unsaved project switch');
+        notice.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();pendingProjectId=null;render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}});
         notice.append(element('p','Unsaved asset metadata will be discarded if you switch projects.'),button('Keep editing',()=>{pendingProjectId=null;render(controller.snapshot());host.querySelector('[data-focus="name"]')?.focus();}),button('Discard changes and switch',()=>switchProject(pendingProjectId)));host.append(notice);
       }
       if (!state.project) return;
@@ -67,13 +69,15 @@
       host.append(file,button('Retry import',importFile,busy || !retryFile || !allowImport),button('Cancel requests',()=>controller.cancel(),!busy));
       const list=element('ul'); list.setAttribute('aria-label','Project assets');
       for(const asset of state.assets) { const row=element('li'); row.append(button(asset.name,()=> {clearPreview();versionId=null;controller.selectAsset(asset.id);}),element('span',` ${asset.tags.join(', ')} · ${asset.versions.length} version(s)`)); list.append(row); }
-      host.append(list); if(!state.assets.length && !busy) host.append(element('p','No matching assets. Import a synthetic file to begin.'));
+      host.append(list);
+      const count=element('p',busy?'Updating asset results…':`${state.assets.length} matching asset${state.assets.length===1?'':'s'}.`,{role:'status'});count.setAttribute('aria-live','polite');count.setAttribute('aria-atomic','true');host.append(count);
+      if(!state.assets.length && !busy) host.append(element('p','No matching assets. Import a synthetic file to begin.'));
       const asset=state.assets.find(a=>a.id===state.selectedId); if(!asset){clearPreview();return;}
       const panel=element('section'); panel.setAttribute('aria-label','Asset details'); panel.append(element('h2',asset.name),element('p',`Original: ${asset.originalFilename}`));
       const form=element('form'); const fields={}; const draft=drafts.get(asset.id) || {revision:asset.revision,name:asset.name,tags:asset.tags.join(', '),description:asset.description,section:asset.section};
       const draftNotice=element('p','Unsaved metadata changes — retained while this project remains selected.',{role:'status'});draftNotice.hidden=!drafts.has(asset.id);
       for(const [key,label] of [['name','Display name'],['tags','Tags (comma separated)'],['description','Description'],['section','Section']]) {
-        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || '',disabled:busy}); input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);draftNotice.hidden=false;};wrap.append(input);form.append(wrap);
+        const wrap=element('label',label); const input=element('input',undefined,{value:draft[key] || '',disabled:busy});if(key==='name')input.maxLength=160;input.dataset.focus=key;fields[key]=input;input.oninput=()=>{draft[key]=input.value;drafts.set(asset.id,draft);draftNotice.hidden=false;};wrap.append(input);form.append(wrap);
       }
       const save=element('button','Save metadata',{type:'submit',disabled:busy});form.append(save);form.onsubmit=async e=>{e.preventDefault();const result=await controller.save('metadata',{assetId:asset.id,revision:draft.revision,name:fields.name.value,tags:fields.tags.value.split(',').map(t=>t.trim()).filter(Boolean),description:fields.description.value,section:fields.section.value});if(result){drafts.delete(asset.id);render(controller.snapshot());}};panel.append(form);
       panel.append(draftNotice);
@@ -83,7 +87,8 @@
       },busy),element('p','Loading the latest metadata discards this local draft only after a successful response. Copy any edits you want to keep first.'));
       const origin=asset.provenance?.name;panel.append(element('p',origin?`Name source: ${origin.source==='rule'?'Librarian naming rule':origin.source==='human'?'Human edit':origin.source}${origin.actor?' · '+origin.actor:''}${origin.at?' · '+origin.at:''}`:'Name source: not supplied'));
       const suggestion=StudioAssetModel.suggestName(asset.originalFilename);panel.append(button(`Use naming suggestion: ${suggestion}`,()=>{draft.name=suggestion;drafts.set(asset.id,draft);render(controller.snapshot());},busy || draft.name===suggestion));
-      if(asset.metadataHistory?.length){const history=element('details');history.append(element('summary','Metadata change history'));for(const event of asset.metadataHistory.slice(-10).reverse())history.append(element('p',`Revision ${event.revision} · ${event.actor} · ${event.at} · ${Object.keys(event.changes).join(', ')}`));panel.append(history);}
+      if(asset.metadataHistory?.length){const history=element('details');history.append(element('summary','Metadata change history'),element('p',`Showing the latest ${Math.min(10,asset.metadataHistory.length)} of ${asset.metadataHistory.length} available metadata changes. Earlier changes may not be included.`));for(const event of asset.metadataHistory.slice(-10).reverse())history.append(element('p',`Revision ${event.revision} · ${event.actor} · ${event.at} · ${Object.keys(event.changes).join(', ')}`));panel.append(history);}
+      else panel.append(element('p',asset.metadataHistory===undefined?'Metadata history was not supplied.':'No metadata changes were supplied in this record.'));
       const versions=element('select');versions.setAttribute('aria-label','Asset version'); for(const v of asset.versions) versions.append(element('option',`v${v.sequence} · ${v.id===asset.originalVersionId?'Original':'Derivative'}${v.operation==='upscale'?' · Upscayl':''} · ${reviewLabel[v.reviewState]}`,{value:v.id}));
       if(!asset.versions.some(v=>v.id===versionId)) versionId=asset.preferredVersionId;versions.value=versionId;versions.onchange=()=> {clearPreview();versionId=versions.value;render(controller.snapshot());};panel.append(versions);
       const selected=asset.versions.find(v=>v.id===versionId);panel.append(element('p',`Parent: ${selected.parentVersionId || 'none'} · ${selected.bytes} bytes`));
@@ -95,12 +100,13 @@
           if(epoch!==controller.generation || controller.snapshot().selectedId!==asset.id || versionId!==selected.id){URL.revokeObjectURL(url);return;}
           clearPreview();preview={assetId:asset.id,versionId:selected.id,url};render(controller.snapshot());
         }catch{URL.revokeObjectURL(url);if(epoch===controller.generation && controller.snapshot().selectedId===asset.id && versionId===selected.id){controller.state.error='PREVIEW_FAILED';controller.state.phase='error';controller.emit();}}
-      },busy));
+      },busy || state.mode!=='synthetic'));
       if(preview?.assetId===asset.id && preview.versionId===selected.id)panel.append(element('img',undefined,{src:preview.url,alt:`${asset.name}, version ${selected.sequence}, ${selected.operation}`,className:'sa-image-preview'}));
-      panel.append(button('Download selected version',async()=> {
+      panel.append(button(state.mode==='synthetic'?'Download selected version':'Export selected version (unavailable)',async()=> {
         const result=await controller.download({assetId:asset.id,versionId:selected.id});if(!result)return;
         const url=URL.createObjectURL(new Blob([result.bytes],{type:result.mediaType}));const link=element('a',undefined,{href:url,download:result.filename});link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      },busy),button('Submit selected version for review',()=>controller.save('review',{assetId:asset.id,versionId:selected.id,revision:asset.revision}),busy || !['draft','changes-requested'].includes(selected.reviewState)));
+      },busy || state.mode!=='synthetic'),button('Submit selected version for review',()=>controller.save('review',{assetId:asset.id,versionId:selected.id,revision:asset.revision}),busy || !['draft','changes-requested'].includes(selected.reviewState)));
+      if(state.mode!=='synthetic')panel.append(element('p','Preview and file export are currently unavailable.'));
       panel.append(button('Upscale as new version',async()=> {
         const epoch=controller.generation; const abort=new AbortController();jobAbort=abort;jobState='queued';render(controller.snapshot());
         try {await enhance({projectId:state.project.id,assetId:asset.id,parentVersionId:selected.id,originalVersionId:asset.originalVersionId,signal:abort.signal,onState:phase=>{if(controller.generation===epoch){jobState=phase;render(controller.snapshot());}}});if(controller.generation===epoch)await controller.search(filters);}

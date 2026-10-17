@@ -10,6 +10,12 @@
     }
     snapshot() { return M.clone(this.state); }
     emit() { this.onChange(this.snapshot()); }
+    validateRecord(input, projectId) {
+      const asset = M.validate(input, projectId);
+      const prior = this.state.assets.find(a => a.id === asset.id && a.projectId === projectId);
+      // Older acknowledgements are ignored by monotonic merge; compare only records that could replace current state.
+      return M.assertContinuation(prior,asset);
+    }
     clear() {
       this.generation++; for (const request of this.requests) request.abort(); this.requests.clear(); this.writes.clear(); this.read = null;
       this.state = { project: null, assets: [], selectedId: null, phase: 'idle', error: null, mode: this.service.mode };
@@ -26,7 +32,7 @@
       const projectId = this.state.project.id; const generation = this.generation;
       const request = new AbortController();
       if (read && this.read) this.read.abort(); if (read) this.read = request;
-      this.requests.add(request); if(!read)this.writes.add(request);this.state.phase = this.writes.size ? 'saving' : 'loading'; this.state.error = null; this.emit();
+      this.requests.add(request); if(!read)this.writes.add(request);this.state.phase = this.writes.size ? 'saving' : 'loading'; this.state.error = null; this.state.notice = null; this.emit();
       try {
         const result = await action({ projectId, signal: request.signal });
         if (generation !== this.generation || request.signal.aborted) return null;
@@ -48,7 +54,7 @@
       const result = await this.request(async scope => {
         const list = await this.service.list({ ...filters, ...scope });
         if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
-        return list.map(a => M.validate(a, scope.projectId));
+        return list.map(a => this.validateRecord(a, scope.projectId));
       }, true);
       if (result) {
         const prior = new Map(this.state.assets.map(a => [a.id,a]));
@@ -61,22 +67,30 @@
     async save(method, input) {
       if (!['import','metadata','review'].includes(method)) M.fail('INVALID_OPERATION');
       const result = await this.request(async scope => {
-        const asset = M.validate(await this.service[method]({ ...input, ...scope }), scope.projectId);
+        const asset = this.validateRecord(await this.service[method]({ ...input, ...scope }), scope.projectId);
         if (input.assetId && asset.id !== input.assetId) M.fail('INVALID_RESPONSE');
         return asset;
       });
       if (result) {
         const asset = M.validate(result, this.state.project.id); const index = this.state.assets.findIndex(a => a.id === asset.id);
         if (index < 0) this.state.assets.push(asset); else if (this.state.assets[index].revision <= asset.revision) this.state.assets[index] = asset;
-        this.state.selectedId = asset.id; this.emit();
+        this.state.selectedId = asset.id;
+        this.state.notice = {import:'Asset imported and saved.',metadata:'Metadata saved.',review:'Selected version submitted for review.'}[method];this.emit();
       }
       return result;
     }
     async reloadAsset(assetId) {
       const result = await this.request(async scope => {
+        if (typeof this.service.get === 'function') {
+          const asset = this.validateRecord(await this.service.get({assetId,...scope}),scope.projectId);
+          if(asset.id!==assetId)M.fail('INVALID_RESPONSE');
+          return asset;
+        }
+        // Full-list fallback belongs only to the existing explicitly synthetic adapter.
+        if(this.service.mode!=='synthetic')M.fail('SERVICE_UNAVAILABLE');
         const list = await this.service.list({ ...scope });
         if (!Array.isArray(list)) M.fail('INVALID_RESPONSE');
-        const records = list.map(a => M.validate(a, scope.projectId));
+        const records = list.map(a => this.validateRecord(a, scope.projectId));
         const asset = records.find(a => a.id === assetId);
         if (!asset) M.fail('NOT_FOUND');
         return asset;
@@ -89,6 +103,9 @@
       return M.clone(this.state.assets.find(a => a.id === assetId));
     }
     download(input) { return this.request(async scope => {
+      // Legacy full-byte reads exist only in the visibly synthetic development adapter.
+      // Live limited preview and approved export require separate reviewed host contracts.
+      if(this.service.mode!=='synthetic')M.fail('SERVICE_UNAVAILABLE');
       const asset = this.state.assets.find(a => a.id === input.assetId);
       const version = asset && asset.versions.find(v => v.id === input.versionId);
       if (!version) M.fail('NOT_FOUND');
@@ -97,9 +114,11 @@
       const digest = await crypto.subtle.digest('SHA-256', result.bytes);
       const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
       if (hash !== result.sha256 || result.sha256 !== version.sha256 || result.mediaType !== version.mediaType || result.bytes.length !== version.bytes) M.fail('CHECKSUM_MISMATCH');
-      return { ...result, filename: M.safeName(result.filename) };
+      // Validate the display-name stem at its own limit, then append the exact version suffix.
+      // A transport filename is neither canonical metadata nor a destination grant.
+      return { ...result, filename: M.exportName(asset, version) };
     }, true); }
-    cancel() { this.generation++; for (const r of this.requests) r.abort(); this.requests.clear();this.writes.clear();this.read = null; this.state.phase = 'cancelled'; this.emit(); }
+    cancel() { this.generation++; for (const r of this.requests) r.abort(); this.requests.clear();this.writes.clear();this.read = null; this.state.notice=null;this.state.phase = 'cancelled'; this.emit(); }
   }
   return { Controller };
 });
