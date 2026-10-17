@@ -182,8 +182,18 @@
       const recovered = [];
       for (let index = 0; index < Number(storage.length || 0); index += 1) {
         const key = storage.key(index);
-        if (!key || !key.startsWith(prefix) || key === indexKey || key.endsWith('.backup') || key.endsWith('.pending')) continue;
-        try { recovered.push(decodeURIComponent(key.slice(prefix.length))); } catch (_) { /* Ignore malformed storage keys. */ }
+        if (!key || !key.startsWith(prefix) || key === indexKey) continue;
+        const storedKey = key.slice(prefix.length);
+        let recordKey = storedKey.replace(/\.(backup|pending)$/, '');
+        try {
+          // Existing valid IDs may themselves end in a recovery suffix.
+          const record = JSON.parse(storage.getItem(key));
+          if (typeof record?.id === 'string' && record.id) {
+            const encoded = encodeURIComponent(record.id);
+            if ([encoded, `${encoded}.backup`, `${encoded}.pending`].includes(storedKey)) recordKey = encoded;
+          }
+        } catch (_) { /* The filename still identifies a malformed saved candidate. */ }
+        try { recovered.push(decodeURIComponent(recordKey)); } catch (_) { /* Ignore malformed storage keys. */ }
       }
       return [...new Set([...indexed, ...recovered])];
     }
@@ -226,14 +236,19 @@
       return null;
     }
 
-    function list() {
-      return readIndex().map(id => {
+    function catalogue() {
+      const projects = [], unavailableProjects = [];
+      for (const id of readIndex()) {
         try {
           const project = open(id);
-          return project && { id: project.id, name: project.name, updatedAt: project.updatedAt, pageCount: project.pages.length };
-        } catch (_) { return null; }
-      }).filter(Boolean).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+          if (project) projects.push({ id: project.id, name: project.name, updatedAt: project.updatedAt, pageCount: project.pages.length });
+        } catch (_) { unavailableProjects.push({ id }); }
+      }
+      projects.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      return { projects, unavailableProjects };
     }
+
+    function list() { return catalogue().projects; }
 
     function checkpointKey(id) { return `meridian.website-checkpoints.${scope}.${encodeURIComponent(String(id))}`; }
     function readCheckpoints(id) {
@@ -277,7 +292,7 @@
       if (!checkpoint) throw new Error('Checkpoint was not found for this website.');
       return copy(checkpoint.project);
     }
-    return Object.freeze({ save, open, list, listCheckpoints, saveCheckpoint, checkpointProject, removeCheckpoint });
+    return Object.freeze({ save, open, list, catalogue, listCheckpoints, saveCheckpoint, checkpointProject, removeCheckpoint });
   }
 
   function initialProject({ id, meridianProjectId, name, now }) {
@@ -404,7 +419,7 @@
   function createController({ storage, onChange = () => {}, now = () => new Date().toISOString(), idFactory } = {}) {
     let contextProject = null;
     let repository = null;
-    let state = { phase: 'no-context', projects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
+    let state = { phase: 'no-context', projects: [], unavailableProjects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
     let history = [];
     let future = [];
     let counter = 0;
@@ -414,7 +429,10 @@
 
     function emit() { onChange(snapshot()); }
     function snapshot() { return copy({ ...state, checkpoints }); }
-    function refreshList() { state.projects = repository ? repository.list() : []; }
+    function refreshList() {
+      const listing = repository ? repository.catalogue() : { projects: [], unavailableProjects: [] };
+      state = { ...state, ...listing };
+    }
     function refreshCheckpoints() {
       checkpoints = [];
       if (!repository || !state.project) return;
@@ -429,8 +447,8 @@
       savedBaseline = null;
       checkpoints = [];
       state = contextProject
-        ? { phase: 'list', projects: repository.list(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
-        : { phase: 'no-context', projects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
+        ? { phase: 'list', ...repository.catalogue(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
+        : { phase: 'no-context', projects: [], unavailableProjects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
       emit();
     }
 

@@ -778,3 +778,32 @@ test('saving after Undo or checkpoint restore advances from the persisted revisi
   active.undo();assert.equal(active.save(),true);assert.equal(active.snapshot().project.revision,latest+1);
   active.restoreCheckpoint(checkpoint);assert.equal(active.save(),true);assert.equal(active.snapshot().project.revision,latest+2);
 });
+
+test('catalogue discovers backup-only and pending-only websites after an interrupted first save or missing index', () => {
+  for(const suffix of ['.backup','.pending']) {
+    const storage=createMemoryStorage(),active=controller(storage);active.createProject('Recovery-only draft');
+    const project=active.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(project.id)}`;
+    storage.setItem(key+suffix,JSON.stringify(project));storage.removeItem(key);storage.removeItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`);
+    const restarted=controller(storage);assert.equal(restarted.snapshot().projects.length,1);
+    assert.equal(restarted.openProject(project.id),true);assert.equal(restarted.snapshot().project.name,'Recovery-only draft');
+  }
+});
+
+test('unrecoverable local websites remain visible as retained-record warnings and can be retried after repair', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Retained record');
+  const good=active.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(good.id)}`;
+  for(const suffix of ['', '.backup','.pending'])storage.setItem(key+suffix,'{malformed');
+  const restarted=controller(storage);assert.equal(restarted.snapshot().projects.length,0);
+  assert.equal(restarted.snapshot().unavailableProjects.length,1);assert.equal(restarted.snapshot().unavailableProjects[0].id,good.id);
+  assert.equal(restarted.openProject(good.id),false);assert.equal(storage.getItem(key),'{malformed');
+  storage.setItem(key,JSON.stringify(good));assert.equal(restarted.openProject(good.id),true);
+  restarted.close();assert.deepEqual(restarted.snapshot().unavailableProjects,[]);
+  restarted.selectContext({id:'other-project',name:'Other'});assert.deepEqual(restarted.snapshot().unavailableProjects,[]);
+});
+
+test('recovery discovery preserves valid website identities that themselves end in a recovery suffix', () => {
+  const storage=createMemoryStorage(),active=createController({storage,idFactory:prefix=>`${prefix}.pending`});active.selectContext(meridianProject);
+  assert.equal(active.createProject('Suffix identity'),true);const id=active.snapshot().project.id;
+  storage.removeItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`);
+  const restarted=controller(storage);assert.equal(restarted.snapshot().projects[0].id,id);assert.equal(restarted.openProject(id),true);
+});

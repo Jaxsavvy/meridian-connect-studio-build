@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-17 recheck: recovery catalogue visibility
+
+- Current published cross-chair heads unchanged. Two more failures reproduced: missing-index recovery-only records invisible, and all-malformed candidates silently hidden. Discover primary/backup/pending identities and show retained-record warning/retry separately from readable projects. Preserve suffix identities, expected identity validation and project scope.174 relevant tests pass; mounted visibility/retry flow added. RECOVERY_CATALOGUE.md records exact scope; fresh runtime acceptance pending. No deletion, replacement draft, authority or merge.
+
 ## 2026-10-17 continued full build audit and recovery work
 
 - Eight reproduced regressions fixed plus explicit Save separate copy:171 local tests. Exported pages now measured in actual Chromium at phone/tablet/desktop/200%. Final0d44050 includes monotonic revision fix and focused visible copy confirmation. All four workflows pass, four archives/hashes read back, six ZIPs checked, current Linux/Windows Contrast pixels inspected. LOCAL_DRAFT_INTEGRITY.md records exact runs/trees/hashes.
