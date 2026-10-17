@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## 2026-10-16 verification Action runtime maintenance
+
+- Actual build logs repeatedly report Node20 Action deprecation. Verified official v7 commit/manifests for checkout, setup-node and upload-artifact use Node24. Pin exact official SHAs in all four verification workflows; explicitly disable automatic package-manager caching. YAML comparison proves only uses refs and cache-off input differ: triggers, permissions, credentials-off, commands, fixture refs, artifact paths/retention and app dependencies unchanged. Coordinated in PR39 comment6229348733. Exact-source workflow/artifact acceptance pending.
+
 ## 2026-10-16 scene status and local review correction
 
 - Audit reproduced loaded Saved scene showing Draft and locally submitted review state disappearing on reopen. Normalize recognized Saved/Needs review status on load/select/discard, retain local review state on the scene and reject review with no active project/scene. No authoritative review action or persistence added. New regression fails before the fix; relevant suite161. Actual renderer reopens the reviewed scene and verifies Needs review plus retained frame. Exact-source evidence pending.

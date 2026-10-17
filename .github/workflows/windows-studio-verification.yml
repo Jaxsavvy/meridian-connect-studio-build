@@ -15,12 +15,13 @@ jobs:
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7 (Node 24)
         with:
           node-version: '24'
+          package-manager-cache: false
       - run: npm ci --no-audit --no-fund
       - name: Windows renderer and context regressions
         run: node --test tools/website-builder/*.test.cjs tools/studio-context/*.test.cjs docs/studio/design/9/studio-workspace.test.cjs docs/studio/integration/32/capture-guard.test.cjs
@@ -48,7 +49,7 @@ jobs:
         run: node tools/website-builder/windows-installed-smoke.cjs
       - name: Attach evidence only, never the installer
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7 (Node 24)
         with:
           name: windows-studio-verification
           retention-days: 14
