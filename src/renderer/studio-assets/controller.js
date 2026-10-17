@@ -103,6 +103,9 @@
       return M.clone(this.state.assets.find(a => a.id === assetId));
     }
     download(input) { return this.request(async scope => {
+      // Legacy full-byte reads exist only in the visibly synthetic development adapter.
+      // Live limited preview and approved export require separate reviewed host contracts.
+      if(this.service.mode!=='synthetic')M.fail('SERVICE_UNAVAILABLE');
       const asset = this.state.assets.find(a => a.id === input.assetId);
       const version = asset && asset.versions.find(v => v.id === input.versionId);
       if (!version) M.fail('NOT_FOUND');

@@ -100,12 +100,13 @@
           if(epoch!==controller.generation || controller.snapshot().selectedId!==asset.id || versionId!==selected.id){URL.revokeObjectURL(url);return;}
           clearPreview();preview={assetId:asset.id,versionId:selected.id,url};render(controller.snapshot());
         }catch{URL.revokeObjectURL(url);if(epoch===controller.generation && controller.snapshot().selectedId===asset.id && versionId===selected.id){controller.state.error='PREVIEW_FAILED';controller.state.phase='error';controller.emit();}}
-      },busy));
+      },busy || state.mode!=='synthetic'));
       if(preview?.assetId===asset.id && preview.versionId===selected.id)panel.append(element('img',undefined,{src:preview.url,alt:`${asset.name}, version ${selected.sequence}, ${selected.operation}`,className:'sa-image-preview'}));
-      panel.append(button('Download selected version',async()=> {
+      panel.append(button(state.mode==='synthetic'?'Download selected version':'Export selected version (unavailable)',async()=> {
         const result=await controller.download({assetId:asset.id,versionId:selected.id});if(!result)return;
         const url=URL.createObjectURL(new Blob([result.bytes],{type:result.mediaType}));const link=element('a',undefined,{href:url,download:result.filename});link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      },busy),button('Submit selected version for review',()=>controller.save('review',{assetId:asset.id,versionId:selected.id,revision:asset.revision}),busy || !['draft','changes-requested'].includes(selected.reviewState)));
+      },busy || state.mode!=='synthetic'),button('Submit selected version for review',()=>controller.save('review',{assetId:asset.id,versionId:selected.id,revision:asset.revision}),busy || !['draft','changes-requested'].includes(selected.reviewState)));
+      if(state.mode!=='synthetic')panel.append(element('p','Preview and file export are currently unavailable.'));
       panel.append(button('Upscale as new version',async()=> {
         const epoch=controller.generation; const abort=new AbortController();jobAbort=abort;jobState='queued';render(controller.snapshot());
         try {await enhance({projectId:state.project.id,assetId:asset.id,parentVersionId:selected.id,originalVersionId:asset.originalVersionId,signal:abort.signal,onState:phase=>{if(controller.generation===epoch){jobState=phase;render(controller.snapshot());}}});if(controller.generation===epoch)await controller.search(filters);}

@@ -73,3 +73,7 @@ Host setProject rejects unknown project IDs before prompting or clearing context
 ## Draft v1 exact-read preparation
 
 Following owner PR #36 review request, reloadAsset now prefers optional injected service.get({assetId,projectId,signal}) returning a full component-shaped canonical asset. No named bridge/get operation is added. The full-list fallback is now synthetic-only; non-synthetic adapters without exact read fail SERVICE_UNAVAILABLE. This supersedes the earlier universal fallback description. Current ServiceAdapter remains unchanged; pagination and operation-status are not wired. See V1_READ_REVIEW.md for tested behavior and unresolved v1 mapping. Exact read can observe canonical metadata but is not a replacement for operation-status reconciliation of an uncertain mutation.
+
+## Updated limited-preview/export gate
+
+Owner draft policy PR #38 and updated #36 separate reduced-fidelity preview from approved full-byte export with explicit project asset.export. Existing controller.download/full-byte preview are now synthetic-only and fail SERVICE_UNAVAILABLE for non-synthetic adapters before transport. This supersedes older live-download mapping assumptions. No new IPC or rendition/export adapter is enabled. See PREVIEW_EXPORT_REVIEW.md for exact pinned policy, tests and required host/service work. Mode is not authorization and server grant/revocation checks remain mandatory.
