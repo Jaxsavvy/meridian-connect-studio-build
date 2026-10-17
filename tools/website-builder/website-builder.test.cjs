@@ -770,3 +770,11 @@ test('failed separate-copy save retains current identity, unsaved content and hi
   assert.equal(active.saveSeparateCopy(),false);assert.deepEqual(active.snapshot().project,original);assert.equal(active.snapshot().dirty,true);
   assert.equal(active.undo(),true);active.selectContext(null);assert.equal(active.saveSeparateCopy(),false);
 });
+
+test('saving after Undo or checkpoint restore advances from the persisted revision', () => {
+  const active=controller();active.createProject('Revision sequence');active.updateBrief('goal','First');active.save();active.createCheckpoint('First save');
+  const checkpoint=active.snapshot().checkpoints[0].id;
+  active.updateBrief('goal','Second');active.save();const latest=active.snapshot().project.revision;
+  active.undo();assert.equal(active.save(),true);assert.equal(active.snapshot().project.revision,latest+1);
+  active.restoreCheckpoint(checkpoint);assert.equal(active.save(),true);assert.equal(active.snapshot().project.revision,latest+2);
+});

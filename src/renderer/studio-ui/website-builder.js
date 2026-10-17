@@ -712,7 +712,7 @@
         const persisted = repository.open(state.project.id);
         if (JSON.stringify(persisted) !== savedBaseline) throw new Error('Website changed elsewhere. Your edits remain here; reopen the saved website before applying them again.');
         const project = copy(state.project);
-        project.revision += 1;
+        project.revision = persisted.revision + 1;
         project.updatedAt = now();
         attemptedSave = JSON.stringify(project);
         repository.save(project);
