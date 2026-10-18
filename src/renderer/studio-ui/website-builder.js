@@ -211,16 +211,18 @@
       const valid = validateProject(project, meridianProjectId);
       const target = keys(valid.id);
       const serialized = JSON.stringify(valid);
-      const previous = storage.getItem(target.primary);
+      // Keep the last validated candidate, never a malformed primary, as the
+      // recovery copy. Reading it must not require a successful repair write.
+      const previous = open(valid.id);
       storage.setItem(target.pending, serialized);
-      if (previous) storage.setItem(target.backup, previous);
+      if (previous) storage.setItem(target.backup, JSON.stringify(previous));
       storage.setItem(target.primary, serialized);
       storage.removeItem(target.pending);
       writeIndex(readIndex().concat(valid.id));
       return copy(valid);
     }
 
-    function open(id) {
+    function read(id) {
       const target = keys(id);
       const candidates = [target.primary, target.backup, target.pending];
       let lastError = null;
@@ -228,13 +230,16 @@
         try {
           const value = parse(storage.getItem(key), id);
           if (!value) continue;
-          if (key !== target.primary) storage.setItem(target.primary, JSON.stringify(value));
-          return value;
+          // Listing and opening are reads. Storage may be full or write-locked;
+          // preserve all candidates until an explicit save succeeds.
+          return { project: value, recovered: key !== target.primary };
         } catch (error) { lastError = error; }
       }
       if (lastError) throw new Error(`Website project could not be recovered: ${lastError.message}`);
       return null;
     }
+
+    function open(id) { return read(id)?.project || null; }
 
     function catalogue() {
       const projects = [], unavailableProjects = [];
@@ -292,7 +297,7 @@
       if (!checkpoint) throw new Error('Checkpoint was not found for this website.');
       return copy(checkpoint.project);
     }
-    return Object.freeze({ save, open, list, catalogue, listCheckpoints, saveCheckpoint, checkpointProject, removeCheckpoint });
+    return Object.freeze({ save, open, read, list, catalogue, listCheckpoints, saveCheckpoint, checkpointProject, removeCheckpoint });
   }
 
   function initialProject({ id, meridianProjectId, name, now }) {
@@ -473,11 +478,14 @@
     function openProject(id) {
       if (!repository) return false;
       try {
-        const project = repository.open(id);
+        const record = repository.read(id);
+        const project = record?.project;
         if (!project) throw new Error('Website project was not found.');
         history = []; future = [];
         savedBaseline = JSON.stringify(project);
-        state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Saved website project reopened.' };
+        state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: record.recovered
+          ? 'Website opened from a local recovery copy. Existing copies are unchanged; Save project writes this recovered draft.'
+          : 'Saved website project reopened.' };
         refreshCheckpoints();
         emit(); return true;
       } catch (error) {

@@ -245,3 +245,14 @@ claim. #33 feedback `6224526177`; the 80461b2/150-test result below is historica
 2. Merge PR #31 if clean; read back `main`, then return DEV-006 to Building because remaining verification is not complete.
 3. Continue only safe Chair 2 work while keeping screen-reader, actual Windows High Contrast, distributed employee-runtime comparison, authoritative services, and provider behavior explicitly unverified.
 - Blocker and person needed: none for this scoped accessibility continuation. Authoritative Studio Files, permissions, providers, and Cassy's writable host lifecycle remain external dependencies and are not Chair 2 implementation scope.
+
+## Write-blocked recovery continuation
+
+Fresh GitHub readback retained PR39 at9ca3ea6, PR33 at075ec2a, PR36 ated17ef6,
+PR38 atec1c1dc, with no new PR39 feedback/inline threads. Continued #9 local
+recovery acceptance rather than guessing unpublished owner adapters. Fixed
+readable recovery being blocked by write failure and silent primary promotion.
+Read/list/open now preserve bytes; explicit saves retain a validated backup even
+when the primary write fails. Controller reports recovery-copy opening.177 local
+tests pass; new mounted Storage write-rejection flow is awaiting fresh CI.
+See `docs/studio/design/9/WRITE_BLOCKED_RECOVERY.md`. All PRs remain unmerged.

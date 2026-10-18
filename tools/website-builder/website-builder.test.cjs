@@ -439,7 +439,7 @@ test('website recovery rejects a different website identity in every storage can
   storage.setItem(key, JSON.stringify(other));
   storage.setItem(`${key}.backup`, JSON.stringify(requested));
   assert.equal(repository.open(requested.id).id, requested.id);
-  assert.equal(JSON.parse(storage.getItem(key)).id, requested.id);
+  assert.equal(JSON.parse(storage.getItem(key)).id, other.id, 'Opening recovery must preserve the substituted primary for explicit recovery');
 
   for (const suffix of ['', '.backup', '.pending']) storage.setItem(`${key}${suffix}`, JSON.stringify(other));
   assert.throws(() => repository.open(requested.id), /identity/i);
@@ -806,4 +806,56 @@ test('recovery discovery preserves valid website identities that themselves end 
   assert.equal(active.createProject('Suffix identity'),true);const id=active.snapshot().project.id;
   storage.removeItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`);
   const restarted=controller(storage);assert.equal(restarted.snapshot().projects[0].id,id);assert.equal(restarted.openProject(id),true);
+});
+
+test('recovery catalogue and opening valid copies work without storage writes', () => {
+  for (const suffix of ['.backup', '.pending']) {
+    const memory=createMemoryStorage(),seed=controller(memory,'read-only');seed.createProject('Readable retained draft');
+    const project=seed.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(project.id)}`;
+    memory.setItem(key+suffix,JSON.stringify(project));memory.setItem(key,'{broken');
+    memory.removeItem(`meridian.website.${encodeURIComponent(meridianProject.id)}.index`);
+    const before=Array.from({length:memory.length},(_,i)=>[memory.key(i),memory.getItem(memory.key(i))]);
+    let writes=0;
+    const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),setItem(){writes++;throw Error('Quota exceeded');},removeItem(){writes++;throw Error('Storage locked');}};
+    const active=controller(storage,'locked');
+    assert.equal(active.snapshot().projects.length,1,'A valid retained copy is readable even if storage cannot write');
+    assert.deepEqual(active.snapshot().unavailableProjects,[]);
+    assert.equal(active.openProject(project.id),true);
+    assert.match(active.snapshot().status,/recovery copy/i);
+    assert.equal(active.snapshot().project.name,project.name);
+    assert.equal(active.exportSite().files['index.html'].includes(project.name),true);
+    assert.equal(writes,0,'Listing, opening and export must not attempt promotion or repair');
+    assert.deepEqual(Array.from({length:memory.length},(_,i)=>[memory.key(i),memory.getItem(memory.key(i))]),before);
+    active.updateBrief('goal','Retain edits while storage is full');
+    assert.equal(active.save(),false);assert.equal(active.snapshot().dirty,true);
+    assert.equal(active.snapshot().project.brief.goal,'Retain edits while storage is full');
+    assert.equal(active.undo(),true);assert.equal(active.snapshot().project.brief.goal,project.brief.goal);
+  }
+});
+
+test('successful recovery reads leave every retained candidate byte-for-byte unchanged', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Read without repair');
+  const project=active.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(project.id)}`;
+  storage.setItem(key+'.backup',JSON.stringify(project));storage.setItem(key,'{broken');storage.setItem(key+'.pending','{interrupted');
+  const before=['','.backup','.pending'].map(suffix=>storage.getItem(key+suffix));
+  const repository=createRepository(storage,meridianProject.id);
+  assert.equal(repository.list().length,1);assert.equal(repository.open(project.id).name,project.name);
+  assert.deepEqual(['','.backup','.pending'].map(suffix=>storage.getItem(key+suffix)),before);
+});
+
+test('explicit save after recovery preserves a valid backup if the primary write is interrupted', () => {
+  const memory=createMemoryStorage(),seed=controller(memory);seed.createProject('Recovery then save');
+  const project=seed.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(project.id)}`;
+  memory.setItem(key+'.backup',JSON.stringify(project));memory.setItem(key,'{broken');
+  let fail=false;
+  const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),removeItem:k=>memory.removeItem(k),setItem(k,v){if(fail&&k===key)throw Error('Primary write interrupted');memory.setItem(k,v);}};
+  const active=controller(storage,'recovered');assert.equal(active.openProject(project.id),true);
+  active.updateBrief('goal','New recovered edit');fail=true;
+  assert.equal(active.save(),false);assert.equal(active.snapshot().dirty,true);
+  assert.deepEqual(JSON.parse(memory.getItem(key+'.backup')),project,'Do not replace the valid recovery copy with the corrupt primary');
+  assert.equal(memory.getItem(key),'{broken');
+  assert.equal(createRepository(storage,meridianProject.id).open(project.id).brief.goal,project.brief.goal);
+  fail=false;assert.equal(active.save(),true);assert.equal(active.snapshot().dirty,false);
+  assert.equal(JSON.parse(memory.getItem(key)).brief.goal,'New recovered edit');
+  assert.deepEqual(JSON.parse(memory.getItem(key+'.backup')),project);
 });

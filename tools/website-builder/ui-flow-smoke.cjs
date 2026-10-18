@@ -722,6 +722,35 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(`localStorage.setItem(${JSON.stringify(recoveryFixture.key)},${JSON.stringify(JSON.stringify(recoveryFixture.record))})`);
     await click(window,'[data-action="website-open"][data-value="website-recovery-evidence"]');
     assert.match(await window.webContents.executeJavaScript("document.querySelector('#website-builder-title').textContent"),/Recovery-only/);
+    // Recovery must remain readable when all storage writes are rejected.
+    await window.webContents.executeJavaScript(`(() => {
+      const key=${JSON.stringify(recoveryFixture.key)},record=${JSON.stringify(recoveryFixture.record)};
+      localStorage.setItem(key+'.backup',JSON.stringify(record));localStorage.setItem(key,'{broken');localStorage.removeItem(key+'.pending');
+      window.__recoveryStorageWrite=Storage.prototype.setItem;window.__recoveryWriteAttempts=0;
+      Storage.prototype.setItem=function(){window.__recoveryWriteAttempts++;throw new Error('Synthetic storage full');};
+    })()`);
+    try {
+      await click(window,'[data-action="website-list"]');
+      await click(window,'[data-action="website-open"][data-value="website-recovery-evidence"]');
+      assert.match((await metrics(window)).saveText,/recovery copy/);
+      assert.equal(await window.webContents.executeJavaScript('window.__recoveryWriteAttempts'),0,'Catalogue/open must not write recovery records');
+      assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(recoveryFixture.key)})`),'{broken');
+      await capture(window,'33-write-blocked-recovery');
+      await window.webContents.executeJavaScript("const field=document.querySelector('#website-brief-goal');field.value='Retain recovered edits while storage is full';field.dispatchEvent(new Event('input',{bubbles:true}));");
+      await click(window,'[data-action="website-save"]');
+      assert.match((await metrics(window)).saveText,/Save failed/);
+      assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-brief-goal').value"),'Retain recovered edits while storage is full');
+    } finally {
+      await window.webContents.executeJavaScript('Storage.prototype.setItem=window.__recoveryStorageWrite;delete window.__recoveryStorageWrite;delete window.__recoveryWriteAttempts');
+    }
+    await click(window,'[data-action="website-save"]');
+    assert.match((await metrics(window)).saveText,/saved to durable local/);
+    const explicitRecoverySave=await window.webContents.executeJavaScript(`(() => {
+      const key=${JSON.stringify(recoveryFixture.key)};return {primaryGoal:JSON.parse(localStorage.getItem(key)).brief.goal,backup:JSON.parse(localStorage.getItem(key+'.backup'))};
+    })()`);
+    assert.equal(explicitRecoverySave.primaryGoal,'Retain recovered edits while storage is full');
+    assert.deepEqual(explicitRecoverySave.backup,recoveryFixture.record);
+    await fs.writeFile(join(evidence,'write-blocked-recovery.json'),JSON.stringify({status:'passed',catalogueAndOpenWriteAttempts:0,recoveryMessageVisible:true,originalBytesKept:true,failedSaveRetainsEdits:true,explicitRetrySaves:true,validatedBackupPreserved:true,limits:'Synthetic write rejection in mounted renderer; not physical disk exhaustion'},null,2));
     await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(recoveryFixture.key)}+suffix)`);
     await click(window,'[data-action="website-list"]');
     assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#website-recovery-title'))"),false);
