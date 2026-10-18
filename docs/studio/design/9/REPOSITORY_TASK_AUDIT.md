@@ -211,3 +211,41 @@ visible runtime capture at62ae6ae.177 local and204 disposable composed tests pas
 all four final workflows pass. See WRITE_BLOCKED_RECOVERY.md for exact evidence.
 Existing service, unpublished-input, host policy, installer reliability and human
 review dependencies remain. No main change, merge, Complete or fresh board claim.
+
+## Sustained audit after the request to keep working
+
+Continued through multiple batches instead of stopping after write-blocked
+recovery. Fixed creation identity replacement, duplicate creations/copies on
+partial saves, repeated-copy failure reconciliation, missing home-entry acceptance,
+uncaught catalogue access failure and misleading empty-state language, cancelled/
+newer leave-dialog acknowledgement races, raw saved section-ID attributes, and
+malformed presentation/date values reaching renderer coercion. Preserved legacy
+missing-style drafts with in-memory defaults and explicit save. Final tested
+source9f21362 passes192 local /219 disposable composed tests,18,000 seeded
+transitions and20 repeated-write combinations. All four final workflows pass.
+Four final archives and six actual website ZIPs were read back; actual Linux200%
+and Windows Contrast recovery pixels inspected. Full exact evidence and failed
+fixture history: CREATION_AND_CATALOGUE_INTEGRITY.md.
+
+Re-read every open issue discussion (16), every open PR review submission and
+inline thread set (8), all15 published branch names plus an empty next page, and
+current owner/Cassy/Files/policy heads. No independent new review acceptance or
+published owner client commit supplies the remaining input gaps. The recent Video
+worklog is additional uncommitted owner work, not a connected tool. It was added
+to the explicit public-safe source request on9/comment6246072096.
+
+| Remaining group | Concrete blocking input or actor | Why this continuation cannot complete it |
+| --- | --- | --- |
+| AI18, Storyboard/Images21, Video22, Blender23, Krita24, Website25, Audio26 | Owner must publish the exact public-safe clients/contracts or sanitized patches described in local worklogs. Owner branch is still9c87ad3. | No source exists in published inputs for exact UI/adapter integration; guessed APIs would replace another chair's uncommitted work. |
+| Files19 and capabilities20 | Owner/Cassy contract reconciliation, including the recorded normalization finding, reviewed host methods, authoritative service and policy acceptance. | Draft PR36/38 and private unmounted staging are not a mounted accepted service; restricted backend and policy changes are outside Tyler's issue. |
+| Assets8, host16 and mount32 | Cassy/owner accepted Files/host adapters and independent review of the already integrated synthetic mount/correction. | Current combined synthetic source/runtime are verified; authoritative rights, storage and real output are not available through these fixtures. |
+| Upscayl27 and distribution | Owner-approved OS isolation, executable/model/license and final package decisions. | CLI prototype evidence does not supply those decisions or authorize new distribution. |
+| Host URL boundary and recurring installer issue28 | Owner security/packaging review and a reviewed corrective input. | Renderer corrections cannot define scheme/sender policy or establish an NSIS access-violation fix. Latest install passes; earlier failures remain. |
+| Tyler9 and independent PR acceptance | Jaxsavvy/Theecassycat or alternate independent reviewers, plus human Narrator/native pointer observations. | Tyler cannot independently approve his own work or fabricate human observations. Board state was not freshly read. |
+| Integration/release11 and28 | Accepted inputs above, approved service environment, complete installed workflow and owner release decision. | No production, paid-provider, customer-data or release authority is granted by local UI verification. |
+
+No further actionable unblocked defect was found in the available inputs after
+these passes. This is not a claim that no defects can exist or that the16 issues
+are complete. No merge, issue closure, Complete, production action or new board
+transition occurred. Resume when a concrete new input, review or reproducible
+failure becomes available.

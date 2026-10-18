@@ -105,3 +105,69 @@ the latest retained edits and unchanged original. The relevant local suite is no
 though the valid recovery backup held serif; the application correctly recovered
 serif. The assertion now compares the exact saved backup style. Failed run
 39100196482 and matching composed/Windows runs are retained, not accepted as passes.
+
+## Exact final verification
+
+Final tested source `9f21362bee207a146e95f6b2765c999a95c0996d`, tree
+`e4fc0ddb6c0690cdd63cb38fc09f3afbe2d116c7`. Application fixes are in0d48b82,
+1a4b15a,4124122 and59fc07d;9f21362 adds the final fault matrix and corrected exact
+backup-style assertion.192 relevant local tests pass, including the18,000 seeded
+transitions and20 repeated-write fault combinations. Disposable composition with
+Cassy075ec2a passes219 tests; both OS input records match composed tree
+`66c096eac538d62854d68b6b4380ef5d9d65221b`. No composition was pushed or merged.
+
+All four final workflows pass:
+
+- [Source 39100374702](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/39100374702)
+- [Linux guided 39100374716](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/39100374716)
+- [Cross-chair Linux and Windows 39100374704](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/39100374704)
+- [Windows installed and Contrast 39100374707](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/39100374707)
+
+No failed-job retry was requested. Earlier fixture failures remain in their
+original runs; the intermediate4124122 source also passed all four workflows.
+Final checks include all five new mounted records: copy-retry-idempotency,
+catalogue-access-retry, leave-save-race, section-identity-escape and
+saved-presentation-validation. All report passed on normal and actual Contrast
+paths, with the stated synthetic limits.
+
+Downloaded all four final archives, matched SHA256 and ZIP integrity, and read
+back input/source provenance and the new assertions:
+
+| Evidence | Artifact ID | SHA256 |
+| --- | --- | --- |
+| Linux guided | 12126078692 | c45b413b3f25bfd585571477d5dbbd9169f4ff5e5f78117b91cdcca3bc31dd39 |
+| Composed Linux | 12125608862 | 8245d7ff50bd842177e2273e9818c3af7cf234aa26df2923f52df0d084188f67 |
+| Composed Windows | 12126431986 | a8d8e409d29fa7c53d03adbdbf44abdc2b6bedf17a06a37df861e7e3332ad068 |
+| Windows installed | 12126292599 | af0a7b4172cf8364fa888208742a93fc0c5458406d212ea4a3bd6d52a1e9367a |
+
+Inspected Linux200% saved-copy confirmation and the complete catalogue warning/
+retry, plus the actual Windows Contrast warning/retry. The kept-editing capture
+shows the editor remains selected; exact saved notes and dialog sequencing are
+asserted in leave-save-race.json rather than claimed visible in that capture.
+All six actual website ZIPs in the four final archives pass ZIP integrity, safe
+flat HTML filenames and UTF-8 decoding, with no executable script tags or dead
+#contact links. Existing export-layout runtime checks pass.
+
+Installed source matches the exact treee4fc0ddb above (the GitHub checkout commit
+reported by that harness is848ac2c). Installation, startup, AX/keyboard and ordinary
+employee gating pass. Actual Win32 Contrast flags126→127→126 are restored. No human
+Narrator/physical pointer, authoritative installed Studio service, general
+installer reliability or release acceptance is claimed.
+
+## End of accessible-input audit
+
+After multiple source/fault/transition passes, no further reproducible unblocked
+Tyler task was found. Re-read all16 open issue discussions, the8 open PRs' review
+submissions and thread sets, and all15 published branches with the next page empty.
+There are no independent submitted reviews for34/39;35 still needs independent
+review of the correction Tyler authored. Current main29a0df6 and owner branch
+9c87ad3 are unchanged. Current Cassy/Files/policy heads remain075ec2a/ed17ef6/ec1c1dc.
+
+The latest Video worklog on22 additionally describes local uncommitted client
+work; it is included in the exact-public-safe-input request on9, comment6246072096.
+The same publication gap applies to AI/Storyboard/Blender/Krita/Website/Audio
+inputs. Owner worklogs describe private unmounted service proofs, not a running
+Connect integration. No private backend source or credentials are requested.
+Remaining contract, policy, host/installer, service, independent-review and human
+acceptance gates are mapped in REPOSITORY_TASK_AUDIT.md. They are concrete blockers,
+not a claim that the entire Meridian build is complete. All PRs remain unmerged.
