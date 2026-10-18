@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## Installer diagnostic continuation
+
+Read docs/studio/design/9/INSTALLER_DIAGNOSTICS.md. CI-only single-attempt wrapper records bounded source/hash/exit/crash-event evidence while preserving failure. Nine synthetic filtering/control-flow checks pass. Restricted installer/package/host sources unchanged. Current exact-source Windows outcome and artifact verification are recorded in PR39; no installer fix or release claim.
+
+
 ## October18 full27-item continuation
 
 Current entrypoint: docs/studio/design/9/CONTINUATION_27.md. Both requested lists are mapped there. Scoped listener lifecycle, disposed callback, date sorting/presentation and safe checkpoint parser diagnostic fixes;218local regressions. Fresh synthetic guided Electron passes. Package, performance/storage, dependency and license inventories distinguish measured results from unresolved distribution/runtime acceptance. Existing PR39 publication and exact final CI/artifact/board results are recorded in its current verification section, superseding pending statements here. No merge/release or backend/policy change.

@@ -36,15 +36,8 @@ jobs:
       - name: Install only on disposable runner
         shell: pwsh
         run: |
-          $installer = Get-ChildItem "$env:RUNNER_TEMP/meridian-package" -Filter 'Meridian-Connect-Setup-*.exe' | Select-Object -First 1
-          if (!$installer) { throw 'NSIS installer missing' }
-          $installDir = Join-Path $env:RUNNER_TEMP 'meridian-installed'
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$installDir" -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer exit $($process.ExitCode)" }
-          $exe = Join-Path $installDir 'Meridian Connect.exe'
-          if (!(Test-Path $exe)) { throw 'Installed executable missing' }
-          Get-Process -Name 'Meridian Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
-          "MERIDIAN_INSTALLED_EXE=$exe" >> $env:GITHUB_ENV
+          pwsh -NoProfile -File ./tools/website-builder/windows-installer-diagnostics.test.ps1
+          ./tools/website-builder/windows-installer-diagnostics.ps1
       - name: Verify installed source, startup, keyboard and employee gate
         run: node tools/website-builder/windows-installed-smoke.cjs
       - name: Attach evidence only, never the installer
@@ -57,5 +50,6 @@ jobs:
             ui-flow-evidence/
             docs/studio/integration/32/renders/
             test-output/windows-installed/
+            test-output/windows-installer/
             test-output/windows-high-contrast/
           if-no-files-found: warn
