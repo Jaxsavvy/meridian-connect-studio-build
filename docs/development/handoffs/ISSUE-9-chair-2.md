@@ -267,3 +267,15 @@ actual Contrast restored. Exact runs/hashes/limits are in WRITE_BLOCKED_RECOVERY
 Earlier installer stability, authoritative services, independent review and human
 acceptance remain open. Keep all PRs unmerged. This is a completed local recovery
 slice, not completion of issue9 or release approval.
+
+## Sustained creation and catalogue audit
+
+Continued after the write-blocked slice: reproduced/fixed identity replacement,
+creation and copy retry duplication, missing home-entry validation, and catalogue
+access errors. Same-session partial saves reuse an attempted identity while
+refusing another window's changed content. Catalogue failure has an honest,
+keyboard-accessible retry instead of throwing or claiming no saved work.186 local
+tests include a seeded18,000-transition invariant audit. Mounted copy/index and
+catalogue/key rejection evidence is pending fresh CI. See
+CREATION_AND_CATALOGUE_INTEGRITY.md. Keep all PRs unmerged and remaining owner/
+service/human dependencies explicit.

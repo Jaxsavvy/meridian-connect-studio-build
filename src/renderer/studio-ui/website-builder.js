@@ -136,6 +136,7 @@
         if (section.bodyFormat !== undefined && !['plain', 'formatted'].includes(section.bodyFormat)) throw new Error('Website body format is invalid.');
       }
     }
+    if (!slugs.has('')) throw new Error('Website must keep a home page with an empty URL for index.html.');
     for (const page of input.pages) for (const section of page.sections) {
       if (section.actionPageId !== undefined && (typeof section.actionPageId !== 'string' || (section.actionPageId && !pageIds.has(section.actionPageId)))) throw new Error('Action destination must be a page in this website.');
     }
@@ -243,14 +244,17 @@
 
     function catalogue() {
       const projects = [], unavailableProjects = [];
-      for (const id of readIndex()) {
+      let identities;
+      try { identities = readIndex(); }
+      catch (_) { return { projects, unavailableProjects, catalogueError: 'Saved websites could not be listed. Local records have been kept. Retry when storage is accessible.' }; }
+      for (const id of identities) {
         try {
           const project = open(id);
           if (project) projects.push({ id: project.id, name: project.name, updatedAt: project.updatedAt, pageCount: project.pages.length });
         } catch (_) { unavailableProjects.push({ id }); }
       }
       projects.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-      return { projects, unavailableProjects };
+      return { projects, unavailableProjects, catalogueError: null };
     }
 
     function list() { return catalogue().projects; }
@@ -424,18 +428,21 @@
   function createController({ storage, onChange = () => {}, now = () => new Date().toISOString(), idFactory } = {}) {
     let contextProject = null;
     let repository = null;
-    let state = { phase: 'no-context', projects: [], unavailableProjects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
+    let state = { phase: 'no-context', projects: [], unavailableProjects: [], catalogueError: null, project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
     let history = [];
     let future = [];
     let counter = 0;
     let checkpoints = [];
     let savedBaseline = null;
-    const makeId = idFactory || (prefix => `${prefix}-${Date.now().toString(36)}-${(++counter).toString(36)}`);
+    let pendingCreation = null;
+    let pendingCopy = null;
+    const makeId = idFactory || (prefix => `${prefix}-${typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID() : `${Date.now().toString(36)}-${(++counter).toString(36)}-${Math.random().toString(36).slice(2)}`}`);
 
     function emit() { onChange(snapshot()); }
     function snapshot() { return copy({ ...state, checkpoints }); }
     function refreshList() {
-      const listing = repository ? repository.catalogue() : { projects: [], unavailableProjects: [] };
+      const listing = repository ? repository.catalogue() : { projects: [], unavailableProjects: [], catalogueError: null };
       state = { ...state, ...listing };
     }
     function refreshCheckpoints() {
@@ -450,22 +457,42 @@
       repository = contextProject ? createRepository(storage, contextProject.id) : null;
       history = []; future = [];
       savedBaseline = null;
+      pendingCreation = pendingCopy = null;
       checkpoints = [];
       state = contextProject
         ? { phase: 'list', ...repository.catalogue(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
-        : { phase: 'no-context', projects: [], unavailableProjects: [], project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
+        : { phase: 'no-context', projects: [], unavailableProjects: [], catalogueError: null, project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
       emit();
+    }
+
+    function refreshProjects() {
+      if (!repository || state.phase !== 'list' || state.dirty) return false;
+      refreshList();
+      state = { ...state, error: null, status: state.catalogueError || 'Saved website list refreshed.' };
+      emit(); return !state.catalogueError;
     }
 
     function createProject(name) {
       if (!contextProject) return false;
-      const id = makeId('website');
-      const project = initialProject({ id, meridianProjectId: contextProject.id, name, now: now() });
-      try { repository.save(project); }
+      const label = cleanText(name || 'Untitled website', 160);
+      if (!pendingCreation || pendingCreation.project.name !== label) {
+        pendingCreation = { project: initialProject({ id: makeId('website'), meridianProjectId: contextProject.id, name: label, now: now() }), attempted: null };
+      }
+      const project = pendingCreation.project;
+      try {
+        const existing = repository.open(project.id);
+        if (existing && JSON.stringify(existing) !== pendingCreation.attempted) {
+          pendingCreation = null;
+          throw new Error('Website identity already exists. Existing work was kept; try again.');
+        }
+        pendingCreation.attempted = JSON.stringify(project);
+        repository.save(project);
+      }
       catch (error) {
-        state = { ...state, error: error.message || 'Website creation failed.', status: 'Website could not be created. Existing projects are unchanged.' };
+        state = { ...state, error: error.message || 'Website creation failed.', status: 'Website creation did not finish. Retained local copies are kept; retry the same name to finish this request.' };
         emit(); return false;
       }
+      pendingCreation = pendingCopy = null;
       history = []; future = [];
       savedBaseline = JSON.stringify(project);
       refreshList();
@@ -481,6 +508,7 @@
         const record = repository.read(id);
         const project = record?.project;
         if (!project) throw new Error('Website project was not found.');
+        pendingCreation = pendingCopy = null;
         history = []; future = [];
         savedBaseline = JSON.stringify(project);
         state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: record.recovered
@@ -761,12 +789,26 @@
       if (!repository || !state.project) return false;
       try {
         const project = copy(state.project);
-        project.id = makeId('website');
-        if (repository.open(project.id)) throw new Error('Copy identity already exists. Try again.');
+        if (!pendingCopy || pendingCopy.sourceId !== project.id) {
+          pendingCopy = { sourceId: project.id, id: makeId('website'), createdAt: now(), attempted: null, accepted: null };
+        }
+        project.id = pendingCopy.id;
+        const existing = repository.open(project.id);
+        const existingContent = existing && JSON.stringify(existing);
+        if (existing && existingContent !== pendingCopy.attempted && existingContent !== pendingCopy.accepted) {
+          pendingCopy = null;
+          throw new Error('Copy identity already exists or changed elsewhere. Its contents were kept; retry to create a fresh separate copy.');
+        }
+        // A later failure can happen before any new write. Keep both the last
+        // observed own content and the new attempt, without accepting other data.
+        pendingCopy.accepted = existingContent;
         project.name = cleanText(project.name, 155) + ' copy';
-        project.createdAt = project.updatedAt = now();
+        project.createdAt = pendingCopy.createdAt;
+        project.updatedAt = now();
         project.revision = 0;
+        pendingCopy.attempted = JSON.stringify(project);
         repository.save(project);
+        pendingCreation = pendingCopy = null;
         savedBaseline = JSON.stringify(project);
         history = []; future = []; checkpoints = [];
         state = { ...state, project, dirty: false, error: null, status: 'Separate website copy saved on this device. The original website and its checkpoints are unchanged.' };
@@ -840,6 +882,7 @@
 
     function close() {
       if (state.dirty) return false;
+      pendingCreation = pendingCopy = null;
       refreshList();
       state = { ...state, phase: 'list', project: null, selectedPageId: null, status: 'Website project list opened.' }; checkpoints = []; emit(); return true;
     }
@@ -849,6 +892,7 @@
       try {
         const project = repository.open(state.project.id);
         if (!project) throw new Error('The last saved website project could not be found.');
+        pendingCreation = pendingCopy = null;
         history = []; future = [];
         savedBaseline = JSON.stringify(project);
         state = { ...state, project, selectedPageId: project.pages.some(page => page.id === state.selectedPageId) ? state.selectedPageId : project.pages[0].id, dirty: false, error: null, status: 'Unsaved website changes discarded.' };
@@ -859,7 +903,7 @@
       }
     }
 
-    return Object.freeze({ snapshot, selectContext, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
+    return Object.freeze({ snapshot, selectContext, refreshProjects, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
       updatePage, movePage, movePageTo, removePage, addSection, makeSectionShared, addSharedSection, detachSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, saveSeparateCopy, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },

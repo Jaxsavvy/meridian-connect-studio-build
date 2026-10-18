@@ -753,10 +753,61 @@ app.whenReady().then(async () => {
     assert.equal(explicitRecoverySave.primaryGoal,'Retain recovered edits while storage is full');
     assert.deepEqual(explicitRecoverySave.backup,recoveryFixture.record);
     await fs.writeFile(join(evidence,'write-blocked-recovery.json'),JSON.stringify({status:'passed',catalogueAndOpenWriteAttempts:0,recoveryMessageVisible:true,originalBytesKept:true,failedSaveRetainsEdits:true,explicitRetrySaves:true,validatedBackupPreserved:true,limits:'Synthetic write rejection in mounted renderer; not physical disk exhaustion'},null,2));
+    const copyRetryBefore=await window.webContents.executeJavaScript(`(() => {
+      const repo=window.MeridianWebsiteBuilder.createRepository(localStorage,${JSON.stringify(recoveryFixture.record.meridianProjectId)});
+      const before=repo.list().map(item=>item.id),source=localStorage.getItem(${JSON.stringify(recoveryFixture.key)});
+      window.__copyRetryStorageWrite=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){if(key.endsWith('.index'))throw new Error('Synthetic index failure');return window.__copyRetryStorageWrite.call(this,key,value);};
+      return {before,source};
+    })()`);
+    let retainedCopy;
+    try {
+      await click(window,'[data-action="website-save-copy"]');
+      assert.match((await metrics(window)).saveText,/Separate copy could not be saved/);
+      retainedCopy=await window.webContents.executeJavaScript(`(() => {
+        const repo=window.MeridianWebsiteBuilder.createRepository(localStorage,${JSON.stringify(recoveryFixture.record.meridianProjectId)});
+        return repo.list().filter(item=>!${JSON.stringify(copyRetryBefore.before)}.includes(item.id)).map(item=>item.id);
+      })()`);
+      assert.equal(retainedCopy.length,1,'A partially written copy has one retained identity');
+      await window.webContents.executeJavaScript("(() => {const field=document.querySelector('#website-brief-tone');field.value='Retained after partial copy failure';field.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    } finally {
+      await window.webContents.executeJavaScript('Storage.prototype.setItem=window.__copyRetryStorageWrite;delete window.__copyRetryStorageWrite');
+    }
+    await click(window,'[data-action="website-save-copy"]');
+    assert.match((await metrics(window)).saveText,/Separate website copy saved/);
+    const copyRetryAfter=await window.webContents.executeJavaScript(`(() => {
+      const repo=window.MeridianWebsiteBuilder.createRepository(localStorage,${JSON.stringify(recoveryFixture.record.meridianProjectId)});
+      return {newIds:repo.list().filter(item=>!${JSON.stringify(copyRetryBefore.before)}.includes(item.id)).map(item=>item.id),copy:repo.open(${JSON.stringify(retainedCopy?.[0])}),source:localStorage.getItem(${JSON.stringify(recoveryFixture.key)})};
+    })()`);
+    assert.deepEqual(copyRetryAfter.newIds,retainedCopy);assert.equal(copyRetryAfter.source,copyRetryBefore.source);
+    assert.equal(copyRetryAfter.copy.brief.tone,'Retained after partial copy failure');
+    await capture(window,'34-copy-retry-saved');
+    await fs.writeFile(join(evidence,'copy-retry-idempotency.json'),JSON.stringify({status:'passed',oneRetainedIdentity:true,retryReusesIdentity:true,newEditsIncluded:true,originalBytesUnchanged:true,limits:'Synthetic index write failure in mounted development UI; session-local retry identity'},null,2));
+    await window.webContents.executeJavaScript(`(() => {const key='meridian.website.'+encodeURIComponent(${JSON.stringify(recoveryFixture.record.meridianProjectId)})+'.'+encodeURIComponent(${JSON.stringify(retainedCopy?.[0])});for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(key+suffix);})()`);
     await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(recoveryFixture.key)}+suffix)`);
     await click(window,'[data-action="website-list"]');
     assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#website-recovery-title'))"),false);
     await fs.writeFile(join(evidence,'retained-record-recovery.json'),JSON.stringify({status:'passed',pendingOnlyDiscovered:true,malformedRecordVisible:true,failedRetryPreservesRecord:true,failedRetryFocusRetained:true,repairedRetryOpens:true,warningClearsAfterRemoval:true,limits:'Synthetic local-storage fixture; no automatic repair or data deletion by application'},null,2));
+    await click(window,'[data-action="website-open"][data-value="'+conflictOriginal.id+'"]');
+    const catalogueBytes=await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(conflictOriginal.key)})`);
+    await window.webContents.executeJavaScript("window.__catalogueStorageKey=Storage.prototype.key;Storage.prototype.key=function(){throw new Error('Synthetic enumeration denied');};");
+    try {
+      await click(window,'[data-action="website-list"]');
+      await waitFor(window,'#website-catalogue-retry');
+      assert.doesNotMatch(await window.webContents.executeJavaScript("document.querySelector('.website-builder').textContent"),/No website projects have been saved|0 saved projects/);
+      await click(window,'#website-catalogue-retry');
+      assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-catalogue-retry');
+      await window.webContents.executeJavaScript("const heading=document.querySelector('#website-catalogue-title');heading.focus({preventScroll:true});heading.closest('section').scrollIntoView({block:'start'});");
+      assert.equal(await window.webContents.executeJavaScript("(() => {const r=document.querySelector('#website-catalogue-title').closest('section').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return r.top>=w.top-1&&r.bottom<=w.bottom+1;})()"),true,'Catalogue warning and retry must be visible');
+      await capture(window,'35-catalogue-access-retry');
+    } finally {
+      await window.webContents.executeJavaScript('Storage.prototype.key=window.__catalogueStorageKey;delete window.__catalogueStorageKey');
+    }
+    await click(window,'#website-catalogue-retry');
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#website-catalogue-title'))"),false);
+    assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-saved-title');
+    assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(conflictOriginal.key)})`),catalogueBytes);
+    await fs.writeFile(join(evidence,'catalogue-access-retry.json'),JSON.stringify({status:'passed',listingFailureVisible:true,noFalseEmptyClaim:true,failedRetryFocusRetained:true,retryAfterStorageReturn:true,savedHeadingFocused:true,originalBytesUnchanged:true,limits:'Synthetic Storage.key denial; no actual storage permission changed'},null,2));
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

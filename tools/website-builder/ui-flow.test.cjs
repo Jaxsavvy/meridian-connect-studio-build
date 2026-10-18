@@ -143,3 +143,16 @@ test('handoff preserves the session-only label when persistent storage is unavai
   assert.doesNotMatch(h.host.innerHTML, /Saved locally/);
   assert.match(h.host.innerHTML, /Submit to reviewer — unavailable/);
 });
+
+test('saved website catalogue failures show retry rather than an empty list and recover after storage returns', async () => {
+  const h=harness();h.select('synthetic-alpha');await h.click('website-create');
+  const keys=h.values.keys;h.values.keys=()=>{throw Error('Storage enumeration denied');};
+  await h.click('website-list');
+  assert.match(h.host.innerHTML,/Saved website list unavailable/);
+  assert.match(h.host.innerHTML,/Retry saved website list/);
+  assert.doesNotMatch(h.host.innerHTML,/No website projects have been saved|0 saved projects/);
+  await h.click('website-refresh');assert.match(h.host.innerHTML,/Saved website list unavailable/);
+  h.values.keys=keys;await h.click('website-refresh');
+  assert.doesNotMatch(h.host.innerHTML,/Saved website list unavailable/);
+  assert.match(h.host.innerHTML,/data-action="website-open"/);
+});

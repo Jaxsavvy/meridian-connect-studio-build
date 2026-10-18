@@ -859,3 +859,88 @@ test('explicit save after recovery preserves a valid backup if the primary write
   assert.equal(JSON.parse(memory.getItem(key)).brief.goal,'New recovered edit');
   assert.deepEqual(JSON.parse(memory.getItem(key+'.backup')),project);
 });
+
+test('new website identity collisions cannot overwrite an existing saved website', () => {
+  const storage=createMemoryStorage();
+  const first=createController({storage,idFactory:()=> 'website-collision'});first.selectContext(meridianProject);
+  assert.equal(first.createProject('First saved website'),true);first.updateBrief('goal','Keep the original');first.save();first.createCheckpoint('Original');
+  const original=JSON.stringify(first.snapshot().project);
+  const next=createController({storage,idFactory:()=> 'website-collision'});next.selectContext(meridianProject);
+  assert.equal(next.createProject('Collision must fail'),false);
+  assert.equal(next.snapshot().project,null);assert.match(next.snapshot().error,/identity.*already exists/i);
+  assert.equal(JSON.stringify(createRepository(storage,meridianProject.id).open('website-collision')),original);
+  assert.equal(createRepository(storage,meridianProject.id).listCheckpoints('website-collision').length,1);
+});
+
+test('retrying website creation after an index failure completes one retained identity', () => {
+  const memory=createMemoryStorage();let fail=true;
+  const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),removeItem:k=>memory.removeItem(k),setItem(k,v){if(fail&&k.endsWith('.index'))throw Error('Index unavailable');memory.setItem(k,v);}};
+  const active=controller(storage,'create-retry');
+  assert.equal(active.createProject('One request'),false);
+  const retained=createRepository(storage,meridianProject.id).list();assert.equal(retained.length,1);
+  fail=false;assert.equal(active.createProject('One request'),true);
+  assert.equal(active.snapshot().project.id,retained[0].id);
+  assert.equal(createRepository(storage,meridianProject.id).list().length,1);
+});
+
+test('retrying a partially written separate copy reuses its identity and includes current edits', () => {
+  const memory=createMemoryStorage();let fail=false;
+  const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),removeItem:k=>memory.removeItem(k),setItem(k,v){if(fail&&k.endsWith('.index'))throw Error('Index unavailable');memory.setItem(k,v);}};
+  const active=controller(storage,'copy-retry');active.createProject('Original');const original=active.snapshot().project;
+  active.updateBrief('goal','Keep this copy');fail=true;assert.equal(active.saveSeparateCopy(),false);
+  assert.equal(active.snapshot().project.id,original.id);assert.equal(active.snapshot().dirty,true);
+  const pending=createRepository(storage,meridianProject.id).list().find(p=>p.id!==original.id);assert.ok(pending);
+  active.updateBrief('tone','Added after failure');fail=false;assert.equal(active.saveSeparateCopy(),true);
+  assert.equal(active.snapshot().project.id,pending.id);assert.equal(active.snapshot().project.brief.tone,'Added after failure');
+  assert.equal(createRepository(storage,meridianProject.id).list().length,2);
+  assert.deepEqual(createRepository(storage,meridianProject.id).open(original.id),original);
+});
+
+test('a partially saved copy changed by another window is preserved instead of overwritten on retry', () => {
+  const memory=createMemoryStorage();let fail=false;
+  const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),removeItem:k=>memory.removeItem(k),setItem(k,v){if(fail&&k.endsWith('.index'))throw Error('Index unavailable');memory.setItem(k,v);}};
+  const active=controller(storage,'copy-foreign');active.createProject('Original');active.updateBrief('goal','My edits');
+  const originalId=active.snapshot().project.id;fail=true;assert.equal(active.saveSeparateCopy(),false);fail=false;
+  const repo=createRepository(storage,meridianProject.id),pending=repo.list().find(p=>p.id!==originalId);
+  const external=controller(storage,'external-copy');external.openProject(pending.id);external.updateBrief('goal','Other window');external.save();
+  assert.equal(active.saveSeparateCopy(),false);assert.match(active.snapshot().error,/changed elsewhere/);
+  assert.equal(active.snapshot().project.id,originalId);assert.equal(active.snapshot().project.brief.goal,'My edits');
+  assert.equal(repo.open(pending.id).brief.goal,'Other window');assert.equal(repo.list().length,2);
+  assert.equal(active.saveSeparateCopy(),true,'A subsequent explicit retry can choose a fresh separate identity');
+  assert.notEqual(active.snapshot().project.id,pending.id);assert.equal(repo.open(pending.id).brief.goal,'Other window');
+});
+
+test('a retained website without its home entry falls back to valid recovery instead of exporting a broken site', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Home entry');active.save();
+  const good=active.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(good.id)}`;
+  const broken=JSON.parse(JSON.stringify(good));broken.pages[0].slug='renamed-home';storage.setItem(key,JSON.stringify(broken));
+  const repo=createRepository(storage,meridianProject.id);assert.equal(repo.open(good.id).pages[0].slug,'');
+  storage.setItem(key+'.backup',JSON.stringify(broken));
+  assert.throws(()=>repo.open(good.id),/home/i);
+  assert.equal(repo.catalogue().unavailableProjects[0].id,good.id);
+  assert.throws(()=>exportSite(broken),/home/i);
+});
+
+test('temporary catalogue access failure is visible, retryable and cannot discard an open draft', () => {
+  const memory=createMemoryStorage();let denied=false;
+  const storage={get length(){if(denied)throw Error('Storage enumeration denied');return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),setItem:(k,v)=>memory.setItem(k,v),removeItem:k=>memory.removeItem(k)};
+  const active=controller(storage);active.createProject('Retained catalogue');const id=active.snapshot().project.id;
+  denied=true;assert.doesNotThrow(()=>active.close());assert.match(active.snapshot().catalogueError,/could not be listed/i);
+  assert.deepEqual(active.snapshot().projects,[]);assert.equal(active.refreshProjects(),false);
+  denied=false;assert.equal(active.refreshProjects(),true);assert.equal(active.snapshot().catalogueError,null);
+  assert.equal(active.snapshot().projects[0].id,id);active.openProject(id);active.updateBrief('goal','Keep current edits');
+  assert.equal(active.refreshProjects(),false);assert.equal(active.snapshot().project.brief.goal,'Keep current edits');assert.equal(active.snapshot().dirty,true);
+  denied=true;assert.doesNotThrow(()=>active.selectContext({id:'other',name:'Other'}));assert.match(active.snapshot().catalogueError,/could not be listed/i);
+  active.selectContext(null);assert.equal(active.snapshot().catalogueError,null);
+});
+
+test('a second copy failure before writing must not misidentify the earlier own partial copy as foreign', () => {
+  const memory=createMemoryStorage();let failure='none';
+  const storage={get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),removeItem:k=>memory.removeItem(k),setItem(k,v){if(failure==='index'&&k.endsWith('.index')||failure==='pending'&&k.endsWith('.pending'))throw Error('Synthetic write failure');memory.setItem(k,v);}};
+  const active=controller(storage,'repeated-copy');active.createProject('Original');const originalId=active.snapshot().project.id;
+  active.updateBrief('goal','First copy edit');failure='index';assert.equal(active.saveSeparateCopy(),false);
+  const repo=createRepository(storage,meridianProject.id),attempt=repo.list().find(p=>p.id!==originalId);
+  active.updateBrief('goal','Second copy edit');failure='pending';assert.equal(active.saveSeparateCopy(),false);
+  failure='none';assert.equal(active.saveSeparateCopy(),true);
+  assert.equal(active.snapshot().project.id,attempt.id);assert.equal(active.snapshot().project.brief.goal,'Second copy edit');assert.equal(repo.list().length,2);
+});
