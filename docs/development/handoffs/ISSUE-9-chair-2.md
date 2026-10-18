@@ -256,3 +256,14 @@ Read/list/open now preserve bytes; explicit saves retain a validated backup even
 when the primary write fails. Controller reports recovery-copy opening.177 local
 tests pass; new mounted Storage write-rejection flow is awaiting fresh CI.
 See `docs/studio/design/9/WRITE_BLOCKED_RECOVERY.md`. All PRs remain unmerged.
+
+Write-blocked recovery verified at62ae6ae (application fix726ec77), treee95dbe10.
+177 local /204 disposable composed tests pass. All four final source/Linux/
+composed/Windows-installed workflows pass on first attempt; no retries requested.
+Four current artifacts SHA256/ZIP/provenance read back; six actual website ZIPs
+checked; corrected Linux200% and Windows OS Contrast recovery-message captures
+inspected. Installed source tree matches, ordinary employee gate retained and
+actual Contrast restored. Exact runs/hashes/limits are in WRITE_BLOCKED_RECOVERY.
+Earlier installer stability, authoritative services, independent review and human
+acceptance remain open. Keep all PRs unmerged. This is a completed local recovery
+slice, not completion of issue9 or release approval.

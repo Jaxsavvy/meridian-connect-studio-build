@@ -197,3 +197,17 @@ evidence and prior failed harness attempts. Existing reviews/human/service gates
 remain separate. Advanced WYSIWYG, drag/drop, reusable global components and
 nested navigation remain backlog; this record does not call the entire roadmap
 complete or use external gates as proof there is no further client work.
+
+## Fresh write-blocked recovery follow-through
+
+Continuation read back all15 published branch names with the next page empty,
+current main29a0df6, PR39/33/36/38 unchanged before the new work, assigned issue9
+and an empty PR39 inline-thread set. No new issue9/PR39 feedback or new comments
+on the checked owner/provider/Website/release and Cassy threads supplied missing
+integration inputs. This did not make the build complete: further source review
+reproduced write-dependent recovery and silent read-time primary replacement.
+Fixed that #9 gap and explicit-save backup preservation at726ec77; corrected
+visible runtime capture at62ae6ae.177 local and204 disposable composed tests pass;
+all four final workflows pass. See WRITE_BLOCKED_RECOVERY.md for exact evidence.
+Existing service, unpublished-input, host policy, installer reliability and human
+review dependencies remain. No main change, merge, Complete or fresh board claim.
