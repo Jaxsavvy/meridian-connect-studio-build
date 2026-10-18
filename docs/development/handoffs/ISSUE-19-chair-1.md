@@ -17,6 +17,12 @@
 
 ## Remaining gates
 
+### 2026-10-18 exact-history clarification
+
+The draft exact-read contract now requires both `metadataHistory` and `reviewHistory` arrays. An empty array means zero events; omission is invalid. `historyCursor: null` means the returned arrays are complete. A non-null cursor remains unsupported by the current component/reference and cannot be silently treated as complete. The public-safe reference rejects missing arrays and retains empty arrays in the mapped record. The focused reference suite passes 12 tests at this local checkpoint; the exact pushed head and CI result must be recorded after publication. This changes no employee runtime, backend, or Cassy-owned file.
+
+The next client review should decide the separate history paging method and UI state before allowing non-null cursors. A complete exact record still requires all version descriptors; history completeness and version-lineage completeness are separate checks.
+
 - Task 01 remains PARTIAL; loaded bytes in the running Team Hub process and a live Studio asset route are unverified. Task 02 remains a review draft. DEV-010 is open and Studio Assets stay Unavailable.
 - Cassy's requested review and adapter/controller tests must cover page state, exact hydration, history, conflict, unknown outcome, and revoked scope. Her branch was not edited here.
 - DEV-011 must settle explicit project grant administration, reviewer/self-review and export authority. The restricted service owner must set media, quota, history paging, cleanup, transfer, backup, and retention policies. Transfer-time revocation and host-owned safe save remain unverified.

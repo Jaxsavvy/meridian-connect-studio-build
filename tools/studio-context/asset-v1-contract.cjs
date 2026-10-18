@@ -102,6 +102,7 @@ module.exports = (function (Model) {
     const a = response.asset;
     if (!id(projectId) || !id(assetId) || !object(a) || a.projectId !== projectId ||
         a.assetId !== assetId || !Array.isArray(a.versions) ||
+        !Array.isArray(a.metadataHistory) || !Array.isArray(a.reviewHistory) ||
         !Object.hasOwn(a, 'historyCursor') ||
         !(a.historyCursor === null ||
         (typeof a.historyCursor === 'string' && a.historyCursor.length > 0))) fail('INVALID_RESPONSE');
@@ -135,8 +136,8 @@ module.exports = (function (Model) {
       }),
     };
     if (a.provenance !== undefined) mapped.provenance = a.provenance;
-    if (a.metadataHistory !== undefined) mapped.metadataHistory = mapMetadataHistory(a.metadataHistory, a.revision);
-    if (a.reviewHistory !== undefined) mapped.reviewHistory = mapReviewHistory(
+    mapped.metadataHistory = mapMetadataHistory(a.metadataHistory, a.revision);
+    mapped.reviewHistory = mapReviewHistory(
       a.reviewHistory, a.revision, new Set(a.versions.map(v => v.versionId)));
     try { return Model.validate(mapped, projectId); }
     catch (error) { fail(error.code === 'PROJECT_DENIED' ? 'PROJECT_DENIED' : 'INVALID_RESPONSE'); }

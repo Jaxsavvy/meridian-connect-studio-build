@@ -13,7 +13,7 @@ function asset() {
     assetId: 'synthetic-asset-a', projectId: A, revision: 2, name: 'poster',
     originalFilename: 'poster.png', tags: ['launch'], description: '', section: 'Files',
     originalVersionId: 'synthetic-version-1', preferredVersionId: 'synthetic-version-2',
-    historyCursor: null,
+    historyCursor: null, metadataHistory: [], reviewHistory: [],
     versions: [
       { versionId: 'synthetic-version-1', assetId: 'synthetic-asset-a', projectId: A,
         sequence: 1, originalVersionId: 'synthetic-version-1', parentVersionId: null,
@@ -65,6 +65,17 @@ test('exact record maps complete lineage to Cassy component shape', () => {
   assert.equal(mapped.versions[1].bytes, 18);
   assert.equal(mapped.versions[0].sha256, H1);
   assert.equal(mapped.description, 'First line\nSecond line');
+  assert.deepEqual(mapped.metadataHistory, []);
+  assert.deepEqual(mapped.reviewHistory, []);
+});
+
+test('complete empty history is explicit and omitted arrays fail closed', () => {
+  const noMetadata = asset(); delete noMetadata.metadataHistory;
+  assert.throws(() => Contract.mapAsset(envelope({ asset: noMetadata }), A, noMetadata.assetId),
+    { code: 'INVALID_RESPONSE' });
+  const noReview = asset(); delete noReview.reviewHistory;
+  assert.throws(() => Contract.mapAsset(envelope({ asset: noReview }), A, noReview.assetId),
+    { code: 'INVALID_RESPONSE' });
 });
 
 test('exact record rejects a name that expands beyond the read limit after NFC', () => {
