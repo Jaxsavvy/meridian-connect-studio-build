@@ -1,0 +1,85 @@
+[
+  {
+    "pr": 38,
+    "head": "ec1c1dcfb63acd51cc8d5d992a7a03ea9aab66a9",
+    "overlap": []
+  },
+  {
+    "pr": 37,
+    "head": "d0d7c99372e889798c142df7c3f94c4e07127d90",
+    "overlap": [
+      ".github/workflows/website-guided-ui.yml",
+      "docs/studio/design/9/WEBSITE_GUIDED_FLOW.md",
+      "src/renderer/studio-ui/studio-shell.js",
+      "src/renderer/studio-ui/studio-ui.css",
+      "tools/website-builder/ui-flow-smoke.cjs",
+      "tools/website-builder/ui-flow.test.cjs"
+    ]
+  },
+  {
+    "pr": 36,
+    "head": "d2fffe0beb7501eb45f667a99693e140ec246685",
+    "overlap": [
+      ".github/workflows/connect-source-checks.yml"
+    ]
+  },
+  {
+    "pr": 35,
+    "head": "647bb9e0391f9188fdf1022b5cea30c258011350",
+    "overlap": [
+      ".github/workflows/connect-source-checks.yml",
+      "docs/development/handoffs/ISSUE-32-chair-1.md",
+      "docs/studio/integration/32/CAPTURE_VERIFICATION.md",
+      "docs/studio/integration/32/VISUAL_REVIEW.md",
+      "docs/studio/integration/32/capture-guard.cjs",
+      "docs/studio/integration/32/capture-guard.test.cjs",
+      "docs/studio/integration/32/renders/asset-selected-clean-1440.png",
+      "docs/studio/integration/32/renders/asset-view-1440.png",
+      "docs/studio/integration/32/renders/runtime-results.json",
+      "docs/studio/integration/32/renders/unsaved-asset-leave.png",
+      "docs/studio/integration/32/renders/warning-capture.json",
+      "docs/studio/integration/32/runtime-check.cjs",
+      "src/renderer/app.js",
+      "src/renderer/studio-asset-host.js",
+      "src/renderer/studio-dev-asset-mount.js",
+      "src/renderer/studio-dev-asset-transport.js",
+      "src/renderer/studio-ui/studio-shell.js",
+      "tools/studio-context/dev-asset-mount.test.cjs",
+      "tools/studio-context/dev-asset-transport.test.cjs"
+    ]
+  },
+  {
+    "pr": 34,
+    "head": "7f8a2b03861d821508f839d7771d1618736cf380",
+    "overlap": [
+      "WEBSITE_STUDIO_AUDIT.md",
+      "WEBSITE_STUDIO_DELIVERY.md",
+      "WEBSITE_STUDIO_IMPLEMENTATION.md",
+      "WEBSITE_STUDIO_INTEGRATION_CONTRACTS.md",
+      "WEBSITE_STUDIO_TEST_REPORT.md",
+      "docs/development/handoffs/ISSUE-9-chair-2.md",
+      "docs/studio/design/9/renders/runtime-results.json",
+      "docs/studio/design/9/renders/website-builder-1280x900-200pct.png",
+      "docs/studio/design/9/renders/website-builder-editor-1440x1000.png",
+      "docs/studio/design/9/renders/website-builder-preview-1440x1000.png",
+      "docs/studio/design/9/renders/website-builder-reopened-1440x1000.png",
+      "docs/studio/design/9/runtime-capture.cjs",
+      "src/renderer/app.js",
+      "src/renderer/studio-ui/studio-shell.js",
+      "src/renderer/studio-ui/studio-ui.css",
+      "src/renderer/studio-ui/studio-workspace.js",
+      "src/renderer/studio-ui/website-builder.js",
+      "tools/website-builder/website-builder.test.cjs"
+    ]
+  },
+  {
+    "pr": 33,
+    "head": "69dbc7b688ed94823d082ee400833db1feb3f28c",
+    "overlap": []
+  },
+  {
+    "pr": 10,
+    "head": "4e4373130b3cd2a239aad9b71f326a8d4d3889cf",
+    "overlap": []
+  }
+]

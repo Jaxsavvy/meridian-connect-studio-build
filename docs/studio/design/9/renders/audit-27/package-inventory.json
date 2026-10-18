@@ -1,0 +1,90 @@
+{
+  "baseline": "89f6b6a76c321487741232fdd4fabae05d88c94c",
+  "sha256": "8b86cd9b2a6b213ad7b50970dc1bab566fd60d4491e14411fab4d6a56d3327a4",
+  "files": 303,
+  "unexpected": [],
+  "forbidden": [],
+  "runtimeNotices": [
+    {
+      "path": "node_modules/argparse/LICENSE",
+      "size": 12775,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/debug/LICENSE",
+      "size": 1139,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/LICENSE",
+      "size": 1084,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/node_modules/builder-util-runtime/LICENSE",
+      "size": 1084,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/node_modules/fs-extra/LICENSE",
+      "size": 1084,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/node_modules/jsonfile/LICENSE",
+      "size": 1110,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/node_modules/semver/LICENSE",
+      "size": 765,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/electron-updater/node_modules/universalify/LICENSE",
+      "size": 1100,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/graceful-fs/LICENSE",
+      "size": 791,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/js-yaml/LICENSE",
+      "size": 1084,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/lodash.escaperegexp/LICENSE",
+      "size": 1951,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/lodash.isequal/LICENSE",
+      "size": 1950,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/ms/license.md",
+      "size": 1079,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/sax/LICENSE.md",
+      "size": 1552,
+      "unpacked": false
+    },
+    {
+      "path": "node_modules/tiny-typed-emitter/LICENSE",
+      "size": 1104,
+      "unpacked": false
+    }
+  ],
+  "sourceFiles": 46,
+  "outerNotices": [
+    "LICENSE.electron.txt",
+    "LICENSES.chromium.html"
+  ],
+  "build": "ASAR generated; later Windows signing-tool extraction failed due symlink privilege; no completed build claim"
+}

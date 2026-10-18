@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "malformedHistoryReported": true,
+  "noFalseEmptyHistory": true,
+  "failedRetryRetainsEdits": true,
+  "repairedHistoryFound": true,
+  "focusedHeading": true,
+  "retainedHistoryBytesUnchanged": true,
+  "limits": "Synthetic local history fault and explicit fixture repair; no service recovery"
+}

@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "conflictingSaveRejected": true,
+  "bothRetainedWebsitesUnchanged": true,
+  "separateCopyPreservesEdits": true,
+  "limits": "Synthetic legacy recovery-key collision; no cross-process atomicity or service authority"
+}

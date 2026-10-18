@@ -8,6 +8,7 @@ const root = join(__dirname, '../..');
 
 function harness({ fallback = false, saveDraft = null, writeBlocked = false, stored = [] } = {}) {
   const listeners = {};
+  const registrations = [];
   const values = new Map(stored);
   const windowListeners = {};
   const storage = {
@@ -23,7 +24,8 @@ function harness({ fallback = false, saveDraft = null, writeBlocked = false, sto
     innerHTML: '', hidden: false,
     contains: () => false,
     querySelector: selector => selector === '#website-new-name' ? { value: 'Synthetic site' } : null,
-    addEventListener: (event, fn) => { listeners[event] = fn; },
+    addEventListener: (event, fn) => { registrations.push({ event, fn }); listeners[event] = fn; },
+    removeEventListener: (event, fn) => { const i=registrations.findIndex(r=>r.event===event&&r.fn===fn); if(i>=0)registrations.splice(i,1); if(listeners[event]===fn)delete listeners[event]; },
     replaceChildren: () => {},
   };
   const context = { snapshot: () => ({ tools: [] }) };
@@ -70,7 +72,7 @@ function harness({ fallback = false, saveDraft = null, writeBlocked = false, sto
     return [...host.innerHTML.matchAll(/<(?:section|aside) [^>]*data-website-panel="([^"]+)"([^>]*)>/g)]
       .filter(match => !/\bhidden\b/.test(match[2])).map(match => match[1]);
   }
-  return { host, click, input, select, visiblePanels, instance, values, unload() { const event = { prevented: false, preventDefault() { this.prevented = true; } }; windowListeners.beforeunload?.(event); return event; }, windowListeners, makeStudioDirty() { state = { ...state, unsaved: true, saveState: 'Unsaved' }; notify(state); } };
+  return { host, click, input, select, visiblePanels, instance, values, registrations, remount: () => sandbox.MeridianStudioUI.mount({host,context,getProjects:()=>[]}), api:sandbox.MeridianStudioUI, unload() { const event = { prevented: false, preventDefault() { this.prevented = true; } }; windowListeners.beforeunload?.(event); return event; }, windowListeners, makeStudioDirty() { state = { ...state, unsaved: true, saveState: 'Unsaved' }; notify(state); } };
 }
 
 test('guided steps preserve unsaved edits and expose one panel', async () => {
@@ -236,4 +238,11 @@ test('campaign unload guard protects in-flight unsaved work and releases after s
 
 test('checkpoint failure has a truthful retry state and successful retry retains unsaved brief edits',async()=>{
  const W=require('../../src/renderer/studio-ui/website-builder.js');const storage=W.createMemoryStorage();const c=W.createController({storage,idFactory:prefix=>prefix+'-history-ui'});c.selectContext({id:'synthetic-alpha',name:'A'});c.createProject('Checkpoint retry site');c.createCheckpoint('Retained checkpoint');const id=c.snapshot().project.id,key='meridian.website-checkpoints.synthetic-alpha.'+id,good=storage.getItem(key);storage.setItem(key,'null');const h=harness({stored:Array.from({length:storage.length},(_,i)=>[storage.key(i),storage.getItem(storage.key(i))])});h.select('synthetic-alpha');await h.click('website-open',id);await h.click('website-step','preview');assert.match(h.host.innerHTML,/Retry checkpoint history/);assert.doesNotMatch(h.host.innerHTML,/No saved checkpoints for this website/);assert.match(h.host.innerHTML,/Saved checkpoints \(unavailable\)/);h.input('audience','Keep during retry');await h.click('website-checkpoint-retry');assert.match(h.host.innerHTML,/Retry checkpoint history/);h.values.set(key,good);await h.click('website-checkpoint-retry');assert.match(h.host.innerHTML,/Saved checkpoints \(1\)/);assert.doesNotMatch(h.host.innerHTML,/data-action="website-checkpoint-retry"/);assert.match(h.host.innerHTML,/Keep during retry/);assert.equal(h.values.get(key),good);
+});
+
+test('destroy removes all host listeners and remains idempotent after a replacement mount',()=>{
+ const h=harness();assert.equal(h.registrations.length,8);h.instance.destroy();assert.equal(h.registrations.length,0);const next=h.remount();assert.equal(h.registrations.length,8);h.instance.destroy();h.host.hidden=true;h.api.setActive(true);assert.equal(h.host.hidden,false,'A disposed old instance cannot clear the new global instance');next.destroy();assert.equal(h.registrations.length,0);
+});
+test('thirty successive shell mounts do not accumulate handlers on the reused host',()=>{
+ const h=harness();for(let i=0;i<30;i++){const instance=h.remount();assert.equal(h.registrations.length,8);instance.destroy();assert.equal(h.registrations.length,0);assert.equal(h.windowListeners.beforeunload,undefined);assert.equal(h.windowListeners.resize,undefined);}
 });

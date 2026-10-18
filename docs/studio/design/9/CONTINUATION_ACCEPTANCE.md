@@ -1,3 +1,5 @@
+> Current additional27-item audit: [CONTINUATION_27.md](CONTINUATION_27.md). Earlier test counts below remain dated evidence.
+
 # Website Studio continuation acceptance — 2026-10-17
 
 Executable source: `872b31fe1d70dc77c20336112a7f5f5992d15571`.

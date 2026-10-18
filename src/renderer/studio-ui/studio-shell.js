@@ -24,6 +24,15 @@
     if (currentInstance) currentInstance.destroy();
 
     let active = false;
+    let disposed = false;
+    const hostListeners = [];
+    function listenToHost(event, listener) {
+      host.addEventListener(event, listener);
+      hostListeners.push({ event, listener });
+    }
+    function afterFrame(callback) {
+      requestAnimationFrame(() => { if (!disposed) callback(); });
+    }
     let pendingLeave = null;
     let viewState = null;
     let announcementTimer = null;
@@ -156,7 +165,7 @@
       const returnFocus = dialogReturnFocus;
       dialogReturnFocus = null;
       if (!returnFocus) return;
-      requestAnimationFrame(() => {
+      afterFrame(() => {
         let target = returnFocus.element && returnFocus.element.isConnected ? returnFocus.element : null;
         if (!target && returnFocus.focusKey) target = host.querySelector(`[data-focus-key="${CSS.escape(returnFocus.focusKey)}"]`);
         if (!target && returnFocus.action) {
@@ -451,7 +460,7 @@
       if (!websiteSteps.some(item => item.id === step)) return;
       websiteStep = step;
       render();
-      requestAnimationFrame(() => {
+      afterFrame(() => {
         const heading = host.querySelector('[data-website-panel="' + step + '"] h3');
         heading?.focus({ preventScroll: true });
         heading?.scrollIntoView({ block: 'start' });
@@ -476,7 +485,7 @@
         <p>Save the project first. A checkpoint keeps a local draft snapshot, not an approved version. Up to 10 checkpoints are kept; existing ones are never automatically removed. ${websiteStoragePersistent ? 'No team sync or service backup.' : 'Session-only storage: checkpoints will be lost when this window reloads.'}</p>
         <div class="website-add-row"><label class="studio-field"><span>Checkpoint label</span><input id="website-checkpoint-label" maxlength="120" placeholder="Before review" data-focus-key="website-checkpoint-label"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-create" ${state.dirty || state.checkpoints.length >= 10 ? 'disabled' : ''}>Create saved checkpoint</button></div>
         <p>Save or discard current edits before restoring. Restore creates an unsaved draft; Undo reverses it. The saved primary stays unchanged until Save project.</p>
-        ${state.checkpoints.length ? `<ol>${state.checkpoints.map(checkpoint => `<li><div><strong>${escapeHtml(checkpoint.label)}</strong><span>Saved revision ${checkpoint.revision} · ${checkpoint.pageCount} pages · ${escapeHtml(checkpoint.createdAt)}</span></div><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-restore" data-value="${attr(checkpoint.id)}" ${state.dirty ? 'disabled' : ''}>Restore ${escapeHtml(checkpoint.label)}</button>${renderCheckpointRemoval(checkpoint)}</li>`).join('')}</ol>` : '<p>No saved checkpoints for this website.</p>'}</section>`;
+        ${state.checkpoints.length ? `<ol>${state.checkpoints.map(checkpoint => `<li><div><strong>${escapeHtml(checkpoint.label)}</strong><span>Saved revision ${checkpoint.revision} · ${checkpoint.pageCount} pages · ${escapeHtml(root.MeridianWebsiteBuilder.formatSavedDate(checkpoint.createdAt))}</span></div><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-restore" data-value="${attr(checkpoint.id)}" ${state.dirty ? 'disabled' : ''}>Restore ${escapeHtml(checkpoint.label)}</button>${renderCheckpointRemoval(checkpoint)}</li>`).join('')}</ol>` : '<p>No saved checkpoints for this website.</p>'}</section>`;
     }
 
     function renderWebsiteStyles(project) {
@@ -532,7 +541,7 @@
           <section class="studio-section"><div class="website-create"><div class="studio-field"><label for="website-new-name">Website project name</label><input id="website-new-name" maxlength="160" placeholder="Example: Summit Roofing website" data-focus-key="website-new-name"></div><button type="button" class="studio-button studio-button--primary" data-action="website-create">Create website project</button></div></section>
           <section class="studio-section" aria-labelledby="website-saved-title"><div class="studio-section-heading"><div><span class="studio-kicker">${websiteStoragePersistent ? 'Saved in this app' : 'Session only'}</span><h2 id="website-saved-title" tabindex="-1">Reopen work</h2></div><p>${state.catalogueError ? 'Saved list unavailable' : state.projects.length + ' saved project' + (state.projects.length === 1 ? '' : 's')}</p></div>
             ${state.catalogueError ? `<section class="studio-inline-error" role="alert" aria-labelledby="website-catalogue-title"><div><h3 id="website-catalogue-title" tabindex="-1">Saved website list unavailable</h3><p>${escapeHtml(state.catalogueError)}</p><button id="website-catalogue-retry" type="button" class="studio-button studio-button--secondary" data-action="website-refresh" data-focus-key="website-catalogue-retry">Retry saved website list</button></div></section>` : ''}
-            ${state.catalogueError ? '' : state.projects.length ? `<div class="website-project-list">${state.projects.map(project => `<article><div><h3>${escapeHtml(project.name)}</h3><p>${project.pageCount} page${project.pageCount === 1 ? '' : 's'} · Updated ${escapeHtml(new Date(project.updatedAt).toLocaleString())}</p></div><button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(project.id)}">Open project</button></article>`).join('')}</div>` : state.unavailableProjects?.length ? '<p>No readable website projects were found. Saved records needing recovery are listed below.</p>' : '<p>No website projects have been saved for this Meridian project.</p>'}
+            ${state.catalogueError ? '' : state.projects.length ? `<div class="website-project-list">${state.projects.map(project => `<article><div><h3>${escapeHtml(project.name)}</h3><p>${project.pageCount} page${project.pageCount === 1 ? '' : 's'} · Updated ${escapeHtml(root.MeridianWebsiteBuilder.formatSavedDate(project.updatedAt))}</p></div><button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(project.id)}">Open project</button></article>`).join('')}</div>` : state.unavailableProjects?.length ? '<p>No readable website projects were found. Saved records needing recovery are listed below.</p>' : '<p>No website projects have been saved for this Meridian project.</p>'}
           ${state.unavailableProjects?.length ? `<section class="studio-inline-error" aria-labelledby="website-recovery-title"><div><h3 id="website-recovery-title" tabindex="-1">Saved websites need recovery</h3><p>${state.unavailableProjects.length} local website record${state.unavailableProjects.length === 1 ? '' : 's'} could not be opened. The saved records have been kept. Retrying checks the same saved copies; it does not replace them with a new website.</p>${state.unavailableProjects.map((item, index) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-open" data-value="${attr(item.id)}" data-focus-key="website-recovery-${attr(item.id)}" aria-label="Retry recovery for saved website ${index + 1}">Retry recovery ${index + 1}</button>`).join('')}</div></section>` : ''}
           </section></div>`;
       }
@@ -590,6 +599,7 @@
     }
 
     function render() {
+      if (disposed) return;
       if (!viewState || !host) return;
       const location = `${viewState.project ? viewState.project.id : ''}:${viewState.surface}:${websiteState && websiteState.project ? websiteState.project.id : ''}`;
       const oldWorkspace = host.querySelector('.studio-workspace');
@@ -639,7 +649,7 @@
       }
     }
 
-    host.addEventListener('click', async event => {
+    listenToHost('click', async event => {
       const button = event.target.closest('[data-action]');
       if (!button || !host.contains(button)) return;
       const action = button.dataset.action;
@@ -749,7 +759,7 @@
       }
       else if (action === 'website-jump' || action === 'website-jump-section') {
         openWebsiteStep(value === 'checkpoints' ? 'preview' : 'edit');
-        requestAnimationFrame(() => {
+        afterFrame(() => {
           const target = action === 'website-jump-section'
             ? [...host.querySelectorAll('[data-website-section][data-field="heading"]')].find(item => item.dataset.websiteSection === value)
             : host.querySelector(value === 'checkpoints' ? '#website-checkpoints-title' : '#website-shared-title');
@@ -851,7 +861,7 @@
       return target;
     }
 
-    host.addEventListener('dragstart', event => {
+    listenToHost('dragstart', event => {
       const source = event.target.closest('[data-drag-kind]');
       if (!source || !host.contains(source) || !websiteState?.project || !['page','section'].includes(source.dataset.dragKind)) return;
       dragging = { kind: source.dataset.dragKind, id: source.dataset.dragId, context: websiteContextId, website: websiteState.project.id, page: websiteState.selectedPageId };
@@ -859,7 +869,7 @@
       const status = host.querySelector('.studio-live-status');
       if (status) status.textContent = 'Drag above or below another item in the same group. Move controls are also available from the keyboard.';
     });
-    host.addEventListener('dragover', event => {
+    listenToHost('dragover', event => {
       const target = dropTarget(event);
       clearDropTargets();
       if (!target) return;
@@ -869,7 +879,7 @@
       const bounds = target.getBoundingClientRect();
       target.dataset.dropPlacement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
     });
-    host.addEventListener('drop', event => {
+    listenToHost('drop', event => {
       const target = dropTarget(event), source = dragging;
       // Ignore transferred content. Only an active in-shell drag can reorder.
       if (event.target.closest('[data-drop-kind]') && !event.target.closest('input,textarea,select')) event.preventDefault();
@@ -884,13 +894,13 @@
       const control = [...host.querySelectorAll('[data-drag-kind]')].find(item => item.dataset.dragKind === source.kind && item.dataset.dragId === source.id);
       control?.focus({ preventScroll: true }); control?.scrollIntoView({ block: 'nearest' });
     });
-    host.addEventListener('dragend', () => {
+    listenToHost('dragend', () => {
       dragging = null; clearDropTargets();
       const status = host.querySelector('.studio-live-status');
       if (status) status.textContent = websiteState?.status || viewState.statusMessage;
     });
 
-    host.addEventListener('change', event => {
+    listenToHost('change', event => {
       const control = event.target;
       if (control.dataset.action === 'project' && control.value && typeof onProjectSelect === 'function') {
         onProjectSelect(control.value);
@@ -903,7 +913,7 @@
       if (control.dataset && Object.hasOwn(control.dataset, 'websitePreviewPage')) website.selectPage(control.value);
     });
 
-    host.addEventListener('input', event => {
+    listenToHost('input', event => {
       const control = event.target;
       if (control.dataset.editorField) workspace.updateEditor(control.dataset.editorField, control.value);
       if (control.dataset.action === 'asset-query') workspace.setAssetQuery(control.value);
@@ -912,7 +922,7 @@
       if (control.dataset.websiteSection) website.updateSection(control.dataset.websiteSection, control.dataset.field, control.value);
     });
 
-    host.addEventListener('keydown', event => {
+    listenToHost('keydown', event => {
       const modal = host.querySelector('.studio-modal');
       if (!modal) return;
       if (event.key === 'Escape') {
@@ -951,11 +961,12 @@
     }
 
     function setActive(next) {
+      if (disposed) return;
       active = Boolean(next);
       host.hidden = !active;
       if (active) {
         render();
-        requestAnimationFrame(() => host.querySelector('#studio-main')?.focus({ preventScroll: true }));
+        afterFrame(() => host.querySelector('#studio-main')?.focus({ preventScroll: true }));
       }
     }
 
@@ -974,6 +985,9 @@
     root.addEventListener?.('beforeunload', preventUnsavedUnload);
 
     function destroy() {
+      if (disposed) return;
+      disposed = true;
+      for (const { event, listener } of hostListeners.splice(0)) host.removeEventListener?.(event, listener);
       root.removeEventListener?.('beforeunload', preventUnsavedUnload);
       root.removeEventListener?.('resize', measureWebsiteBar);
       dragging = null;

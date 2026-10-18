@@ -1,0 +1,13 @@
+{
+  "limits": "Fresh synthetic Electron, no human or live service acceptance. Lifecycle/date fixes exercised; final parser-message change covered by regression and final hosted guided run.",
+  "captures": [
+    {
+      "file": "37b-checkpoint-retry-focus-200pct.png",
+      "sha256": "9d939c70fd7a40927567e0fb5b431d66c4099318e009302000dff978ab5ae98f"
+    },
+    {
+      "file": "38-checkpoint-history-recovered.png",
+      "sha256": "e3c22bf0e71d96f4ac7d990b60b608ac181e5281f17b4507f0c21f77ec1d79ec"
+    }
+  ]
+}

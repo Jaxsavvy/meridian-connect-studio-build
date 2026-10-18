@@ -1,3 +1,5 @@
+> Current additional27-item audit: [CONTINUATION_27.md](CONTINUATION_27.md). Earlier test counts below remain dated evidence.
+
 # Current Studio availability — local continuation
 
 | Entry | Client behavior | Authority still unavailable |

@@ -1,12 +1,12 @@
 # Proposed integration order — refreshed October 18
 
 Read-only review of all eight open PRs before this continuation publication.
-PR39 input was f665d64; this continuation advances that same review lane.
+PR39 input was 89f6b6a; this continuation advances that same review lane.
 Proposal only; all PRs stay unmerged. Changed-file overlap is not proof of conflict.
 
 | PR | Exact reviewed head | Scope |
 | --- | --- | --- |
-| #39 | `f665d64c96796b4bbd06a12f047b4297e0b7597c` | DEV-006: integrate guided Website, Assets and local review workspace |
+| #39 | `89f6b6a76c321487741232fdd4fabae05d88c94c` | DEV-006: integrate guided Website, Assets and local review workspace |
 | #38 | `ec1c1dcfb63acd51cc8d5d992a7a03ea9aab66a9` | DEV-011: draft Studio asset permission policy |
 | #37 | `d0d7c99372e889798c142df7c3f94c4e07127d90` | DEV-006: guide Website Builder through Brief, Pages, Edit and Preview |
 | #36 | `d2fffe0beb7501eb45f667a99693e140ec246685` | DEV-010: draft Studio asset service v1 contract |

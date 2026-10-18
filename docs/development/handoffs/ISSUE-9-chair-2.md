@@ -1,5 +1,9 @@
 # DEV-006 — Chair 2 task handoff
 
+## October18 full27-item continuation
+
+Current entrypoint: docs/studio/design/9/CONTINUATION_27.md. Both requested lists are mapped there. Scoped listener lifecycle, disposed callback, date sorting/presentation and safe checkpoint parser diagnostic fixes;218local regressions. Fresh synthetic guided Electron passes. Package, performance/storage, dependency and license inventories distinguish measured results from unresolved distribution/runtime acceptance. Existing PR39 publication and exact final CI/artifact/board results are recorded in its current verification section, superseding pending statements here. No merge/release or backend/policy change.
+
 ## October 18 full22-item continuation
 
 User requested the entire22-item list. Basef665d64; same local task branch

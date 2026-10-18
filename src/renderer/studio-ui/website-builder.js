@@ -30,6 +30,13 @@
     }[character]));
   }
 
+  function formatSavedDate(value, locale) {
+    if (typeof value !== 'string' || !value.trim()) return 'Date unavailable';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return 'Date unavailable';
+    try { return date.toLocaleString(locale); } catch (_) { return 'Date unavailable'; }
+  }
+
   function pageFilename(page) {
     const slug = page.slug || 'index';
     return `${/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(slug) ? 'page-' : ''}${slug}.html`;
@@ -271,7 +278,13 @@
           if (project) projects.push({ id: project.id, name: project.name, updatedAt: project.updatedAt, pageCount: project.pages.length });
         } catch (_) { unavailableProjects.push({ id }); }
       }
-      projects.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      projects.sort((a, b) => {
+        const left = Date.parse(a.updatedAt), right = Date.parse(b.updatedAt);
+        if (Number.isFinite(left) && Number.isFinite(right)) return right - left;
+        if (Number.isFinite(left)) return -1;
+        if (Number.isFinite(right)) return 1;
+        return String(a.id).localeCompare(String(b.id));
+      });
       return { projects, unavailableProjects, catalogueError: null };
     }
 
@@ -282,7 +295,9 @@
       const raw = storage.getItem(checkpointKey(id));
       if (!raw) return [];
       if (raw.length > 6 * 1024 * 1024) throw new Error('Checkpoint history exceeds the local size limit.');
-      const record = JSON.parse(raw);
+      let record;
+      try { record = JSON.parse(raw); }
+      catch (_) { throw new Error('Checkpoint history format is invalid. Retained records are kept.'); }
       if (!record || typeof record !== 'object' || Array.isArray(record) || record.schema !== 'meridian.website-checkpoints.v1' || record.meridianProjectId !== meridianProjectId || record.websiteId !== id || !Array.isArray(record.checkpoints) || record.checkpoints.length > 10) throw new Error('Checkpoint history identity or format is invalid.');
       const ids = new Set();
       return record.checkpoints.map(item => {
@@ -951,5 +966,5 @@
       } });
   }
 
-  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, pageFilename, navigationRows, pageParentOptions, sharedSections, renderPage, exportSite, exportArchive, validateProject });
+  return Object.freeze({ SCHEMA, createMemoryStorage, createRepository, createController, formatSavedDate, pageFilename, navigationRows, pageParentOptions, sharedSections, renderPage, exportSite, exportArchive, validateProject });
 });
