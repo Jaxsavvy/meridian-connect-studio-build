@@ -69,3 +69,19 @@ Protocol resume verified Theecassycat / feature/studio-assets / DEV-005 Building
 Coordination continuation: board read Building / Chair 3 / P1, no new review. Shared the existing immutable continuation helper in model.js between runtime controller and docs-only paged hydration. Two prototype regressions pass, combined suite 71; syntax and exact scoped diff reviewed. No shared shell/API/bridge changes. Worklog updated for Jax/Tyler, PR #36 review remains unposted and prior DEV-003 work preserved.
 
 Reviewed current owner #36 ed17ef6 and #38 ec1c1dc policy. Existing preview downloaded complete original bytes, incompatible with reduced-fidelity-only preview grant. Made legacy byte path synthetic-only: non-synthetic download fails before transport; preview/export UI disabled until distinct reviewed host contracts. Two regressions, combined 73 pass. PREVIEW_EXPORT_REVIEW.md documents no live authorization claim and required rendition/export receipt mapping. PR #36 review unposted, no shared/owner branch edits, DEV-003 preserved.
+
+## Focused Unicode-name batch — implementation 7fd956cedf221ae93769f5c99bc4cdf24338935d
+
+Assignment: Chair 1 comment 6252970295 on DEV-005 #8; Cassy/Theecassycat, feature/studio-assets, draft PR #33. Base verified 075ec2adcca99b60d28eaa4efeff52f24fefb9b4. Model.text now validates both submitted and NFC-normalized/trimmed strings against its existing max (default 160 JavaScript UTF-16 code units), rejecting instead of truncating. Only model.js, focused unicode-name.test.cjs and this DEV-005 handoff changed.
+
+Evidence: before fix, four of five new tests reproduced missing rejection; after fix all five pass. U+0344 x160 rejects (160 submitted/320 normalized); x80 accepts unchanged normalized content (160 final). ASCII 160/161, emoji 80/81, decomposed names, trimmed/pre-normalized limits, custom max, direct model name/original filename validation, synthetic import and metadata atomicity, preserved original bytes/lineage and canonical version-suffixed export naming pass. Transport-picked filename cannot choose suggestion; valid 160-unit stem still yields its 168-unit __v1.txt suggestion.
+
+Commands/results:
+- node --test docs/studio/assets/8/unicode-name.test.cjs — 5/5.
+- node --test docs/studio/assets/8/component.test.cjs docs/studio/assets/8/worker.test.cjs docs/studio/assets/8/native.test.cjs — documented suite 43/43.
+- node --test docs/studio/assets/8/component.test.cjs docs/studio/assets/8/worker.test.cjs docs/studio/assets/8/native.test.cjs docs/studio/assets/8/view.test.cjs docs/studio/assets/8/paged-read.test.cjs docs/studio/assets/8/unicode-name.test.cjs tools/studio-context/asset-host.test.cjs — expanded suite 78/78.
+- node --check on all 27 tracked source JavaScript files and the new test passed; exact diff, staged paths, sensitive-pattern scan and git diff --check reviewed. GitHub required source checks must be read back at final published head; result is on PR #33.
+
+Preservation: both existing DEV-003 local files had identical SHA-256 before/after implementation and remain unstaged/excluded. No Tyler/shared UI, owner contracts/bridge, PR #36, backend, production or customer content changed. No merge/deployment/build/native tool run; tests are synthetic and do not establish backend readiness. Keep PR draft and DEV-005 Building. PR #36 review remains Cassy's to submit.
+
+After final publication, notify Jax/Tyler on the task/PR: PR #39's existing composition evidence was pinned to old #33 075ec2a; request a fresh disposable Linux/Windows composition at the new PR head. This batch does not claim that rerun or supersede its runtime evidence.
