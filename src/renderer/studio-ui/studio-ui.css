@@ -785,3 +785,5 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .website-shortcuts, .website-section-index { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
 .website-shortcuts span { color: var(--studio-muted); font-size: 12px; flex: 1 1 240px; }
 .website-section-index button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+
+.website-workbar__copy .website-workbar__status { overflow: visible; text-overflow: clip; white-space: normal; }

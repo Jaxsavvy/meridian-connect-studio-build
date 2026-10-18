@@ -1,6 +1,6 @@
 {
   "base": "c5a205cc8a56b2cb4bfc0b404907a6678a342775",
-  "scope": "Uncommitted ordered review delta; local synthetic Electron only",
+  "scope": "Ordered review follow-up with long-name status refinement; local synthetic Electron",
   "localRegression": {
     "passed": 196,
     "failed": 0,
@@ -18,25 +18,29 @@
   "captures": [
     {
       "file": "23-sticky-context.png",
-      "sha256": "ebfcce2901baf0b04f750985eafa827c7f6e5718bd453d0721537a7c6c577066"
+      "sha256": "8f30ac2cc19b5172e92bbee3fe87faf4ba43a108123b92a3412b0b027244fdd8"
     },
     {
       "file": "24-shortcut-overview.png",
-      "sha256": "38c0a4dc8c24df718e05d3f8721d03501579b2a09b994957a9e6954ec22f2f50"
+      "sha256": "c275fa5f452497d993c1f714fc8fc06c50a2bec5799a165bd33ec2d1427d0de4"
     },
     {
       "file": "24-section-shortcuts.png",
-      "sha256": "345603325307449177635f5c4cbc75c3ceb18ca07ace3281de409b77d273a8fe"
+      "sha256": "acb22175018bec31ae722323e604b2e982bb4cef141ca7b10b80b3878000e706"
+    },
+    {
+      "file": "16-1280-2.png",
+      "sha256": "5851b9dda467846c690f5757da3680984ae391cfa4fc9a15d9693b938e667231"
     }
   ],
   "sourceFiles": [
     {
       "file": "src/renderer/studio-ui/studio-shell.js",
-      "sha256": "e5b2c2dd8d84be0561ac627670951349b84cc0f8af42bc4dab3e00ebf0871b2c"
+      "sha256": "cc54f2b86e27db9733ea9cf587ba8a65807870708f05124b889f0ad2b38b998c"
     },
     {
       "file": "src/renderer/studio-ui/studio-ui.css",
-      "sha256": "51ff45dbffb2bdd29645b1dcbc945927b3f57749148d553f44215719919a9d52"
+      "sha256": "fe1e504b2a9d60974c39b696b146f3326d4810b3c9504f93583b62c86f9c40d5"
     },
     {
       "file": "src/renderer/studio-ui/website-builder.js",
@@ -44,11 +48,16 @@
     },
     {
       "file": "docs/studio/design/9/ordered-review.cjs",
-      "sha256": "d34de4398f31dac38fdf1cc63c00c5c431f55d150d931aaf1594b824da083b1b"
+      "sha256": "4e90f074e0516352dd407a66ed97ab46fdbe65d05d0f0ca45caadc947ef227a1"
     }
   ],
   "limits": [
     "No new installed/OS Contrast acceptance for this delta",
     "No authoritative service or human Narrator/native-pointer acceptance"
-  ]
+  ],
+  "statusVisibility": {
+    "longPageTitleCharacters": 120,
+    "stepViewportCombinations": 20,
+    "statusNotEllipsized": true
+  }
 }

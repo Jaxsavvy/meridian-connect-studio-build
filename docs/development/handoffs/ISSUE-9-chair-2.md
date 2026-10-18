@@ -1,5 +1,20 @@
 # DEV-006 — Chair 2 task handoff
 
+## October 18 published ordered-review follow-up
+
+Published dfb8fbc/008c9ee to existing PR39; source, Linux, cross-chair Linux/
+Windows and Windows-installed/actual Contrast checks pass on008c9ee. Four
+artifact archive digests, source/composed/installed records and six actual site
+ZIPs verified. See ORDERED_DELIVERY.md for exact runs/trees and limits.
+Hosted screenshot review then found long page titles hiding step/save status
+at200%; this commit gives them their own wrapping line. Twenty long-name
+viewport/step checks and visible shortcut targets pass locally; latest PR39
+checks track hosted verification of this final refinement.
+Existing board Building→Review→Testing, each saved value read back. No Complete,
+closure or merge. Remaining human/independent/service/installer/release gates
+are explicit in ORDERED_DELIVERY.md. Earlier uncommitted entries are history.
+
+
 ## October18 ordered30-item local review
 
 Resumed the explicit pause after1–22 and partial23 from Review Meridian build.

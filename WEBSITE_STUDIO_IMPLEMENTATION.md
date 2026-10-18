@@ -1,17 +1,14 @@
 # Website Studio technical implementation
 
-## Latest local review — October 18, 2026
+## Current ordered-review delivery — October 18, 2026
 
-The ordered review is on `codex/studio-thirty-checks`, based on PR #39
-`c5a205c`. Its uncommitted changes are separate from published PR evidence.
-See `docs/studio/design/9/ORDERED_REVIEW.md` and `ORDERED_READINESS.md`.
-The last published verified source is `9f21362` (192 local / 219 composed tests);
-`CREATION_AND_CATALOGUE_INTEGRITY.md` records exact runs and limits.
-Older source IDs, test totals and package results below are historical milestones,
-not verification of the current uncommitted source. Local pages, nested navigation,
-linked sections, device previews and whole-site ZIP are implemented. Authoritative
-services, media placement, provider AI and release acceptance remain open.
-
+The ordered review is published on existing PR #39. Source008c9ee passed
+source/Linux/cross-chair/Windows-installed verification. This branch also
+contains the final long-name step/save-status refinement; current PR checks
+track that revision. See `docs/studio/design/9/ORDERED_DELIVERY.md` for exact
+source trees, artifact hashes, screenshots, board state and remaining gates.
+Earlier source IDs/test totals/package results below retain their historical
+scope. Local Website data is not authoritative team storage or release acceptance.
 
 ## Current implementation record — 2026-10-17
 

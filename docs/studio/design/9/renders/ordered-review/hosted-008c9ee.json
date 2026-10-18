@@ -1,0 +1,116 @@
+{
+  "verifiedSource": "008c9ee97190613a4365c41f2ee855de77b94e96",
+  "sourceTree": "99fdfe294b636579140e860dce19d38d99c7431d",
+  "composedTree": "6263b9afc1c39555e89ec9805972501227de7bb5",
+  "assetHead": "075ec2adcca99b60d28eaa4efeff52f24fefb9b4",
+  "installedSourceTree": "99fdfe294b636579140e860dce19d38d99c7431d",
+  "installedSourceMatches": true,
+  "artifacts": [
+    {
+      "id": 12144334383,
+      "sha256": "f9afb13f9f3163a82fd0efe6350c47c6dead491263dfd39a79b8e702bb1b9781",
+      "bytes": 8610195
+    },
+    {
+      "id": 12145755346,
+      "sha256": "89ef837ec743b1b07a42788257b4ae700241c6b478f5e454d9a5a6e3f89b5c50",
+      "bytes": 8821658
+    },
+    {
+      "id": 12145596390,
+      "sha256": "9d0e6e1c2d535a51459554bb893aa280fb55295720aab534bcbf5c50a8a1aff3",
+      "bytes": 12455666
+    },
+    {
+      "id": 12145178176,
+      "sha256": "df9e253e715bdbe2573c84af5e98bd59b4034da869dee5826ce45088d4a4ddc8",
+      "bytes": 12591854
+    }
+  ],
+  "websiteZIPs": [
+    {
+      "file": "hosted-linux/website-guided-ui-evidence/ui-flow-evidence/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    },
+    {
+      "file": "hosted-composed/cross-chair-Linux/ui-flow-evidence/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    },
+    {
+      "file": "hosted-composed/cross-chair-Windows/test-output/windows-high-contrast/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    },
+    {
+      "file": "hosted-composed/cross-chair-Windows/ui-flow-evidence/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    },
+    {
+      "file": "hosted-windows/windows-studio-verification/test-output/windows-high-contrast/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    },
+    {
+      "file": "hosted-windows/windows-studio-verification/ui-flow-evidence/synthetic-website.zip",
+      "sha256": "504cae45e29683af057a118632503e9b14434f99a47b54afbcacbf3b58d93466",
+      "entries": [
+        {
+          "name": "services.html",
+          "bytes": 2586
+        },
+        {
+          "name": "index.html",
+          "bytes": 2887
+        }
+      ]
+    }
+  ]
+}
