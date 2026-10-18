@@ -6,12 +6,13 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const root = join(__dirname, '../..');
 
-function harness({ fallback = false, saveDraft = null } = {}) {
+function harness({ fallback = false, saveDraft = null, writeBlocked = false, stored = [] } = {}) {
   const listeners = {};
-  const values = new Map();
+  const values = new Map(stored);
+  const windowListeners = {};
   const storage = {
     getItem: key => values.get(key) || null,
-    setItem: (key, value) => values.set(key, value),
+    setItem: (key, value) => { if (writeBlocked) throw Error('Synthetic storage full'); values.set(key, value); },
     removeItem: key => values.delete(key),
     key: index => [...values.keys()][index] || null,
     get length() { return values.size; },
@@ -30,6 +31,8 @@ function harness({ fallback = false, saveDraft = null } = {}) {
     document: { activeElement: null }, CSS: { escape: value => value },
     requestAnimationFrame: fn => fn(), setTimeout: () => 0, clearTimeout: () => {},
     localStorage: storage,
+    addEventListener: (name, callback) => { windowListeners[name] = callback; },
+    removeEventListener: (name, callback) => { if (windowListeners[name] === callback) delete windowListeners[name]; },
     MeridianStudioFixtures: { createSyntheticAdapter: () => ({}) },
     MeridianStudioWorkspace: {
       createWorkspace({ onChange }) {
@@ -67,7 +70,7 @@ function harness({ fallback = false, saveDraft = null } = {}) {
     return [...host.innerHTML.matchAll(/<(?:section|aside) [^>]*data-website-panel="([^"]+)"([^>]*)>/g)]
       .filter(match => !/\bhidden\b/.test(match[2])).map(match => match[1]);
   }
-  return { host, click, input, select, visiblePanels, instance, values, makeStudioDirty() { state = { ...state, unsaved: true, saveState: 'Unsaved' }; notify(state); } };
+  return { host, click, input, select, visiblePanels, instance, values, unload() { const event = { prevented: false, preventDefault() { this.prevented = true; } }; windowListeners.beforeunload?.(event); return event; }, windowListeners, makeStudioDirty() { state = { ...state, unsaved: true, saveState: 'Unsaved' }; notify(state); } };
 }
 
 test('guided steps preserve unsaved edits and expose one panel', async () => {
@@ -191,4 +194,42 @@ test('retained section identities are escaped in every editor label and input at
   assert.doesNotMatch(h.host.innerHTML,/data-preview-injection="yes/,'A stored identity must not introduce an HTML attribute');
   assert.match(h.host.innerHTML,/id="website-section&quot; data-preview-injection=&quot;yes-heading"/);
   assert.match(h.host.innerHTML,/for="website-section&quot; data-preview-injection=&quot;yes-action"/);
+});
+
+
+test('full storage at mount preserves readable saved websites and reports failed saves without a session fallback', async () => {
+  const Builder = require('../../src/renderer/studio-ui/website-builder.js');
+  const storage = Builder.createMemoryStorage();
+  const controller = Builder.createController({ storage, idFactory: () => 'website-quota' });
+  controller.selectContext({ id: 'synthetic-alpha', name: 'Alpha' });
+  controller.createProject('Retained readable website');
+  const stored = Array.from({ length: storage.length }, (_, i) => [storage.key(i), storage.getItem(storage.key(i))]);
+  const h = harness({ writeBlocked: true, stored }); h.select('synthetic-alpha');
+  assert.match(h.host.innerHTML, /Retained readable website/);
+  assert.doesNotMatch(h.host.innerHTML, /Websites are session only/);
+  await h.click('website-open', 'website-quota'); h.input('audience', 'Keep my edits');
+  await h.click('website-save');
+  assert.match(h.host.innerHTML, /Save failed/);
+  assert.match(h.host.innerHTML, /Keep my edits/);
+  assert.deepEqual([...h.values.entries()], stored, 'Read-only opening and failed save preserve saved bytes');
+});
+
+test('Website unload guard keeps edits until explicit save and removes its listener on disposal', async () => {
+  const h = harness(); h.select('synthetic-alpha'); await h.click('website-create');
+  assert.equal(h.unload().prevented, false);
+  h.input('audience', 'Unsaved close guard');
+  assert.equal(h.unload().prevented, true);
+  assert.match(h.host.innerHTML, /then close or reload the window again/);
+  await h.click('keep-editing'); assert.match(h.host.innerHTML, /Unsaved close guard/);
+  assert.equal(h.unload().returnValue, false);
+  await h.click('save-leave'); assert.equal(h.unload().prevented, false);
+  h.instance.destroy(); assert.equal(h.windowListeners.beforeunload, undefined);
+});
+
+test('campaign unload guard protects in-flight unsaved work and releases after save acknowledgement', async () => {
+  let finish; const result = new Promise(resolve => { finish = resolve; });
+  const h = harness({ saveDraft: () => result }); h.select('synthetic-alpha'); h.makeStudioDirty();
+  assert.equal(h.unload().prevented, true);
+  const saving = h.click('save-leave'); assert.equal(h.unload().prevented, true);
+  finish(true); await saving; assert.equal(h.unload().prevented, false);
 });

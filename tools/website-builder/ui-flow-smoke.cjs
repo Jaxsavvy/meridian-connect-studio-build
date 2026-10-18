@@ -26,7 +26,7 @@ async function click(window, selector) {
 }
 async function capture(window, name) {
   window.webContents.invalidate();
-  await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  await Promise.race([window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))'), pause(8000).then(() => { throw Error('Capture frame wait timed out: ' + name); })]);
   await pause(180);
   await window.webContents.capturePage();
   await pause(120);
@@ -672,7 +672,7 @@ app.whenReady().then(async () => {
     assert.equal(media.reducedMotion, true); assert.equal(media.forcedColors, true);
     await capture(window, '08-emulated-forced-colors');
     window.webContents.debugger.detach();
-    const employee = new BrowserWindow({width:1440,height:1000,show:true,webPreferences:{preload:join(root,'docs/studio/design/9/runtime-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:false,additionalArguments:['--studio-evidence-mode=employee']}});
+    const employee = new BrowserWindow({width:1440,height:1000,show:true,webPreferences:{preload:join(root,'docs/studio/design/9/runtime-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:false,backgroundThrottling:false,additionalArguments:['--studio-evidence-mode=employee']}});
     await employee.loadFile(join(root,'src/renderer/index.html'));
     await waitFor(employee,'#projectsMasterList .project-item');
     await employee.webContents.executeJavaScript("switchView('studio')");

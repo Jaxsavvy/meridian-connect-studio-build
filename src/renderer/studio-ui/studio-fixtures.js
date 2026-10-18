@@ -13,7 +13,7 @@
     blender: 'Blender requires an approved, host-controlled desktop exchange.',
     krita: 'Krita requires an approved, host-controlled artwork exchange.',
     upscayl: 'Upscayl remains unavailable until isolation and distribution review are accepted.',
-    website: 'Website Builder requires an approved draft, preview, and publish contract.',
+    website: 'Create, save and export websites on this device. Team sync, connected media and publishing are not available yet.',
     audio: 'Audio Studio requires approved capture, provider, consent, and export contracts.',
     files: 'Studio Files requires the authoritative project-scoped asset service and host lifecycle.',
   });

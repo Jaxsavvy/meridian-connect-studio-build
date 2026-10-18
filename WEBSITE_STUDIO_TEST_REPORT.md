@@ -1,5 +1,18 @@
 # Website Studio verification report
 
+## Latest local review — October 18, 2026
+
+The ordered review is on `codex/studio-thirty-checks`, based on PR #39
+`c5a205c`. Its uncommitted changes are separate from published PR evidence.
+See `docs/studio/design/9/ORDERED_REVIEW.md` and `ORDERED_READINESS.md`.
+The last published verified source is `9f21362` (192 local / 219 composed tests);
+`CREATION_AND_CATALOGUE_INTEGRITY.md` records exact runs and limits.
+Older source IDs, test totals and package results below are historical milestones,
+not verification of the current uncommitted source. Local pages, nested navigation,
+linked sections, device previews and whole-site ZIP are implemented. Authoritative
+services, media placement, provider AI and release acceptance remain open.
+
+
 ## Current implementation record — 2026-10-17
 
 PR #39 remains the combined, unmerged review lane. Current executable source

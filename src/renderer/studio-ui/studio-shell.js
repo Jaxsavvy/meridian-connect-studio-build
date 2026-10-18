@@ -52,8 +52,9 @@
     try {
       websiteStorage = root.localStorage;
       const probe = 'meridian.website.storage.probe';
-      websiteStorage.setItem(probe, '1');
-      websiteStorage.removeItem(probe);
+      // A full/read-only store may still hold readable saved work.
+      // Use session storage only when reads themselves are unavailable.
+      websiteStorage.getItem(probe);
       websiteStoragePersistent = true;
     } catch (_) {
       websiteStorage = root.MeridianWebsiteBuilder.createMemoryStorage();
@@ -197,10 +198,10 @@
         <div class="studio-project-copy">
           <span class="studio-kicker">Meridian / Connect / Studio</span>
           <h1 id="studio-title" title="${attr(state.project ? state.project.name : 'No project selected')}">${escapeHtml(state.project ? state.project.name : 'Choose a project')}</h1>
-          <p>${state.project ? 'Project context remains visible across Studio surfaces.' : 'Select a project from the authenticated Connect list.'}</p>
+          <p>${state.project ? 'Project context remains visible across Studio surfaces.' : 'Select a project available to your account.'}</p>
         </div>
         <div class="studio-project-actions">
-          <label for="studio-project-select">Project context</label>
+          <label for="studio-project-select">Meridian project</label>
           <select id="studio-project-select" data-action="project" data-focus-key="project-select" aria-describedby="studio-project-help">
             <option value="">Select a project</option>
             ${projectItems.map(project => `<option value="${attr(project.id)}"${project.id === selectedId ? ' selected' : ''}>${escapeHtml(project.name)}</option>`).join('')}
@@ -232,7 +233,7 @@
         <span class="studio-state__code">ERROR</span>
         <h2 id="studio-error-title">The workspace could not be loaded.</h2>
         <p>${escapeHtml(state.error || 'Synthetic workspace load failed.')}</p>
-        <button type="button" class="studio-button studio-button--primary" data-action="retry-load">Retry synthetic load</button>
+        <button type="button" class="studio-button studio-button--primary" data-action="retry-load">Retry workspace</button>
       </section>`;
     }
 
@@ -240,8 +241,8 @@
       const tools = context.snapshot().tools;
       return `<section class="studio-section studio-tools" aria-labelledby="studio-tools-title">
         <div class="studio-section-heading">
-          <div><span class="studio-kicker">Capability map</span><h2 id="studio-tools-title">Nine honest entry points</h2></div>
-          <p>UI presence never changes provider availability.</p>
+          <div><span class="studio-kicker">Studio tools</span><h2 id="studio-tools-title">Creative tools</h2></div>
+          <p>Website Builder works locally. Other tools need their connected services before they can run.</p>
         </div>
         <div class="studio-tool-grid">
           ${tools.map(tool => `<article class="studio-tool-card">
@@ -440,6 +441,12 @@
       </div>`;
     }
 
+    function measureWebsiteBar() {
+      const bar = host.querySelector('.website-workbar');
+      if (bar) bar.parentElement.style.setProperty('--website-workbar-height', bar.offsetHeight + 'px');
+    }
+    root.addEventListener?.('resize', measureWebsiteBar);
+
     function openWebsiteStep(step) {
       if (!websiteSteps.some(item => item.id === step)) return;
       websiteStep = step;
@@ -506,7 +513,7 @@
 
     function renderSharedSectionLibrary(project) {
       const groups = root.MeridianWebsiteBuilder.sharedSections(project);
-      return `<section class="website-shared-library" aria-labelledby="website-shared-title"><h4 id="website-shared-title">Shared sections</h4><p>Make a section shared to reuse it on other pages. Content edits update every linked copy in this website. Detach a copy to edit it independently.</p><div class="website-add-row"><label class="studio-field"><span>Shared section</span><select id="website-shared-section" ${groups.length ? '' : 'disabled'}>${groups.length ? groups.map(group => `<option value="${attr(group.id)}">${escapeHtml(group.label)} · ${group.copies} linked ${group.copies === 1 ? 'copy' : 'copies'}</option>`).join('') : '<option value="">No shared sections yet</option>'}</select></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-shared" ${groups.length ? '' : 'disabled'}>Insert linked section</button></div></section>`;
+      return `<section class="website-shared-library" aria-labelledby="website-shared-title"><h4 id="website-shared-title" tabindex="-1">Shared sections</h4><p>Make a section shared to reuse it on other pages. Content edits update every linked copy in this website. Detach a copy to edit it independently.</p><div class="website-add-row"><label class="studio-field"><span>Shared section</span><select id="website-shared-section" ${groups.length ? '' : 'disabled'}>${groups.length ? groups.map(group => `<option value="${attr(group.id)}">${escapeHtml(group.label)} · ${group.copies} linked ${group.copies === 1 ? 'copy' : 'copies'}</option>`).join('') : '<option value="">No shared sections yet</option>'}</select></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-shared" ${groups.length ? '' : 'disabled'}>Insert linked section</button></div></section>`;
     }
 
     function renderWebsitePreviewSelector(project, page) {
@@ -537,19 +544,21 @@
 
       const page = project.pages.find(item => item.id === state.selectedPageId) || project.pages[0];
       return `<div class="studio-surface website-builder" data-surface="website">
-        <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder</span><h2 id="website-builder-title">${escapeHtml(project.name)}</h2><p>One website, four focused steps. Return to any step without losing your current edits.</p></div><div class="studio-save-cluster"><button type="button" class="studio-button studio-button--secondary" data-action="website-list">All websites</button><button type="button" class="studio-button studio-button--secondary" data-action="website-undo">Undo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-redo">Redo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-save-copy" title="Save your current edits as a new website on this device">Save separate copy</button><button type="button" class="studio-button studio-button--primary" data-action="website-save" ${state.dirty ? '' : 'disabled'}>Save project</button></div></section>
+        <div class="website-workbar" role="region" aria-label="Current website and save controls"><div class="website-workbar__copy"><strong title="${attr(project.name)}">${escapeHtml(project.name)}</strong><span title="${attr(page.title)}">${escapeHtml(page.title)} · ${escapeHtml(step.label)} · ${state.dirty ? 'Unsaved changes' : websiteStoragePersistent ? 'Saved on this device' : 'Session only'}</span></div><div class="website-workbar__actions"><button type="button" class="studio-button studio-button--secondary" data-action="website-show-steps" data-focus-key="website-show-steps">Website steps</button><button type="button" class="studio-button studio-button--primary" data-action="website-save" data-focus-key="website-quick-save" ${state.dirty ? '' : 'disabled'}>Save project</button></div></div>
+        <section class="studio-editor-heading" aria-labelledby="website-builder-title"><div><span class="studio-kicker">Website Builder</span><h2 id="website-builder-title">${escapeHtml(project.name)}</h2><p>One website, four focused steps. Return to any step without losing your current edits.</p></div><div class="studio-save-cluster"><button type="button" class="studio-button studio-button--secondary" data-action="website-list">All websites</button><button type="button" class="studio-button studio-button--secondary" data-action="website-undo">Undo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-redo">Redo</button><button type="button" class="studio-button studio-button--secondary" data-action="website-save-copy" title="Save your current edits as a new website on this device">Save separate copy</button></div></section>
         ${state.error ? `<div class="studio-inline-error" role="alert"><div><strong>Website action needs attention.</strong><p>${escapeHtml(state.error)}</p></div></div>` : ''}
         <div class="website-flow-status" role="status" aria-live="polite" tabindex="-1"><strong class="website-save-state${state.dirty ? ' is-dirty' : ''}">${escapeHtml(saveLabel)}</strong><span>${escapeHtml(saveHelp)}</span><span>${escapeHtml(state.status)}</span></div>
         <nav class="website-flow-nav" aria-label="Website workflow">
           ${websiteSteps.map((item, index) => `<button type="button" data-action="website-step" data-value="${item.id}" ${item.id === websiteStep ? 'aria-current="step"' : ''}><span class="website-flow-number" aria-hidden="true">${index + 1}</span><span><strong>${item.label}</strong><small>${item.hint}</small></span></button>`).join('')}
         </nav>
+        <nav class="website-shortcuts" aria-label="Website editing shortcuts"><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="shared">Shared sections</button><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="checkpoints">Saved checkpoints (${state.checkpoints.length})</button><span>For saved-record recovery, open All websites. To preserve conflicting edits, use Save separate copy.</span></nav>
         <div class="website-step-heading"><span class="studio-kicker">Step ${stepIndex + 1} of ${websiteSteps.length}</span><p>${step.id === 'brief' ? 'Start with who this website serves and what it should achieve.' : step.id === 'pages' ? 'Choose a page to work on, or add the next page your site needs.' : step.id === 'edit' ? 'Edit the selected page. Use Pages to move to a different page.' : 'Choose any page to preview at different widths. Download one HTML page or the whole static website.'}</p></div>
         <div class="website-builder-grid website-guided-grid">
           <aside class="website-panel website-brief-panel" data-website-panel="brief" ${websiteStep === 'brief' ? '' : 'hidden'} aria-labelledby="website-brief-title"><span class="studio-kicker">Strategy</span><h3 id="website-brief-title" tabindex="-1">Client brief</h3>${['audience', 'goal', 'tone', 'offer'].map(field => `<div class="studio-field"><label for="website-brief-${field}">${field[0].toUpperCase()}${field.slice(1)}</label><textarea id="website-brief-${field}" rows="3" data-website-brief="${field}" data-focus-key="website-brief-${field}">${escapeHtml(project.brief[field])}</textarea></div>`).join('')}${renderWebsiteStyles(project)}</aside>
           <section class="website-panel" data-website-panel="pages" ${websiteStep === 'pages' ? '' : 'hidden'} aria-labelledby="website-sitemap-title"><span class="studio-kicker">Structure</span><h3 id="website-sitemap-title" tabindex="-1">Sitemap</h3><p id="website-page-drag-help">Drag pages above or below siblings. To change groups, choose Navigation parent. Move page controls support keyboard reordering.</p><div class="website-page-list">${root.MeridianWebsiteBuilder.navigationRows(project).map(item => `<button type="button" draggable="true" data-drag-kind="page" data-drag-id="${attr(item.id)}" data-drop-kind="page" data-drop-id="${attr(item.id)}" aria-describedby="website-page-drag-help" data-depth="${item.depth}" style="--page-depth:${item.depth}" class="website-page${item.id === page.id ? ' is-current' : ''}" data-action="website-page" data-focus-key="website-page-${attr(item.id)}" data-value="${attr(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ''}><span>${escapeHtml(item.title)}</span><small>/${escapeHtml(item.slug)} · Level ${item.depth + 1}</small></button>`).join('')}</div>${renderWebsitePageActions(project, page)}<div class="website-add-row"><label class="studio-field"><span>New page title</span><input id="website-page-name" maxlength="120" placeholder="Services"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-page">Add page</button></div></section>
           <section class="website-panel website-page-editor" data-website-panel="edit" ${websiteStep === 'edit' ? '' : 'hidden'} aria-labelledby="website-page-editor-title"><div class="studio-section-heading"><div><span class="studio-kicker">Page construction</span><h3 id="website-page-editor-title" tabindex="-1">Edit ${escapeHtml(page.title)}</h3></div><div class="website-add-row"><label class="studio-field"><span>Section type</span><select id="website-section-type"><option value="content">Content</option><option value="hero">Hero</option><option value="features">Features</option><option value="cta">Call to action</option></select></label><button type="button" class="studio-button studio-button--secondary" data-action="website-add-section">Add section</button></div></div>
             <div class="website-page-settings"><div class="studio-field"><label for="website-page-title">Page title</label><input id="website-page-title" value="${attr(page.title)}" data-website-page="title" data-focus-key="website-page-title"></div><div class="studio-field"><label for="website-page-slug">URL slug</label><input id="website-page-slug" value="${attr(page.slug)}" ${!page.slug ? 'readonly aria-describedby="website-home-url-help"' : ''} data-website-page="slug" data-focus-key="website-page-slug"></div></div>${!page.slug ? '<p id="website-home-url-help">The home page opens at index.html. Its URL stays empty.</p>' : ''}
-            ${renderSharedSectionLibrary(project)}<p id="website-section-drag-help">Drag a section above or below another section in this page. Move up and Move down provide the same ordering controls from the keyboard.</p><div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card" data-drop-kind="section" data-drop-id="${attr(section.id)}"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong>${section.sharedId ? '<span class="studio-pill">Shared</span>' : ''}</div>${renderWebsiteSectionActions(section, index, page.sections.length)}<div class="studio-field"><label for="website-${attr(section.id)}-heading">Heading</label><input id="website-${attr(section.id)}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div>${renderWebsiteBody(section, index)}<div class="studio-field"><label for="website-${attr(section.id)}-action">Action label</label><input id="website-${attr(section.id)}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div><div class="studio-field"><label for="website-${attr(section.id)}-action-destination">Action destination</label><select id="website-${attr(section.id)}-action-destination" data-website-section="${attr(section.id)}" data-field="actionPageId" data-focus-key="website-${attr(section.id)}-action-destination" aria-describedby="website-${attr(section.id)}-action-help"><option value="">Choose a page</option>${project.pages.map(target => `<option value="${attr(target.id)}"${target.id === section.actionPageId ? ' selected' : ''}>${escapeHtml(target.title)}</option>`).join('')}</select><small id="website-${attr(section.id)}-action-help">${section.action && !section.actionPageId ? 'Choose a destination to include this action in preview and downloads.' : 'Links follow the selected page even if its URL changes. Preview shows actions without opening links.'}</small></div></article>`).join('')}</div>
+            ${renderSharedSectionLibrary(project)}<nav class="website-section-index" aria-label="Sections on this page">${page.sections.map((section, index) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-jump-section" data-value="${attr(section.id)}">${index + 1}. ${escapeHtml(section.heading || section.type)}</button>`).join('')}</nav><p id="website-section-drag-help">Drag a section above or below another section in this page. Move up and Move down provide the same ordering controls from the keyboard.</p><div class="website-section-list">${page.sections.map((section, index) => `<article class="website-section-card" data-drop-kind="section" data-drop-id="${attr(section.id)}"><div><span class="studio-pill">${escapeHtml(section.type)}</span><strong>Section ${index + 1}</strong>${section.sharedId ? '<span class="studio-pill">Shared</span>' : ''}</div>${renderWebsiteSectionActions(section, index, page.sections.length)}<div class="studio-field"><label for="website-${attr(section.id)}-heading">Heading</label><input id="website-${attr(section.id)}-heading" value="${attr(section.heading)}" data-website-section="${attr(section.id)}" data-field="heading" data-focus-key="website-${attr(section.id)}-heading"></div>${renderWebsiteBody(section, index)}<div class="studio-field"><label for="website-${attr(section.id)}-action">Action label</label><input id="website-${attr(section.id)}-action" value="${attr(section.action)}" data-website-section="${attr(section.id)}" data-field="action" data-focus-key="website-${attr(section.id)}-action"></div><div class="studio-field"><label for="website-${attr(section.id)}-action-destination">Action destination</label><select id="website-${attr(section.id)}-action-destination" data-website-section="${attr(section.id)}" data-field="actionPageId" data-focus-key="website-${attr(section.id)}-action-destination" aria-describedby="website-${attr(section.id)}-action-help"><option value="">Choose a page</option>${project.pages.map(target => `<option value="${attr(target.id)}"${target.id === section.actionPageId ? ' selected' : ''}>${escapeHtml(target.title)}</option>`).join('')}</select><small id="website-${attr(section.id)}-action-help">${section.action && !section.actionPageId ? 'Choose a destination to include this action in preview and downloads.' : 'Links follow the selected page even if its URL changes. Preview shows actions without opening links.'}</small></div></article>`).join('')}</div>
           </section>
           <section class="website-panel website-preview" data-website-panel="preview" ${websiteStep === 'preview' ? '' : 'hidden'} aria-labelledby="website-preview-title"><div class="studio-section-heading"><div><span class="studio-kicker">Actual project output</span><h3 id="website-preview-title" tabindex="-1">Responsive preview</h3></div><button type="button" class="studio-button studio-button--secondary" data-action="website-export">Download ${escapeHtml(root.MeridianWebsiteBuilder.pageFilename(page))}</button><button type="button" class="studio-button studio-button--secondary" data-action="website-export-archive">Download whole website (.zip)</button></div>${renderWebsitePreviewSelector(project, page)}<div class="website-device-bar" role="group" aria-label="Preview width">${[['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([id, label]) => `<button type="button" class="studio-button studio-button--secondary" data-action="website-device" data-value="${id}" aria-pressed="${websiteDevice === id}">${label}</button>`).join('')}<span>${websiteDevice === 'desktop' ? 'Fits the workspace' : websiteDevice === 'tablet' ? '768 px target · fits available space' : '375 px target · fits available space'}</span></div><div class="website-preview-stage"><iframe class="website-device-${websiteDevice}" title="Preview of ${attr(page.title)}" sandbox="" srcdoc="${attr(website.preview())}"></iframe></div>${renderWebsiteCheckpoints(state)}</section>
         </div>
@@ -562,7 +571,7 @@
       if (!tool) return '';
       return `<div class="studio-modal-backdrop" role="presentation"><section class="studio-modal" role="dialog" aria-modal="true" aria-labelledby="studio-tool-dialog-title">
         <span class="studio-pill studio-pill--planned">Planned</span><h2 id="studio-tool-dialog-title">${escapeHtml(tool.name)}</h2>
-        <p>${escapeHtml(root.MeridianStudioFixtures.TOOL_DETAILS[tool.id])}</p><p>No provider, executable, endpoint, or paid action is available from this UI.</p>
+        <p>${escapeHtml(root.MeridianStudioFixtures.TOOL_DETAILS[tool.id])}</p><p>This tool is not connected. It cannot generate or process work yet.</p>
         <button type="button" class="studio-button studio-button--primary" data-action="close-tool" data-autofocus>Close requirements</button>
       </section></div>`;
     }
@@ -572,10 +581,10 @@
       const websiteLeave = pendingLeave.scope === 'website';
       return `<div class="studio-modal-backdrop" role="presentation"><section class="studio-modal" role="dialog" aria-modal="true" aria-labelledby="studio-leave-title" aria-describedby="studio-leave-copy">
         <span class="studio-pill studio-pill--unsaved">Unsaved</span><h2 id="studio-leave-title">Keep these ${websiteLeave ? 'website changes' : 'synthetic draft changes'}?</h2>
-        <p id="studio-leave-copy">You are about to ${escapeHtml(pendingLeave.reason)}. Choose what happens to the unsaved ${websiteLeave ? 'local website project' : 'development-only'} changes.</p>
+        <p id="studio-leave-copy">${pendingLeave.windowUnload ? 'This window has unsaved changes. Save or discard them here, then close or reload the window again.' : `You are about to ${escapeHtml(pendingLeave.reason)}. Choose what happens to the unsaved ${websiteLeave ? 'local website project' : 'development-only'} changes.`}</p>
         <div class="studio-modal__actions"><button type="button" class="studio-button studio-button--secondary" data-action="keep-editing" data-autofocus>Keep editing</button>
-          <button type="button" class="studio-button studio-button--secondary" data-action="discard-leave">Discard and continue</button>
-          <button type="button" class="studio-button studio-button--primary" data-action="save-leave">Save then continue</button></div>
+          <button type="button" class="studio-button studio-button--secondary" data-action="discard-leave">${pendingLeave.windowUnload ? 'Discard changes' : 'Discard and continue'}</button>
+          <button type="button" class="studio-button studio-button--primary" data-action="save-leave">${pendingLeave.windowUnload ? 'Save changes' : 'Save then continue'}</button></div>
       </section></div>`;
     }
 
@@ -617,6 +626,7 @@
       if (assetContainer && viewState.surface === 'assets') {
         host.querySelector('#studio-asset-client-slot')?.appendChild(assetContainer);
       }
+      measureWebsiteBar();
       const nextWorkspace = host.querySelector('.studio-workspace');
       if (nextWorkspace) nextWorkspace.scrollTop = scrollTop;
       renderedLocation = location;
@@ -731,6 +741,19 @@
         (control || host.querySelector('#website-page-editor-title'))?.focus({ preventScroll: true });
         const status = host.querySelector('.studio-live-status');
         if (status) status.textContent = 'Use Move up or Move down to reorder this section from the keyboard.';
+      }
+      else if (action === 'website-show-steps') {
+        const step = host.querySelector('.website-flow-nav [aria-current="step"]');
+        step?.focus({ preventScroll: true }); step?.scrollIntoView({ block: 'start' });
+      }
+      else if (action === 'website-jump' || action === 'website-jump-section') {
+        openWebsiteStep(value === 'checkpoints' ? 'preview' : 'edit');
+        requestAnimationFrame(() => {
+          const target = action === 'website-jump-section'
+            ? [...host.querySelectorAll('[data-website-section][data-field="heading"]')].find(item => item.dataset.websiteSection === value)
+            : host.querySelector(value === 'checkpoints' ? '#website-checkpoints-title' : '#website-shared-title');
+          target?.focus({ preventScroll: true }); target?.scrollIntoView({ block: 'start' });
+        });
       }
       else if (action === 'website-save') website.save();
       else if (action === 'website-save-copy') {
@@ -930,7 +953,23 @@
       }
     }
 
+    function preventUnsavedUnload(event) {
+      const websiteDirty = Boolean(websiteState?.dirty);
+      if (!websiteDirty && !viewState?.unsaved) return;
+      event.preventDefault();
+      // Electron cancels unload explicitly; no host/IPC or automatic window action.
+      event.returnValue = false;
+      if (!pendingLeave) {
+        rememberDialogReturnFocus();
+        pendingLeave = { callback: null, reason: 'close or reload this window', scope: websiteDirty ? 'website' : 'studio', windowUnload: true };
+        render();
+      }
+    }
+    root.addEventListener?.('beforeunload', preventUnsavedUnload);
+
     function destroy() {
+      root.removeEventListener?.('beforeunload', preventUnsavedUnload);
+      root.removeEventListener?.('resize', measureWebsiteBar);
       dragging = null;
       clearTimeout(announcementTimer);
       dialogReturnFocus = null;

@@ -133,7 +133,7 @@ test('renderer integration contains the required accessible and honest UI contra
   const html = readFileSync(join(root, 'src', 'renderer', 'index.html'), 'utf8');
   const app = readFileSync(join(root, 'src', 'renderer', 'app.js'), 'utf8');
   for (const phrase of ['aria-current', 'aria-pressed', 'aria-live', 'for=\\"studio-scene-title',
-    'for=\\"studio-scene-format', 'for=\\"studio-scene-notes', 'role=\\"img', 'Retry synthetic load',
+    'for=\\"studio-scene-format', 'for=\\"studio-scene-notes', 'role=\\"img', 'Retry workspace',
     'Create synthetic draft', 'Keep editing', 'Discard and continue', 'Save then continue',
     'rememberDialogReturnFocus', 'restoreDialogReturnFocus', 'inert aria-hidden=\\"true\\"']) {
     assert.match(shell, new RegExp(phrase));

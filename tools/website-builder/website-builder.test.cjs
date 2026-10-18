@@ -988,3 +988,19 @@ test('copy retry fault matrix preserves one identity and the original across rep
     assert.equal(active.snapshot().project.brief.goal,'Current retained content');assert.deepEqual(repo.open(originalId),original);
   }
 });
+
+
+test('checkpoints accept the same retained section identities as the saved website and remain reopenable', () => {
+  const storage = createMemoryStorage();
+  const active = createController({ storage }); active.selectContext({ id: 'alpha', name: 'Alpha' });
+  active.createProject('Retained identities'); const project = active.snapshot().project;
+  project.pages[0].sections[0].id = 'retained:section" with spaces';
+  createRepository(storage, 'alpha').save(project); assert.equal(active.openProject(project.id), true);
+  assert.equal(active.createCheckpoint('Before review'), true);
+  const checkpoint = active.snapshot().checkpoints[0].id; active.close(); active.openProject(project.id);
+  assert.equal(active.snapshot().error, null); assert.equal(active.snapshot().checkpoints.length, 1);
+  active.updateBrief('audience', 'Changed'); active.save();
+  assert.equal(active.restoreCheckpoint(checkpoint), true);
+  assert.equal(active.snapshot().project.pages[0].sections[0].id, project.pages[0].sections[0].id);
+  assert.equal(active.removeCheckpoint(checkpoint), true);
+});

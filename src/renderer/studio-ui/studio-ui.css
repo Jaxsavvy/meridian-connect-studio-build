@@ -772,3 +772,16 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 
 .website-builder #website-recovery-title,
 .website-builder #website-catalogue-title { margin: 0 0 12px; }
+
+/* Keep the current page and Save available inside the existing scroll container. */
+.website-workbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px; margin-bottom: 18px; border: 1px solid var(--studio-line); border-radius: 10px; background: var(--studio-panel); box-shadow: 0 6px 16px #07101d66; }
+.website-workbar__copy { flex: 1 1 150px; min-width: 0; }
+.website-workbar__copy strong, .website-workbar__copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.website-workbar__copy span { color: var(--studio-muted); font-size: 12px; }
+.website-workbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.website-builder :is(h3,h4,input,textarea,button,select,summary,.website-shortcuts) { scroll-margin-top: calc(var(--website-workbar-height, 0px) + 16px); }
+@media (forced-colors: active) { .website-workbar { border-color: CanvasText; background: Canvas; box-shadow: none; } }
+
+.website-shortcuts, .website-section-index { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.website-shortcuts span { color: var(--studio-muted); font-size: 12px; flex: 1 1 240px; }
+.website-section-index button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }

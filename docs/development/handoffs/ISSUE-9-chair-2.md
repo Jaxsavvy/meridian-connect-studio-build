@@ -1,5 +1,21 @@
 # DEV-006 — Chair 2 task handoff
 
+## October18 ordered30-item local review
+
+Resumed the explicit pause after1–22 and partial23 from Review Meridian build.
+Preserved all nine paused modified/untracked paths. Finished23–30 in sequence
+on codex/studio-thirty-checks, basec5a205c; no commit/push/merge. Sticky Save and
+website/page/step context verified; shared/checkpoint/section shortcuts added.
+196 local tests pass; final item16/23/24 actual synthetic Electron checks pass.
+See ORDERED_REVIEW.md and ORDERED_READINESS.md for final guided outcome, dirty
+source manifest, exact scope, documentation/evidence map and remaining gaps.
+Live existing board readback Building / Chair2 / P1 / Studio UI/UX; no write.
+Human/independent/service/host/installer/release gates remain. Working tree holds
+these local changes; original user checkout was preserved. Next: review exact
+diff and source manifest, then publish a scoped follow-up only when appropriate;
+rerun hosted Windows/composed checks before treating this delta as accepted.
+
+
 ## 2026-10-17 recheck: recovery catalogue visibility
 
 - Current published cross-chair heads unchanged. Two more failures reproduced: missing-index recovery-only records invisible, and all-malformed candidates silently hidden. Discover primary/backup/pending identities and show retained-record warning/retry separately from readable projects. Preserve suffix identities, expected identity validation and project scope.174 relevant tests pass; mounted visibility/retry flow added. RECOVERY_CATALOGUE.md records exact scope; Final sourcee665915 also preserves failed-retry focus, focuses reopened editor and uses readable errors. Source/Linux/combined pass; Windows attempt1 installer fails-1073741819 after UI/Contrast pass, one explicit same-source retry passes including installed-source/startup/keyboard/gate checks.174 local/201 composed tests, all four workflows pass; original failure remains recorded. RECOVERY_CATALOGUE.md records archive hashes/pixel evidence and final retry result. No deletion, replacement draft, authority or merge.

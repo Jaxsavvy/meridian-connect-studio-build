@@ -276,7 +276,7 @@
         if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.label !== 'string' || item.label.length > 120 || typeof item.createdAt !== 'string') throw new Error('Checkpoint metadata is invalid.');
         ids.add(item.id);
         const project = validateProject(item.project, meridianProjectId, id);
-        if (!Number.isSafeInteger(project.revision) || project.revision < 0 || typeof project.name !== 'string' || !project.brief || !project.design || ['audience','goal','tone','offer'].some(field => typeof project.brief[field] !== 'string') || project.pages.some(page => typeof page.title !== 'string' || page.sections.some(section => !/^[a-zA-Z0-9_-]+$/.test(section.id) || ['heading','body','action'].some(field => typeof section[field] !== 'string')))) throw new Error('Checkpoint draft fields are invalid.');
+        if (!Number.isSafeInteger(project.revision) || project.revision < 0 || typeof project.name !== 'string' || !project.brief || !project.design || ['audience','goal','tone','offer'].some(field => typeof project.brief[field] !== 'string') || project.pages.some(page => typeof page.title !== 'string' || page.sections.some(section => ['heading','body','action'].some(field => typeof section[field] !== 'string')))) throw new Error('Checkpoint draft fields are invalid.');
         return { id: item.id, label: item.label, createdAt: item.createdAt, project };
       });
     }

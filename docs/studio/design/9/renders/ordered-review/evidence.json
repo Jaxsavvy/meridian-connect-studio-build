@@ -1,0 +1,54 @@
+{
+  "base": "c5a205cc8a56b2cb4bfc0b404907a6678a342775",
+  "scope": "Uncommitted ordered review delta; local synthetic Electron only",
+  "localRegression": {
+    "passed": 196,
+    "failed": 0,
+    "skipped": 0
+  },
+  "shortcutVisibility": {
+    "failedBefore": true,
+    "passedAfter": true,
+    "checkedTargets": [
+      "checkpoints",
+      "shared sections",
+      "section heading"
+    ]
+  },
+  "captures": [
+    {
+      "file": "23-sticky-context.png",
+      "sha256": "ebfcce2901baf0b04f750985eafa827c7f6e5718bd453d0721537a7c6c577066"
+    },
+    {
+      "file": "24-shortcut-overview.png",
+      "sha256": "38c0a4dc8c24df718e05d3f8721d03501579b2a09b994957a9e6954ec22f2f50"
+    },
+    {
+      "file": "24-section-shortcuts.png",
+      "sha256": "345603325307449177635f5c4cbc75c3ceb18ca07ace3281de409b77d273a8fe"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "file": "src/renderer/studio-ui/studio-shell.js",
+      "sha256": "e5b2c2dd8d84be0561ac627670951349b84cc0f8af42bc4dab3e00ebf0871b2c"
+    },
+    {
+      "file": "src/renderer/studio-ui/studio-ui.css",
+      "sha256": "51ff45dbffb2bdd29645b1dcbc945927b3f57749148d553f44215719919a9d52"
+    },
+    {
+      "file": "src/renderer/studio-ui/website-builder.js",
+      "sha256": "880a7ff3af8f31d738359f5399ebec91c5b41a3a685463911e338939d651fe67"
+    },
+    {
+      "file": "docs/studio/design/9/ordered-review.cjs",
+      "sha256": "5cb3aaf8209a34dbfa3afbafb9c6fac7f7476dd6d59678ef031bb54a1a0125aa"
+    }
+  ],
+  "limits": [
+    "No new installed/OS Contrast acceptance for this delta",
+    "No authoritative service or human Narrator/native-pointer acceptance"
+  ]
+}
