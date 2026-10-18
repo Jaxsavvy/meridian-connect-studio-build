@@ -37,6 +37,7 @@ jobs:
         shell: pwsh
         run: |
           pwsh -NoProfile -File ./tools/website-builder/windows-installer-diagnostics.test.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Installer diagnostic fixtures failed' }
           ./tools/website-builder/windows-installer-diagnostics.ps1
       - name: Verify installed source, startup, keyboard and employee gate
         run: node tools/website-builder/windows-installed-smoke.cjs
