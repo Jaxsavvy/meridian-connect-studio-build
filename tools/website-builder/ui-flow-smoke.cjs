@@ -735,6 +735,8 @@ app.whenReady().then(async () => {
       assert.match((await metrics(window)).saveText,/recovery copy/);
       assert.equal(await window.webContents.executeJavaScript('window.__recoveryWriteAttempts'),0,'Catalogue/open must not write recovery records');
       assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(recoveryFixture.key)})`),'{broken');
+      await window.webContents.executeJavaScript("const status=document.querySelector('.website-flow-status');status.focus({preventScroll:true});status.scrollIntoView({block:'start'});");
+      assert.equal(await window.webContents.executeJavaScript("(() => {const r=document.querySelector('.website-flow-status').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return r.top>=w.top-1&&r.bottom<=w.bottom+1;})()"),true,'Recovery message must be visibly captured');
       await capture(window,'33-write-blocked-recovery');
       await window.webContents.executeJavaScript("const field=document.querySelector('#website-brief-goal');field.value='Retain recovered edits while storage is full';field.dispatchEvent(new Event('input',{bubbles:true}));");
       await click(window,'[data-action="website-save"]');
