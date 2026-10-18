@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 (Node 24)
         with:
-          ref: 075ec2adcca99b60d28eaa4efeff52f24fefb9b4
+          ref: 69dbc7b688ed94823d082ee400833db1feb3f28c
           path: asset-input
           fetch-depth: 0
           persist-credentials: false

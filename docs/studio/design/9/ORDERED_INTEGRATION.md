@@ -1,26 +1,28 @@
-# Proposed integration order — read-only review
+# Proposed integration order — refreshed October 18
 
-Eight open PRs read from GitHub October 18. Proposal only; keep all unmerged.
+Read-only review of all eight open PRs before this continuation publication.
+PR39 input was f665d64; this continuation advances that same review lane.
+Proposal only; all PRs stay unmerged. Changed-file overlap is not proof of conflict.
 
-| PR | Exact head | Scope |
+| PR | Exact reviewed head | Scope |
 | --- | --- | --- |
-| #39 | `c5a205cc8a56b2cb4bfc0b404907a6678a342775` | DEV-006: integrate guided Website, Assets and local review workspace |
+| #39 | `f665d64c96796b4bbd06a12f047b4297e0b7597c` | DEV-006: integrate guided Website, Assets and local review workspace |
 | #38 | `ec1c1dcfb63acd51cc8d5d992a7a03ea9aab66a9` | DEV-011: draft Studio asset permission policy |
 | #37 | `d0d7c99372e889798c142df7c3f94c4e07127d90` | DEV-006: guide Website Builder through Brief, Pages, Edit and Preview |
-| #36 | `ed17ef68c0b9be4a21565dce1af9cfa6cf99ac3a` | DEV-010: draft Studio asset service v1 contract |
+| #36 | `d2fffe0beb7501eb45f667a99693e140ec246685` | DEV-010: draft Studio asset service v1 contract |
 | #35 | `647bb9e0391f9188fdf1022b5cea30c258011350` | DEV-020: mount writable development Assets in Studio with guarded project context |
 | #34 | `7f8a2b03861d821508f839d7771d1618736cf380` | DEV-006: add persistent Website Builder foundation |
-| #33 | `075ec2adcca99b60d28eaa4efeff52f24fefb9b4` | DEV-005: asset feedback, version preservation and exact-read preparation |
+| #33 | `69dbc7b688ed94823d082ee400833db1feb3f28c` | DEV-005: asset feedback, version preservation and exact-read preparation |
 | #10 | `4e4373130b3cd2a239aad9b71f326a8d4d3889cf` | Map Meridian Studio build across owner, Tyler and Cassy |
 
-1. Review documentation #10 against current collaboration policy; resolve stale build-map descriptions independently.
-2. Resolve canonicalization in #36 and policy decisions in #38 with owner/Cassy. These test-only drafts do not mount a service. Neither is authority to enable tools.
-3. Accept Cassy #33 after its independent tests/review. Recompose and rerun the actual mounted experience using that exact head.
-4. Select the composed #39 lane for Website/Assets/guided navigation, after independent review of #34/#35/#37 ancestry and corrections. Do not blindly apply the same source twice. The owner should explicitly designate #34/#35/#37 as superseded or choose a sequential strategy; no PR is closed here.
-5. Apply this local review as a small follow-up onto the selected combined lane; rerun source, guided, cross-chair and Windows-installed/Contrast checks at the exact final tree.
-6. Connect accepted service inputs and perform human checks before separate release acceptance.
+1. Reconcile documentation #10 with current collaboration/build state.
+2. Review #36 normalized text and explicit exact-history mapping, then #38 policy. The previous U+0344 overlength reproduction is now rejected by the published test reference; accepted service/conformance evidence remains separate. Proposed bounded history paging is not a mounted accepted service.
+3. Independently review #33 at69dbc7b, including the matching normalized Unicode limit. Disposable runtime pins now exercise that exact public source; no Cassy implementation is copied into PR39.
+4. Review the composed #39 lane, including #34/#35/#37 ancestry and this follow-up. Choose one integration strategy; avoid replaying the same shared-source changes twice. No source PR is silently closed, rebased or merged here.
+5. Re-run exact source, Linux, composed Linux/Windows and installed/Contrast checks after any accepted source composition or ref change.
+6. Supply accepted service/host inputs, independent/human observations and separate owner release acceptance. No green synthetic test grants service or release authority.
 
-Overlapping paths (computed from each PR changed-file list; overlap alone does not prove a conflict):
+Exact overlaps:
 
 - #39/#37: `.github/workflows/website-guided-ui.yml`, `docs/studio/design/9/WEBSITE_GUIDED_FLOW.md`, `src/renderer/studio-ui/studio-shell.js`, `src/renderer/studio-ui/studio-ui.css`, `tools/website-builder/ui-flow-smoke.cjs`, `tools/website-builder/ui-flow.test.cjs`
 - #39/#36: `.github/workflows/connect-source-checks.yml`
@@ -30,5 +32,3 @@ Overlapping paths (computed from each PR changed-file list; overlap alone does n
 - #37/#34: `src/renderer/studio-ui/studio-shell.js`, `src/renderer/studio-ui/studio-ui.css`
 - #36/#35: `.github/workflows/connect-source-checks.yml`
 - #35/#34: `src/renderer/app.js`, `src/renderer/studio-ui/studio-shell.js`
-
-No source merge, cherry-pick, shared-file replacement or review dismissal performed.

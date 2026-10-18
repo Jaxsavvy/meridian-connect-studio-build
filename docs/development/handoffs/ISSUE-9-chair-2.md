@@ -1,5 +1,27 @@
 # DEV-006 — Chair 2 task handoff
 
+## October 18 full22-item continuation
+
+User requested the entire22-item list. Basef665d64; same local task branch
+and existing PR39. Read CONTINUATION_22.md for every item and exact limits.
+Reproduced/fixed reserved catalogue/recovery-slot writes that could replace
+retained website records, and added truthful checkpoint-history retry that
+preserves current edits/bytes. Discard refreshes other-window checkpoint history;
+context changes clear checkpoint errors.210 local tests and mounted guided
+checkpoint/collision probes pass. New capture framing shows the full warning
+at normal size and visible keyboard Retry at200%; inspected actual images.
+
+All eight PR scopes/heads/overlaps refreshed. Published PR36 now rejects the
+previous U+0344 normalized-overlength input; Cassy69dbc7b has its matching
+component correction. Updated only disposable compose pins after PR39 scope
+coordination; no Cassy implementation copied or merged. Current URL/installer
+findings remain read-only and honestly unresolved.
+
+Task board read back Testing→Building before work. Publication/checks and
+subsequent board readbacks are recorded in the live PR39 verification section;
+no Complete or merge. Human/independent/service/owner-policy/release gates remain.
+
+
 ## October 18 published ordered-review follow-up
 
 Published dfb8fbc/008c9ee to existing PR39; source, Linux, cross-chair Linux/

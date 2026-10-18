@@ -13,7 +13,16 @@ validate sender/window identity for every route, including new-window events.
 Test rejected types, file/javascript/custom schemes, malformed URLs and foreign
 senders, plus valid https and redirects. Exact allowed policy is an owner decision.
 
-## Request normalization
+## Request normalization — corrected in published test inputs
+
+Current recheck: PR36 `d2fffe0beb7501eb45f667a99693e140ec246685` rejects the160-unit U+0344
+input after NFC expands it to320 units, with INVALID_REQUEST. Cassy
+`69dbc7b688ed94823d082ee400833db1feb3f28c` adds the corresponding component
+normalized text bound and regressions. This supersedes the open-defect claim
+below for these public test/client inputs. It does not prove mounted service
+normalization, body-digest or policy acceptance. Restricted source unchanged.
+
+### Historical reproduction
 
 Reproduced against exact PR36 ed17ef68 (test-only module evaluated in isolation):
 files.metadata accepts a name of U+0344 repeated160 times; NFC yields320 UTF-16
@@ -35,3 +44,19 @@ runner image/OS, installer logs and Windows crash module/event evidence from a
 failed run; compare with same-source success before choosing a packaging change.
 Do not install over an employee application or infer the failing module from the
 exit code alone. No installer execution or package modification in this step.
+
+## Continuation readback
+
+The app:open-external/new-window URL paths remain as recorded after a fresh
+source read; no handler was invoked. Proposed rejection cases cover non-string,
+file/javascript/custom schemes, malformed URLs and foreign sender/window scope;
+valid HTTPS and expected redirects need positive tests under an owner-approved
+policy. Renderer filtering is insufficient.
+
+Latest verified prior f665d64 Windows installation passed on first attempt.
+Issue28 still records earlier -1073741819 failures; neither current logs nor
+available inputs identify the crash module/root cause. Preserve runner image,
+installer digest/log, crash event/dump and same-source success/failure pairs
+before proposing package changes. No new package modification or local employee
+installation was attempted. The investigation/preparation item is complete;
+those owner-scoped corrections and reliability acceptance remain open.

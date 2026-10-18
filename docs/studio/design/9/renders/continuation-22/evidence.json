@@ -1,0 +1,83 @@
+{
+  "base": "f665d64c96796b4bbd06a12f047b4297e0b7597c",
+  "scope": "Local synthetic continuation before publication; exact hosted final source recorded in PR39",
+  "localTests": 210,
+  "newRegressionCases": 14,
+  "modelFaultAudit": {
+    "before": {
+      "passed": 7,
+      "failed": 4
+    },
+    "after": {
+      "passed": 13,
+      "failed": 0
+    },
+    "writeFailurePositions": 5,
+    "recoveryAliasVariants": 4
+  },
+  "mountedCheckpointRetry": {
+    "status": "passed",
+    "malformedHistoryReported": true,
+    "noFalseEmptyHistory": true,
+    "failedRetryRetainsEdits": true,
+    "repairedHistoryFound": true,
+    "focusedHeading": true,
+    "retainedHistoryBytesUnchanged": true,
+    "limits": "Synthetic local history fault and explicit fixture repair; no service recovery"
+  },
+  "mountedStorageCollision": {
+    "status": "passed",
+    "conflictingSaveRejected": true,
+    "bothRetainedWebsitesUnchanged": true,
+    "separateCopyPreservesEdits": true,
+    "limits": "Synthetic legacy recovery-key collision; no cross-process atomicity or service authority"
+  },
+  "normalization": {
+    "contractHead": "d2fffe0beb7501eb45f667a99693e140ec246685",
+    "inputUnits": 160,
+    "normalizedUnits": 320,
+    "rejected": true,
+    "scope": "Published test reference only, no service acceptance"
+  },
+  "images": [
+    {
+      "file": "37-checkpoint-history-retry-warning.png",
+      "sha256": "1c1b14fd92b923ed548b702f2030e17df776bfb3e26f05824f3ee3b79e392512"
+    },
+    {
+      "file": "37b-checkpoint-retry-focus-200pct.png",
+      "sha256": "9d939c70fd7a40927567e0fb5b431d66c4099318e009302000dff978ab5ae98f"
+    },
+    {
+      "file": "38-checkpoint-history-recovered.png",
+      "sha256": "de56c5648bc6c699d764a8bd5ded9055cd8a790f45c3a6b7e2360a6e3521b908"
+    },
+    {
+      "file": "39-website-recovery-key-conflict.png",
+      "sha256": "cd19f50687c6af81c918d7569badb1f8afe22605ec79cb3760c23dba23e925f5"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "file": "src/renderer/studio-ui/website-builder.js",
+      "sha256": "378bf4575fea9cbb2f8c6804dbe21329fab2ea2267d72270b3377e63903e7b51"
+    },
+    {
+      "file": "src/renderer/studio-ui/studio-shell.js",
+      "sha256": "a4d43be67910268e2e036b57b39997d9d6fc1119cb6681ea9d414ae4ad7b8d0c"
+    },
+    {
+      "file": "tools/website-builder/continuation-audit.test.cjs",
+      "sha256": "571b3d5cc663aecf9ac8b86ab7118d76434548bd7b941b53214c402d9da47797"
+    },
+    {
+      "file": "tools/website-builder/ui-flow-smoke.cjs",
+      "sha256": "d63286fb92db5a88c172f5acfa20559d9e3e1b9eed66ebca90ef6e26bafd68a0"
+    }
+  ],
+  "limits": [
+    "No service or atomic cross-process storage acceptance",
+    "No human Narrator/native pointer result",
+    "Hosted final checks must use the current PR39 source"
+  ]
+}

@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const ASSET_HEAD = '075ec2adcca99b60d28eaa4efeff52f24fefb9b4';
+const ASSET_HEAD = '69dbc7b688ed94823d082ee400833db1feb3f28c';
 function validSha(value) { return typeof value === 'string' && /^[a-f0-9]{40}$/.test(value); }
 function allowedAssetPath(value) {
   return value.startsWith('src/renderer/studio-assets/') || value.startsWith('docs/studio/assets/8/') || value === 'docs/development/handoffs/ISSUE-8-chair-3.md';

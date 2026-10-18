@@ -217,6 +217,19 @@
       const valid = validateProject(project, meridianProjectId);
       const target = keys(valid.id);
       const serialized = JSON.stringify(valid);
+      if (valid.id === 'index') throw new Error('Website identity uses reserved catalogue storage. Save a separate copy.');
+      const inspect = key => {
+        const raw = storage.getItem(key);
+        try { return raw ? JSON.parse(raw) : null; } catch (_) { return null; }
+      };
+      // Legacy IDs can occupy another website's backup or pending slot.
+      // Reject that collision before any write so both retained drafts survive.
+      for (const key of Object.values(target)) {
+        const retained = inspect(key);
+        if (retained && typeof retained.id === 'string' && retained.id !== valid.id) throw new Error('Website recovery storage overlaps another saved website. Existing records were kept; use Save separate copy.');
+      }
+      const parentId = valid.id.replace(/\.(backup|pending)$/, '');
+      if (parentId !== valid.id && inspect(keys(parentId).primary)?.id === parentId) throw new Error('Website identity overlaps another website recovery slot. Existing records were kept; use Save separate copy.');
       // Keep the last validated candidate, never a malformed primary, as the
       // recovery copy. Reading it must not require a successful repair write.
       const previous = open(valid.id);
@@ -270,7 +283,7 @@
       if (!raw) return [];
       if (raw.length > 6 * 1024 * 1024) throw new Error('Checkpoint history exceeds the local size limit.');
       const record = JSON.parse(raw);
-      if (record.schema !== 'meridian.website-checkpoints.v1' || record.meridianProjectId !== meridianProjectId || record.websiteId !== id || !Array.isArray(record.checkpoints) || record.checkpoints.length > 10) throw new Error('Checkpoint history identity or format is invalid.');
+      if (!record || typeof record !== 'object' || Array.isArray(record) || record.schema !== 'meridian.website-checkpoints.v1' || record.meridianProjectId !== meridianProjectId || record.websiteId !== id || !Array.isArray(record.checkpoints) || record.checkpoints.length > 10) throw new Error('Checkpoint history identity or format is invalid.');
       const ids = new Set();
       return record.checkpoints.map(item => {
         if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.label !== 'string' || item.label.length > 120 || typeof item.createdAt !== 'string') throw new Error('Checkpoint metadata is invalid.');
@@ -438,6 +451,7 @@
     let future = [];
     let counter = 0;
     let checkpoints = [];
+    let checkpointError = null;
     let savedBaseline = null;
     let pendingCreation = null;
     let pendingCopy = null;
@@ -445,16 +459,31 @@
       ? crypto.randomUUID() : `${Date.now().toString(36)}-${(++counter).toString(36)}-${Math.random().toString(36).slice(2)}`}`);
 
     function emit() { onChange(snapshot()); }
-    function snapshot() { return copy({ ...state, checkpoints }); }
+    function snapshot() { return copy({ ...state, checkpoints, checkpointError }); }
     function refreshList() {
       const listing = repository ? repository.catalogue() : { projects: [], unavailableProjects: [], catalogueError: null };
       state = { ...state, ...listing };
     }
     function refreshCheckpoints() {
-      checkpoints = [];
-      if (!repository || !state.project) return;
-      try { checkpoints = repository.listCheckpoints(state.project.id); }
-      catch (error) { state = { ...state, error: `Checkpoint history unavailable: ${error.message}`, status: 'The website opened; its checkpoint history needs attention.' }; }
+      const previousError = checkpointError;
+      checkpoints = []; checkpointError = null;
+      if (!repository || !state.project) return false;
+      try {
+        checkpoints = repository.listCheckpoints(state.project.id);
+        if (state.error === previousError) state = { ...state, error: null };
+        return true;
+      } catch (error) {
+        checkpointError = 'Checkpoint history unavailable: ' + error.message;
+        state = { ...state, error: checkpointError, status: 'The website is open. Existing checkpoint records are kept; retry their history when storage is accessible.' };
+        return false;
+      }
+    }
+
+    function refreshCheckpointHistory() {
+      if (!repository || !state.project) return false;
+      const refreshed = refreshCheckpoints();
+      if (refreshed) state = { ...state, status: 'Saved checkpoint history refreshed. Current website edits are unchanged.' };
+      emit(); return refreshed;
     }
 
     function selectContext(project) {
@@ -463,7 +492,7 @@
       history = []; future = [];
       savedBaseline = null;
       pendingCreation = pendingCopy = null;
-      checkpoints = [];
+      checkpoints = []; checkpointError = null;
       state = contextProject
         ? { phase: 'list', ...repository.catalogue(), project: null, selectedPageId: null, dirty: false, error: null, status: `Website projects for ${contextProject.name}.` }
         : { phase: 'no-context', projects: [], unavailableProjects: [], catalogueError: null, project: null, selectedPageId: null, dirty: false, error: null, status: 'Choose a Meridian project.' };
@@ -502,7 +531,7 @@
       savedBaseline = JSON.stringify(project);
       refreshList();
       state = { ...state, phase: 'editing', project, selectedPageId: project.pages[0].id, dirty: false, error: null, status: 'Website project created and saved locally.' };
-      checkpoints = [];
+      checkpoints = []; checkpointError = null;
       emit();
       return true;
     }
@@ -777,7 +806,7 @@
         attemptedSave = JSON.stringify(project);
         repository.save(project);
         savedBaseline = JSON.stringify(project);
-        state = { ...state, project, dirty: false, error: null, status: 'Website project saved to durable local application storage.' };
+        state = { ...state, project, dirty: false, error: null, status: 'Website saved in this app on this device. Team sync is not connected.' };
         refreshList(); emit(); return true;
       } catch (error) {
         // A primary write may succeed before the index/cleanup fails. Recognize
@@ -815,7 +844,7 @@
         repository.save(project);
         pendingCreation = pendingCopy = null;
         savedBaseline = JSON.stringify(project);
-        history = []; future = []; checkpoints = [];
+        history = []; future = []; checkpoints = []; checkpointError = null;
         state = { ...state, project, dirty: false, error: null, status: 'Separate website copy saved on this device. The original website and its checkpoints are unchanged.' };
         refreshList(); emit(); return true;
       } catch (error) {
@@ -829,6 +858,7 @@
       try {
         if (state.dirty) throw new Error('Save this website before making a checkpoint.');
         checkpoints = repository.saveCheckpoint(state.project, { id: makeId('checkpoint'), label, createdAt: now() });
+        checkpointError = null;
         state = { ...state, error: null, status: 'Saved checkpoint created on this device. It is not an approved revision.' };
         emit(); return true;
       } catch (error) { state = { ...state, error: error.message, status: 'Checkpoint was not created. The website and existing checkpoints are unchanged.' }; emit(); return false; }
@@ -838,6 +868,7 @@
       if (!repository || !state.project) return false;
       try {
         checkpoints = repository.removeCheckpoint(state.project.id, id);
+        checkpointError = null;
         state = { ...state, error: null, status: 'Checkpoint removed from this device. The website and current edits are unchanged.' };
         emit(); return true;
       } catch (error) { state = { ...state, error: error.message, status: 'Checkpoint was not removed. Current work and previous checkpoints are unchanged.' }; emit(); return false; }
@@ -889,7 +920,7 @@
       if (state.dirty) return false;
       pendingCreation = pendingCopy = null;
       refreshList();
-      state = { ...state, phase: 'list', project: null, selectedPageId: null, status: 'Website project list opened.' }; checkpoints = []; emit(); return true;
+      state = { ...state, phase: 'list', project: null, selectedPageId: null, status: 'Website project list opened.' }; checkpoints = []; checkpointError = null; emit(); return true;
     }
 
     function discard() {
@@ -901,6 +932,7 @@
         history = []; future = [];
         savedBaseline = JSON.stringify(project);
         state = { ...state, project, selectedPageId: project.pages.some(page => page.id === state.selectedPageId) ? state.selectedPageId : project.pages[0].id, dirty: false, error: null, status: 'Unsaved website changes discarded.' };
+        refreshCheckpoints();
         emit(); return true;
       } catch (error) {
         state = { ...state, error: error.message, status: 'Website changes could not be discarded safely.' };
@@ -908,7 +940,7 @@
       }
     }
 
-    return Object.freeze({ snapshot, selectContext, refreshProjects, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
+    return Object.freeze({ snapshot, selectContext, refreshProjects, refreshCheckpointHistory, createProject, openProject, updateBrief, updateDesign, addPage, addScenePage, selectPage,
       updatePage, movePage, movePageTo, removePage, addSection, makeSectionShared, addSharedSection, detachSection, updateSection, moveSection, moveSectionTo, removeSection, formatSectionText, save, saveSeparateCopy, createCheckpoint, restoreCheckpoint, removeCheckpoint, readiness, undo, redo, close, discard,
       preview() { return state.project ? renderPage(state.project, state.selectedPageId, { preview: true }) : ''; },
       exportSite() { return state.project ? exportSite(state.project) : null; },

@@ -33,3 +33,18 @@ Record per step: expected result, observed speech/behavior verbatim, pass/fail/
 not tested, exact action to reproduce, and screenshot if useful. Send observations
 to existing issue9 when authorized; independent review must come from another
 person. Preparing this walkthrough does not constitute those observations.
+
+## Checkpoint recovery and storage-conflict additions
+
+With a facilitator-provided synthetic fault session, open checkpoint history
+that cannot be read. Confirm Narrator announces unavailability, not an empty
+list; focus Retry, verify visibility at200%, and activate it. On failure the
+current unsaved brief must remain. After the facilitator restores the fixture,
+retry should reveal retained history and return focus to the checkpoint heading.
+Do not edit real application storage to manufacture this case. If no synthetic
+fault session is supplied, record the step as not tested.
+
+For a supplied synthetic recovery-slot conflict, confirm Save explains that
+existing records were kept and offers Save separate copy. Confirm that path
+keeps current edits under a separate identity. Record observed speech, control
+labels, focus and visible boundaries; do not infer a human pass from captures.

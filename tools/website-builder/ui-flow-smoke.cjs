@@ -746,7 +746,7 @@ app.whenReady().then(async () => {
       await window.webContents.executeJavaScript('Storage.prototype.setItem=window.__recoveryStorageWrite;delete window.__recoveryStorageWrite;delete window.__recoveryWriteAttempts');
     }
     await click(window,'[data-action="website-save"]');
-    assert.match((await metrics(window)).saveText,/saved to durable local/);
+    assert.match((await metrics(window)).saveText,/Website saved in this app on this device/);
     const explicitRecoverySave=await window.webContents.executeJavaScript(`(() => {
       const key=${JSON.stringify(recoveryFixture.key)};return {primaryGoal:JSON.parse(localStorage.getItem(key)).brief.goal,backup:JSON.parse(localStorage.getItem(key+'.backup'))};
     })()`);
@@ -874,6 +874,51 @@ app.whenReady().then(async () => {
     await fs.writeFile(join(evidence,'saved-presentation-validation.json'),JSON.stringify({status:'passed',malformedStylesAndDateRecover:true,corruptPrimaryBytesUnchanged:true,legacyMissingStylesDefaultedInMemory:true,legacyBytesUnchangedUntilSave:true,explicitStyleSaveWorks:true,limits:'Synthetic retained-record shapes; timestamp validation checks types and bounds, not calendar correctness'},null,2));
     await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(presentationFixture.key)}+suffix)`);
     await click(window,'[data-action="website-list"]');
+    window.setSize(1440,1000); window.webContents.setZoomFactor(1); await pause(180);
+    // Checkpoint read failures remain retryable without replacing saved bytes.
+    await window.webContents.executeJavaScript("document.querySelector('#website-new-name').value='Audit checkpoint recovery'");
+    await click(window,'[data-action="website-create"]');
+    await click(window,'.website-flow-nav [data-value="preview"]');
+    await window.webContents.executeJavaScript("document.querySelector('#website-checkpoint-label').value='Before synthetic read failure'");
+    await click(window,'[data-action="website-checkpoint-create"]');
+    const checkpointFixture=await window.webContents.executeJavaScript("(()=>{for(const key of Object.keys(localStorage)){try{const p=JSON.parse(localStorage.getItem(key));if(p?.schema==='meridian.website-project.v1'&&p.name==='Audit checkpoint recovery'){const historyKey='meridian.website-checkpoints.'+encodeURIComponent(p.meridianProjectId)+'.'+encodeURIComponent(p.id);const raw=localStorage.getItem(historyKey);if(raw){localStorage.setItem(historyKey,'null');return {id:p.id,historyKey,raw,project:p};}}}catch(_){}}throw Error('Missing synthetic checkpoint fixture')})()");
+    await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+checkpointFixture.id+'"]');
+    await window.webContents.executeJavaScript("(()=>{const f=document.querySelector('#website-brief-audience');f.value='Retain audience during checkpoint retry';f.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await click(window,'[data-action="website-jump"][data-value="checkpoints"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-shortcuts').textContent.includes('unavailable')"),true);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-checkpoints').textContent.includes('No saved checkpoints')"),false);
+    await click(window,'[data-action="website-checkpoint-retry"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-brief-audience').value"),'Retain audience during checkpoint retry');
+    await capture(window,'37-checkpoint-history-retry-warning');
+    window.setSize(1280,900);window.webContents.setZoomFactor(2);await pause(180);
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=website-checkpoint-retry]').focus()");
+    assert.equal(await window.webContents.executeJavaScript("(()=>{const r=document.activeElement.getBoundingClientRect(),b=document.querySelector('.website-workbar').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return r.top>=b.bottom-1&&r.bottom<=w.bottom+1})()"),true,'Retry keyboard focus stays visible at200%');
+    await capture(window,'37b-checkpoint-retry-focus-200pct');
+    window.setSize(1440,1000);window.webContents.setZoomFactor(1);await pause(180);
+    await window.webContents.executeJavaScript('localStorage.setItem('+JSON.stringify(checkpointFixture.historyKey)+','+JSON.stringify(checkpointFixture.raw)+')');
+    await click(window,'[data-action="website-checkpoint-retry"]');
+    assert.equal(await window.webContents.executeJavaScript("document.activeElement.id"),'website-checkpoints-title');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-shortcuts').textContent.includes('Saved checkpoints (1)')"),true);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-brief-audience').value"),'Retain audience during checkpoint retry');
+    assert.equal(await window.webContents.executeJavaScript('localStorage.getItem('+JSON.stringify(checkpointFixture.historyKey)+')'),checkpointFixture.raw);
+    await capture(window,'38-checkpoint-history-recovered');
+    await fs.writeFile(join(evidence,'checkpoint-history-retry.json'),JSON.stringify({status:'passed',malformedHistoryReported:true,noFalseEmptyHistory:true,failedRetryRetainsEdits:true,repairedHistoryFound:true,focusedHeading:true,retainedHistoryBytesUnchanged:true,limits:'Synthetic local history fault and explicit fixture repair; no service recovery'},null,2));
+    await click(window,'[data-action="website-save"]');
+    const collision=await window.webContents.executeJavaScript('(()=>{const source='+JSON.stringify(checkpointFixture.project)+';const parent={...source,id:"website-alias-audit",name:"Alias parent"},child={...source,id:"website-alias-audit.backup",name:"Alias child"};const prefix="meridian.website."+encodeURIComponent(source.meridianProjectId)+".";const entries=[[prefix+parent.id,JSON.stringify(parent)],[prefix+child.id,JSON.stringify(child)]];for(const [key,raw]of entries)localStorage.setItem(key,raw);return {parentId:parent.id,entries};})()');
+    await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+collision.parentId+'"]');
+    await window.webContents.executeJavaScript("(()=>{const f=document.querySelector('#website-brief-goal');f.value='Preserve aliased draft edits';f.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await click(window,'[data-action="website-save"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('.website-builder').textContent.includes('overlaps another saved website')"),true);
+    for(const [key,raw]of collision.entries)assert.equal(await window.webContents.executeJavaScript('localStorage.getItem('+JSON.stringify(key)+')'),raw);
+    await window.webContents.executeJavaScript("document.querySelector('.website-builder .studio-inline-error').scrollIntoView({block:'center'})");
+    await capture(window,'39-website-recovery-key-conflict');
+    await click(window,'[data-action="website-save-copy"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-brief-goal').value"),'Preserve aliased draft edits');
+    for(const [key,raw]of collision.entries)assert.equal(await window.webContents.executeJavaScript('localStorage.getItem('+JSON.stringify(key)+')'),raw);
+    await fs.writeFile(join(evidence,'recovery-key-alias.json'),JSON.stringify({status:'passed',conflictingSaveRejected:true,bothRetainedWebsitesUnchanged:true,separateCopyPreservesEdits:true,limits:'Synthetic legacy recovery-key collision; no cross-process atomicity or service authority'},null,2));
+
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

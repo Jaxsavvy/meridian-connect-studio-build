@@ -471,6 +471,7 @@
     }
 
     function renderWebsiteCheckpoints(state) {
+      if (state.checkpointError) return `<section class="website-checkpoints" aria-labelledby="website-checkpoints-title"><h3 id="website-checkpoints-title" tabindex="-1">Saved checkpoints on this device</h3><div class="studio-inline-error" role="alert"><div><p>${escapeHtml(state.checkpointError)}</p><p>Existing checkpoint records are kept. Retrying reads the same history without changing your current edits.</p><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-retry">Retry checkpoint history</button></div></div></section>`;
       return `<section class="website-checkpoints" aria-labelledby="website-checkpoints-title"><h3 id="website-checkpoints-title" tabindex="-1">Saved checkpoints on this device</h3>
         <p>Save the project first. A checkpoint keeps a local draft snapshot, not an approved version. Up to 10 checkpoints are kept; existing ones are never automatically removed. ${websiteStoragePersistent ? 'No team sync or service backup.' : 'Session-only storage: checkpoints will be lost when this window reloads.'}</p>
         <div class="website-add-row"><label class="studio-field"><span>Checkpoint label</span><input id="website-checkpoint-label" maxlength="120" placeholder="Before review" data-focus-key="website-checkpoint-label"></label><button type="button" class="studio-button studio-button--secondary" data-action="website-checkpoint-create" ${state.dirty || state.checkpoints.length >= 10 ? 'disabled' : ''}>Create saved checkpoint</button></div>
@@ -551,7 +552,7 @@
         <nav class="website-flow-nav" aria-label="Website workflow">
           ${websiteSteps.map((item, index) => `<button type="button" data-action="website-step" data-value="${item.id}" ${item.id === websiteStep ? 'aria-current="step"' : ''}><span class="website-flow-number" aria-hidden="true">${index + 1}</span><span><strong>${item.label}</strong><small>${item.hint}</small></span></button>`).join('')}
         </nav>
-        <nav class="website-shortcuts" aria-label="Website editing shortcuts"><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="shared">Shared sections</button><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="checkpoints">Saved checkpoints (${state.checkpoints.length})</button><span>For saved-record recovery, open All websites. To preserve conflicting edits, use Save separate copy.</span></nav>
+        <nav class="website-shortcuts" aria-label="Website editing shortcuts"><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="shared">Shared sections</button><button type="button" class="studio-button studio-button--secondary" data-action="website-jump" data-value="checkpoints">Saved checkpoints (${state.checkpointError ? 'unavailable' : state.checkpoints.length})</button><span>For saved-record recovery, open All websites. To preserve conflicting edits, use Save separate copy.</span></nav>
         <div class="website-step-heading"><span class="studio-kicker">Step ${stepIndex + 1} of ${websiteSteps.length}</span><p>${step.id === 'brief' ? 'Start with who this website serves and what it should achieve.' : step.id === 'pages' ? 'Choose a page to work on, or add the next page your site needs.' : step.id === 'edit' ? 'Edit the selected page. Use Pages to move to a different page.' : 'Choose any page to preview at different widths. Download one HTML page or the whole static website.'}</p></div>
         <div class="website-builder-grid website-guided-grid">
           <aside class="website-panel website-brief-panel" data-website-panel="brief" ${websiteStep === 'brief' ? '' : 'hidden'} aria-labelledby="website-brief-title"><span class="studio-kicker">Strategy</span><h3 id="website-brief-title" tabindex="-1">Client brief</h3>${['audience', 'goal', 'tone', 'offer'].map(field => `<div class="studio-field"><label for="website-brief-${field}">${field[0].toUpperCase()}${field.slice(1)}</label><textarea id="website-brief-${field}" rows="3" data-website-brief="${field}" data-focus-key="website-brief-${field}">${escapeHtml(project.brief[field])}</textarea></div>`).join('')}${renderWebsiteStyles(project)}</aside>
@@ -764,6 +765,11 @@
       }
       else if (action === 'website-undo') website.undo();
       else if (action === 'website-redo') website.redo();
+      else if (action === 'website-checkpoint-retry') {
+        checkpointRemovalId = null; website.refreshCheckpointHistory();
+        const title = host.querySelector('#website-checkpoints-title');
+        title?.focus({ preventScroll: true }); title?.scrollIntoView({ block: 'start' });
+      }
       else if (action === 'website-checkpoint-create') {
         website.createCheckpoint(host.querySelector('#website-checkpoint-label')?.value || '');
         host.querySelector('#website-checkpoints-title')?.focus({ preventScroll: true });

@@ -1,5 +1,14 @@
 # Website Studio capability audit
 
+## Full 22-item continuation
+
+The user-requested continuation adds recovery-key collision safeguards and
+read-only checkpoint-history retry.210 relevant local tests pass.
+`docs/studio/design/9/CONTINUATION_22.md` records every item, current
+availability, fresh input review and limitations. Final hosted verification
+is recorded at the exact source in PR39 after publication. Earlier run/source
+records below remain historical and do not establish this new delta.
+
 ## Current ordered-review delivery — October 18, 2026
 
 The ordered review is published on existing PR #39. Source008c9ee passed
