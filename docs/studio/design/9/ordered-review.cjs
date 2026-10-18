@@ -52,6 +52,22 @@ app.whenReady().then(async()=>{try{
   await click('[data-action="keep-editing"]');await click('.website-flow-nav [data-value="edit"]');assert.equal(await js(`document.activeElement.id`),'website-page-editor-title');
   details.unlabeled=await js(`[...document.querySelectorAll('.website-builder input,.website-builder textarea,.website-builder select')].filter(e=>!e.closest('label')&&!e.getAttribute('aria-label')&&![...document.querySelectorAll('label')].some(l=>l.htmlFor===e.id)).map(e=>e.id)`);assert.equal(details.unlabeled.length,0);
   win.webContents.debugger.attach('1.3');const ax=await win.webContents.debugger.sendCommand('Accessibility.getFullAXTree');await fs.writeFile(path.join(out,'15-accessibility-tree.json'),JSON.stringify(ax,null,2));win.webContents.debugger.detach();details.modalTabWrap=true;details.stepFocusRestored=true;details.limit='Chromium accessibility tree and keyboard events; no human screen-reader acceptance';await capture('15-keyboard-editor');
+ }else if(item===27){
+  await create();details.matrix=[];
+  for(const [locale,label] of [['de-DE','Donaudampfschifffahrt '],['ar-EG','مرحبا بالعالم '],['ja-JP','長い見出しテスト ']]){
+   await click('.website-flow-nav [data-value="pages"]');
+   await js("(()=>{const f=document.querySelector('#website-page-title');f.value="+JSON.stringify(label.repeat(5))+";f.dispatchEvent(new Event('input',{bubbles:true}))})()");
+   for(const [width,height,zoom] of [[1440,1000,1],[1000,800,1],[800,700,1],[1280,900,2]]){
+    win.setSize(width,height);win.webContents.setZoomFactor(zoom);await pause(130);
+    for(const step of ['brief','pages','edit','preview']){
+     await click('.website-flow-nav [data-value="'+step+'"]');
+     const metrics=await js("(()=>{const roots=['.studio-workspace','.studio-main','.website-builder'];const missingLabels=[...document.querySelectorAll('.website-builder button')].filter(e=>!e.disabled&&!e.textContent.trim()&&!e.getAttribute('aria-label')).length;const bar=document.querySelector('.website-workbar__status');return {fits:roots.every(s=>{const e=document.querySelector(s);return e.scrollWidth<=e.clientWidth+1}),missingLabels,statusFits:bar.scrollWidth<=bar.clientWidth+1,retainedTitle:document.querySelector('.website-workbar').textContent}})()");
+     const record={locale,width,height,zoom,step,...metrics};details.matrix.push(record);assert.equal(metrics.fits,true,JSON.stringify(record));assert.equal(metrics.statusFits,true,JSON.stringify(record));assert.equal(metrics.missingLabels,0,JSON.stringify(record));assert.ok(metrics.retainedTitle.includes(label.trim()),JSON.stringify(record));
+    }
+    if(width===800||zoom===2)await capture('27-'+locale+'-'+width+'-'+zoom);
+   }
+  }
+  details.limits='Mixed content in English UI, not translated UI or full RTL product support';
  }else if(item===16){
   await create();details.sizes=[];await js("(()=>{const f=document.querySelector('#website-page-title');f.value='P'.repeat(120);f.dispatchEvent(new Event('input',{bubbles:true}))})()");
   for(const [width,height,zoom] of [[1440,1000,1],[1000,800,1],[800,700,1],[700,650,1],[1280,900,2]]){win.setSize(width,height);win.webContents.setZoomFactor(zoom);await pause(130);for(const step of ['brief','pages','edit','preview']){await click(`.website-flow-nav [data-value="${step}"]`);const fit=await js(`['.studio-workspace','.studio-main','.website-builder'].every(s=>{const e=document.querySelector(s);return e.scrollWidth<=e.clientWidth+1})`);details.sizes.push({width,height,zoom,step,fit});assert.equal(fit,true,JSON.stringify(details.sizes.at(-1)));assert.equal(await js("(()=>{const e=document.querySelector('.website-workbar__status');return e.textContent.includes('Unsaved changes')&&e.scrollWidth<=e.clientWidth+1&&getComputedStyle(e).whiteSpace==='normal'})()"),true,'Long page name cannot truncate step/save status');}await capture(`16-${width}-${zoom}`);}

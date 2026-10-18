@@ -1,0 +1,206 @@
+{
+  "warmups": 1,
+  "measured": 7,
+  "node": "v25.8.0",
+  "limits": "Independent synthetic Node memory-storage samples, nearest-rank p95, no browser speed/capacity or SLA claim",
+  "summary": [
+    {
+      "label": "small",
+      "metrics": {
+        "openMs": {
+          "count": 7,
+          "min": 0.19,
+          "median": 0.19,
+          "p95": 0.21,
+          "max": 0.21
+        },
+        "editMs": {
+          "count": 7,
+          "min": 0.13,
+          "median": 0.14,
+          "p95": 0.19,
+          "max": 0.19
+        },
+        "saveMs": {
+          "count": 7,
+          "min": 0.33,
+          "median": 0.34,
+          "p95": 0.37,
+          "max": 0.37
+        },
+        "previewMs": {
+          "count": 7,
+          "min": 0.28,
+          "median": 0.3,
+          "p95": 0.31,
+          "max": 0.31
+        },
+        "siteMs": {
+          "count": 7,
+          "min": 0.2,
+          "median": 0.21,
+          "p95": 0.23,
+          "max": 0.23
+        },
+        "zipMs": {
+          "count": 7,
+          "min": 1.67,
+          "median": 1.78,
+          "p95": 1.97,
+          "max": 1.97
+        },
+        "heapDeltaBytes": {
+          "samples": [
+            362504,
+            362504,
+            362608,
+            362608,
+            362504,
+            362504,
+            362504
+          ],
+          "limit": "Informational GC delta; negative values allowed, not leak proof"
+        },
+        "storageUTF16BytesAfterCheckpoints": {
+          "count": 7,
+          "min": 120408,
+          "median": 120408,
+          "p95": 120408,
+          "max": 120408
+        }
+      }
+    },
+    {
+      "label": "medium",
+      "metrics": {
+        "openMs": {
+          "count": 7,
+          "min": 1.17,
+          "median": 1.23,
+          "p95": 1.46,
+          "max": 1.46
+        },
+        "editMs": {
+          "count": 7,
+          "min": 1.54,
+          "median": 1.6,
+          "p95": 1.93,
+          "max": 1.93
+        },
+        "saveMs": {
+          "count": 7,
+          "min": 4.89,
+          "median": 5.18,
+          "p95": 5.63,
+          "max": 5.63
+        },
+        "previewMs": {
+          "count": 7,
+          "min": 0.1,
+          "median": 0.13,
+          "p95": 0.17,
+          "max": 0.17
+        },
+        "siteMs": {
+          "count": 7,
+          "min": 1.55,
+          "median": 1.79,
+          "p95": 2.61,
+          "max": 2.61
+        },
+        "zipMs": {
+          "count": 7,
+          "min": 12.08,
+          "median": 14.31,
+          "p95": 15.8,
+          "max": 15.8
+        },
+        "heapDeltaBytes": {
+          "samples": [
+            4672792,
+            4672832,
+            4672256,
+            4670744,
+            4680288,
+            4672840,
+            4672904
+          ],
+          "limit": "Informational GC delta; negative values allowed, not leak proof"
+        },
+        "storageUTF16BytesAfterCheckpoints": {
+          "count": 7,
+          "min": 4777704,
+          "median": 4777704,
+          "p95": 4777704,
+          "max": 4777704
+        }
+      }
+    },
+    {
+      "label": "large",
+      "metrics": {
+        "openMs": {
+          "count": 7,
+          "min": 11.53,
+          "median": 12.33,
+          "p95": 12.65,
+          "max": 12.65
+        },
+        "editMs": {
+          "count": 7,
+          "min": 14.25,
+          "median": 15.63,
+          "p95": 16.66,
+          "max": 16.66
+        },
+        "saveMs": {
+          "count": 7,
+          "min": 54.8,
+          "median": 58.07,
+          "p95": 62.27,
+          "max": 62.27
+        },
+        "previewMs": {
+          "count": 7,
+          "min": 0.25,
+          "median": 0.29,
+          "p95": 0.54,
+          "max": 0.54
+        },
+        "siteMs": {
+          "count": 7,
+          "min": 12.17,
+          "median": 13.96,
+          "p95": 15.05,
+          "max": 15.05
+        },
+        "zipMs": {
+          "count": 7,
+          "min": 83.43,
+          "median": 87.15,
+          "p95": 90.88,
+          "max": 90.88
+        },
+        "heapDeltaBytes": {
+          "samples": [
+            34246280,
+            34246384,
+            34246112,
+            34245928,
+            34240672,
+            34240800,
+            34246248
+          ],
+          "limit": "Informational GC delta; negative values allowed, not leak proof"
+        },
+        "storageUTF16BytesAfterCheckpoints": {
+          "count": 7,
+          "min": 19812460,
+          "median": 19812460,
+          "p95": 19812460,
+          "max": 19812460
+        }
+      }
+    }
+  ]
+}

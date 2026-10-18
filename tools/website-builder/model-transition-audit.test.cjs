@@ -3,8 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const W = require('../../src/renderer/studio-ui/website-builder.js');
 
-test('18000 deterministic editing, history and local save transitions preserve project invariants', () => {
-  let seed = 19371;
+for (const initialSeed of [19371, 0x12345678, 0xdeadbeef, 0x7fffffff]) {
+test(`18000 deterministic editing transitions preserve invariants (seed ${initialSeed})`, () => {
+  let seed = initialSeed;
   const random = size => (seed = (seed * 1664525 + 1013904223) >>> 0) % size;
   let total = 0;
   for (let run = 0; run < 30; run++) {
@@ -48,6 +49,8 @@ test('18000 deterministic editing, history and local save transitions preserve p
           return checkpoints.length && controller.removeCheckpoint(checkpoints[0].id);
         },
         () => controller.saveSeparateCopy(),
+        () => { const checkpoints = controller.snapshot().checkpoints; return checkpoints.length && !controller.snapshot().dirty && controller.restoreCheckpoint(checkpoints[random(checkpoints.length)].id); },
+        () => { if (controller.save()) return controller.openProject(controller.snapshot().project.id); },
       ];
       const action = random(actions.length);
       try {
@@ -57,7 +60,7 @@ test('18000 deterministic editing, history and local save transitions preserve p
         assert.ok(next.project.pages.some(item => item.id === next.selectedPageId));
         assert.ok(controller.exportSite().files['index.html']);
       } catch (error) {
-        error.message += ` (run ${run}, step ${step}, action ${action}, seed ${seed})`;
+        error.message += ` (initialSeed ${initialSeed}, run ${run}, step ${step}, action ${action}, seed ${seed})`;
         throw error;
       }
       total++;
@@ -65,3 +68,5 @@ test('18000 deterministic editing, history and local save transitions preserve p
   }
   assert.equal(total, 18000);
 });
+
+}

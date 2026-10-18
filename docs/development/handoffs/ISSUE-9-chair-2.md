@@ -1,5 +1,10 @@
 # DEV-006 — Chair 2 task handoff
 
+## Authorized optional extension
+
+OPTIONAL_EXTENSION.md records all four optional groups:72000seeded transitions, seven measured benchmark repetitions after warmup, eight-locale regressions and48mountedlocale/viewport states, plus focused test refactoring.230local tests pass. Guided CI includes the matrix. Exact final publication/results remain in PR39. No new product defect or external acceptance claim.
+
+
 ## Installer diagnostic continuation
 
 Read docs/studio/design/9/INSTALLER_DIAGNOSTICS.md. CI-only single-attempt wrapper records bounded source/hash/exit/crash-event evidence while preserving failure. Nine synthetic filtering/control-flow checks pass. Restricted installer/package/host sources unchanged. Current exact-source Windows outcome and artifact verification are recorded in PR39; no installer fix or release claim.
