@@ -856,7 +856,7 @@ app.whenReady().then(async () => {
     })()`);
     await click(window,'[data-action="website-list"]');
     await click(window,'[data-action="website-open"][data-value="'+presentationFixture.id+'"]');
-    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-design-font').value"),'system-ui');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-design-font').value"),presentationFixture.record.design.font);
     assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(presentationFixture.key)})`),presentationFixture.raw);
     const legacyBytes=await window.webContents.executeJavaScript(`(() => {
       const record=${JSON.stringify(presentationFixture.record)};delete record.design;const raw=JSON.stringify(record);

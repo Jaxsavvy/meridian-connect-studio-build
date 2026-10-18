@@ -297,3 +297,8 @@ coercion. Added bounded date-string/safe-style validation, recovery tests, and
 legacy missing-style defaults without read-time writes. Mounted malformed/legacy
 record and subsequent explicit style-save probes added.191 local tests pass;
 continuing final runtime checks and remaining-work review.
+
+Final local audit adds a passing20-case repeated-copy-write fault matrix.192 local
+tests pass. Corrected the mounted recovery-font assertion to compare the actual
+saved backup style rather than assuming the default; application recovery had
+correctly retained serif. Final exact-source hosted verification remains pending.

@@ -95,3 +95,13 @@ bytes. Explicit editing/saving remains possible. Two new model regressions cover
 backup fallback, all-invalid catalogue safety, legacy defaults and explicit save.
 The mounted flow verifies recovery/defaults/unchanged bytes and a later style save.
 191 relevant local tests pass; final hosted runtime evidence follows below.
+
+## Final fault-matrix pass
+
+A further20-case matrix combines two successive interruptions at pending, backup,
+primary, cleanup and index stages, then retries. It passes with one copy identity,
+the latest retained edits and unchanged original. The relevant local suite is now
+192 tests. The first presentation runtime assertion expected the default font even
+though the valid recovery backup held serif; the application correctly recovered
+serif. The assertion now compares the exact saved backup style. Failed run
+39100196482 and matching composed/Windows runs are retained, not accepted as passes.

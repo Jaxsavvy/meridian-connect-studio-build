@@ -964,3 +964,27 @@ test('legacy drafts without style settings open with safe defaults without modif
   assert.equal(storage.getItem(key),raw);assert.equal(reopened.updateDesign('accent','#16715a'),true);assert.equal(reopened.save(),true);
   assert.equal(JSON.parse(storage.getItem(key)).design.font,'system-ui');
 });
+
+test('copy retry fault matrix preserves one identity and the original across repeated write interruptions', () => {
+  for (const firstFailure of ['pending','primary','cleanup','index']) for (const secondFailure of ['pending','backup','primary','cleanup','index']) {
+    const memory=createMemoryStorage();let failAt=null,attemptId=null,originalId=null;
+    const storage={
+      get length(){return memory.length;},key:i=>memory.key(i),getItem:k=>memory.getItem(k),
+      setItem(key,value){
+        const stage=key.endsWith('.index')?'index':key.endsWith('.pending')?'pending':key.endsWith('.backup')?'backup':'primary';
+        if(originalId&&stage==='pending'){const id=JSON.parse(value).id;if(id!==originalId){if(attemptId)assert.equal(id,attemptId);else attemptId=id;}}
+        if(failAt===stage)throw Error('Interrupted '+stage);memory.setItem(key,value);
+      },
+      removeItem(key){if(failAt==='cleanup'&&key.endsWith('.pending'))throw Error('Interrupted cleanup');memory.removeItem(key);},
+    };
+    const active=controller(storage,firstFailure+'-'+secondFailure);active.createProject('Original');
+    const original=active.snapshot().project;originalId=original.id;active.updateBrief('goal','First attempted content');
+    failAt=firstFailure;assert.equal(active.saveSeparateCopy(),false);
+    active.updateBrief('goal','Current retained content');failAt=secondFailure;
+    const finished=active.saveSeparateCopy();failAt=null;
+    if(!finished)assert.equal(active.saveSeparateCopy(),true);
+    const repo=createRepository(storage,meridianProject.id);
+    assert.equal(active.snapshot().project.id,attemptId);assert.equal(repo.list().length,2);
+    assert.equal(active.snapshot().project.brief.goal,'Current retained content');assert.deepEqual(repo.open(originalId),original);
+  }
+});
