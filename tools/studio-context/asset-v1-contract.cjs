@@ -71,6 +71,40 @@ module.exports = (function (Model) {
         correlationId: event.correlationId };
     });
   }
+  function historyWindow(metadataHistory, reviewHistory, nextCursor) {
+    const revisions = [metadataHistory, reviewHistory].flatMap(events => events.map(e => e.revision));
+    if (new Set(revisions).size !== revisions.length ||
+        (revisions.length === 0 && nextCursor !== null) ||
+        [metadataHistory, reviewHistory].some(events =>
+          events.some((event, index) => index > 0 && event.revision <= events[index - 1].revision))) {
+      fail('INVALID_RESPONSE');
+    }
+    return revisions.length ? Math.min(...revisions) : null;
+  }
+  function parseHistoryPage(response, context) {
+    envelope(response);
+    responseKeys(response, ['contract','correlationId','projectId','assetId',
+      'metadataHistory','reviewHistory','nextCursor']);
+    if (!object(context) || !id(context.projectId) || !id(context.assetId) ||
+        !integer(context.assetRevision) || !integer(context.beforeRevision) ||
+        !Array.isArray(context.versionIds) || !context.versionIds.length ||
+        context.versionIds.some(value => !id(value)) ||
+        new Set(context.versionIds).size !== context.versionIds.length ||
+        response.projectId !== context.projectId || response.assetId !== context.assetId ||
+        !Array.isArray(response.metadataHistory) || !Array.isArray(response.reviewHistory) ||
+        response.metadataHistory.length + response.reviewHistory.length > 100 ||
+        !(response.nextCursor === null ||
+          (typeof response.nextCursor === 'string' && response.nextCursor.length > 0 &&
+           response.nextCursor.length <= 512))) fail('INVALID_RESPONSE');
+    const bound = Math.min(context.assetRevision, context.beforeRevision - 1);
+    const metadataHistory = mapMetadataHistory(response.metadataHistory, bound);
+    const reviewHistory = mapReviewHistory(response.reviewHistory, bound,
+      new Set(context.versionIds));
+    const oldestRevision = historyWindow(metadataHistory, reviewHistory, response.nextCursor);
+    return { metadataHistory, reviewHistory, nextCursor: response.nextCursor,
+      oldestRevision,
+      complete: response.nextCursor === null };
+  }
   function parseSearchPage(response, projectId, limit = 50) {
     envelope(response);
     responseKeys(response, ['contract','correlationId','items','nextCursor']);
@@ -105,8 +139,10 @@ module.exports = (function (Model) {
         !Array.isArray(a.metadataHistory) || !Array.isArray(a.reviewHistory) ||
         !Object.hasOwn(a, 'historyCursor') ||
         !(a.historyCursor === null ||
-        (typeof a.historyCursor === 'string' && a.historyCursor.length > 0))) fail('INVALID_RESPONSE');
+        (typeof a.historyCursor === 'string' && a.historyCursor.length > 0 &&
+         a.historyCursor.length <= 512))) fail('INVALID_RESPONSE');
     if (a.historyCursor) fail('PAGED_HISTORY_UNSUPPORTED');
+    if (a.metadataHistory.length + a.reviewHistory.length > 100) fail('PAGED_HISTORY_UNSUPPORTED');
     responseKeys(a, ['assetId','projectId','revision','name','originalFilename','tags',
       'description','section','originalVersionId','preferredVersionId','versions',
       'historyCursor','provenance','metadataHistory','reviewHistory']);
@@ -139,6 +175,7 @@ module.exports = (function (Model) {
     mapped.metadataHistory = mapMetadataHistory(a.metadataHistory, a.revision);
     mapped.reviewHistory = mapReviewHistory(
       a.reviewHistory, a.revision, new Set(a.versions.map(v => v.versionId)));
+    historyWindow(mapped.metadataHistory, mapped.reviewHistory, a.historyCursor);
     try { return Model.validate(mapped, projectId); }
     catch (error) { fail(error.code === 'PROJECT_DENIED' ? 'PROJECT_DENIED' : 'INVALID_RESPONSE'); }
   }
@@ -187,5 +224,5 @@ module.exports = (function (Model) {
     const hash = await crypto.subtle.digest('SHA-256', bytes);
     return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
   }
-  return Object.freeze({ CONTRACT, parseSearchPage, mapAsset, bodyDigest });
+  return Object.freeze({ CONTRACT, parseSearchPage, parseHistoryPage, mapAsset, bodyDigest });
 })(require('../../src/renderer/studio-assets/model'));

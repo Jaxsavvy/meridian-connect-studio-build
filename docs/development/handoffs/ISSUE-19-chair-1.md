@@ -23,6 +23,12 @@ The draft exact-read contract now requires both `metadataHistory` and `reviewHis
 
 The next client review should decide the separate history paging method and UI state before allowing non-null cursors. A complete exact record still requires all version descriptors; history completeness and version-lineage completeness are separate checks.
 
+### 2026-10-18 older-history page proposal
+
+The separate unmounted private Studio Files stage at local commit `6870671` passed authenticated synthetic owner/A/B history paging checks: 105 consecutive edits, mixed review/edit pages, cursor scope, expiry and read revocation. A seeded disposable fixture above 1,000 events remained fully pageable. The stage removed its test database and files; no live service is mounted.
+
+This public draft now names `files.history` with a project/asset/cursor request and bounded combined 100-event pages. Its test-only `parseHistoryPage` validates scope, field shape, lineage references, revision order, duplication and explicit completion; exact complete reads also reject duplicate revisions across event kinds. `mapAsset` still rejects a non-null history cursor, so this does not activate paged history in Cassy's component. The focused suite passes 15 tests and the relevant Studio context suite passes 38 tests locally; record the exact pushed head and source checks after publication. Cassy's adapter review must decide page state and incomplete-history UI before use. The existing Project item ID is recorded above; its fields were not re-read in this turn.
+
 - Task 01 remains PARTIAL; loaded bytes in the running Team Hub process and a live Studio asset route are unverified. Task 02 remains a review draft. DEV-010 is open and Studio Assets stay Unavailable.
 - Cassy's requested review and adapter/controller tests must cover page state, exact hydration, history, conflict, unknown outcome, and revoked scope. Her branch was not edited here.
 - DEV-011 must settle explicit project grant administration, reviewer/self-review and export authority. The restricted service owner must set media, quota, history paging, cleanup, transfer, backup, and retention policies. Transfer-time revocation and host-owned safe save remain unverified.

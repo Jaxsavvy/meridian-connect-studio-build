@@ -26,7 +26,7 @@ An error response has `{ contract, correlationId, error: { code, retryable } }`.
 
 In this client-facing v1, display names and original filenames are limited to 160 JavaScript UTF-16 code units to match the current Asset Model's exact-read validator. Count the submitted value before NFC normalization and trimming **and** the resulting value after normalization; reject either oversized form. For example, 160 U+0344 characters fit the submitted count but expand to 320 units under NFC and must be denied. The service must reject a longer import filename or metadata name rather than accept a mutation that the client cannot later reload. Description is text of at most 2,000 characters; section is nonempty text of at most 100 characters. Every exact record must include `historyCursor`, with `null` explicitly meaning the returned metadata/review history is complete. Omission is invalid, and a non-null cursor is not yet supported by the current component adapter. Unexpected internal fields are invalid in the reference validator.
 
-`files.get` accepts `{ projectId, assetId }` and returns one complete record:
+`files.get` accepts `{ projectId, assetId }` and returns one canonical record with complete version lineage and an explicit history-completeness marker:
 
 ```json
 {
@@ -58,7 +58,15 @@ Hashes and lengths above are shape examples, not hashes of actual files. An impl
 
 Every exact record includes both `metadataHistory` and `reviewHistory` arrays. An empty array means no events in that history; omission is invalid and must never be interpreted as empty. `historyCursor: null` means both arrays are complete. A non-null cursor identifies incomplete history and remains unsupported by the current component adapter. `metadataHistory` contains events shaped as `{ actorId, priorRevision, revision, changed, createdAt, correlationId }`, where `changed` contains only `name`, `tags`, `description`, or `section` fields with `{ before, after }` values. `reviewHistory` contains `{ actorId, versionId, decision, revision, createdAt, correlationId }`; `versionId` must belong to the record. `createdAt` is a Unix-seconds integer. The test reference checks these fields, rejects unexpected internal fields, and maps metadata events to the current component's `actor`/ISO `at`/`changes` shape while retaining validated review events. These examples describe a draft wire shape, not a live route or approved reviewer policy.
 
-The current component accepts at most 100 metadata events. The reference therefore returns `PAGED_HISTORY_UNSUPPORTED` for more than 100 metadata or review events, or any non-null `historyCursor`. A service must not claim `historyCursor: null` for silently truncated history. History paging and a client page state remain an integration gate before the service can handle larger histories.
+The current component accepts at most 100 metadata events. The exact-record reference therefore returns `PAGED_HISTORY_UNSUPPORTED` for more than 100 metadata or review events, or any non-null `historyCursor`. A service must not claim `historyCursor: null` for silently truncated history. The separate test-only `parseHistoryPage` reference below validates older pages; it does not change the component adapter or make partial history safe to display as complete.
+
+### Proposed older-history page
+
+`files.history` accepts `{ projectId, assetId, cursor }`, where `cursor` came from that asset's exact-read `historyCursor` or the preceding history page's `nextCursor`. The service derives the actor from the authenticated session and rechecks current project membership and `asset.read` on every page. It returns `{ contract, correlationId, projectId, assetId, metadataHistory, reviewHistory, nextCursor }`. Both arrays are required, and together contain at most 100 events. The first exact read returns the newest 100 events across both kinds; each older page contains strictly earlier revisions. Each array is ascending by revision. `nextCursor: null` explicitly ends both histories. An empty page with a non-null cursor is invalid.
+
+The opaque cursor binds actor, project and asset and has a bounded lifetime; the isolated stage currently uses five minutes. A foreign or revoked actor receives no page or existence hint. An expired cursor returns an explicit expiry or concealed unavailable result after cleanup; it never restarts at the first page. A new edit after page one must not appear in an older page. A client that wants a current complete history restarts from a fresh exact read and keeps incomplete history marked as incomplete until all pages validate. A stored idempotent mutation outcome may contain a cursor that has since expired; the mutation remains committed, and a fresh exact read is the path to a new history cursor.
+
+The test-only `parseHistoryPage` checks the scope, complete envelope, field shapes, exact-version references, combined 100-event bound, duplicate and ordered revisions, and that every event is older than the caller's previous page boundary. The caller supplies the full exact-read version IDs and the lowest previously seen revision; neither is a renderer-selected authority. Cassy's client adapter still needs page state and an explicit incomplete/complete UI contract before this proposed method can be mounted.
 
 ## Transfer and mutation shapes
 
@@ -88,6 +96,8 @@ Each case requires real service persistence and authentication unless marked cli
 | R03 | Page has `nextCursor` and an older loaded asset is absent | Client retains loaded asset until exact read or explicit complete refresh; never treats first page as full set. |
 | R04 | Exact get returns original plus two branches under one parent | All lineage loads; original ID/hash and existing version fields remain immutable. |
 | R05 | Exact get drops/replaces a loaded version or changes original filename/hash | Adapter/controller rejects response and preserves prior loaded record. |
+| H01 | Exact read has more than 100 combined metadata/review events | First page has both arrays and a non-null history cursor; older pages return every event once, preserve provenance, and end with `nextCursor: null`. The current component remains unavailable for this record until it supports page state. |
+| H02 | History cursor is reused by B, for another asset, after revocation or expiry, or with a newly added event | No foreign or revoked page; no silent restart. An older page excludes the new event and contains strictly older, unique revisions. |
 | W01 | A begins original, sends chunks, finalizes, restarts staging, gets/downloads exact version | One canonical asset; SHA-256 and bytes match after restart. |
 | W02 | Same begin/finalize key and body after lost response | Same upload/version/result; no duplicate derivative or new original. |
 | W03 | Same key with changed filename, bytes, parent or metadata body | `IDEMPOTENCY_CONFLICT`; original outcome unchanged. |

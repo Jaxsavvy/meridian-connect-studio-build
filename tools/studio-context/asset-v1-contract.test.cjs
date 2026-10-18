@@ -101,6 +101,18 @@ test('staged metadata and review history map without losing provenance', () => {
   assert.equal(mapped.reviewHistory[0].decision, 'submitted');
 });
 
+test('complete exact history rejects duplicate revisions across event kinds', () => {
+  const record = asset();
+  record.metadataHistory = [{ actorId: 'synthetic-actor-a', priorRevision: 1,
+    revision: 2, changed: { name: { before: 'poster', after: 'poster final' } },
+    createdAt: 1760486400, correlationId: 'synthetic-correlation-2' }];
+  record.reviewHistory = [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-2',
+    decision: 'submitted', revision: 2, createdAt: 1760486401,
+    correlationId: 'synthetic-correlation-3' }];
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'INVALID_RESPONSE' });
+});
+
 test('history rejects foreign versions, internal fields and unsupported size', () => {
   const record = asset();
   record.reviewHistory = [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-foreign',
@@ -119,6 +131,67 @@ test('history rejects foreign versions, internal fields and unsupported size', (
     createdAt: 1760486400, correlationId: 'synthetic-correlation-2' }));
   assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
     { code: 'PAGED_HISTORY_UNSUPPORTED' });
+  record.metadataHistory = record.metadataHistory.slice(0, 100);
+  record.reviewHistory = [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-2',
+    decision: 'submitted', revision: 2, createdAt: 1760486401,
+    correlationId: 'synthetic-correlation-3' }];
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'PAGED_HISTORY_UNSUPPORTED' });
+});
+
+test('older history pages preserve provenance and an explicit completion marker', () => {
+  const context = { projectId: A, assetId: 'synthetic-asset-a', assetRevision: 7,
+    beforeRevision: 6, versionIds: ['synthetic-version-1', 'synthetic-version-2'] };
+  const first = envelope({ projectId: A, assetId: context.assetId,
+    metadataHistory: [
+      { actorId: 'synthetic-actor-a', priorRevision: 2, revision: 3,
+        changed: { name: { before: 'poster', after: 'poster revised' } },
+        createdAt: 1760486400, correlationId: 'synthetic-correlation-2' },
+      { actorId: 'synthetic-actor-a', priorRevision: 4, revision: 5,
+        changed: { section: { before: 'Files', after: 'Design' } },
+        createdAt: 1760486401, correlationId: 'synthetic-correlation-3' }],
+    reviewHistory: [{ actorId: 'synthetic-actor-a', versionId: 'synthetic-version-2',
+      decision: 'submitted', revision: 4, createdAt: 1760486400,
+      correlationId: 'synthetic-correlation-4' }], nextCursor: 'synthetic-older-cursor' });
+  const page = Contract.parseHistoryPage(first, context);
+  assert.equal(page.complete, false);
+  assert.equal(page.oldestRevision, 3);
+  assert.equal(page.metadataHistory[0].changes.name.after, 'poster revised');
+  assert.equal(page.reviewHistory[0].versionId, 'synthetic-version-2');
+  const older = Contract.parseHistoryPage(envelope({ projectId: A, assetId: context.assetId,
+    metadataHistory: [], reviewHistory: [{ actorId: 'synthetic-actor-a',
+      versionId: 'synthetic-version-1', decision: 'submitted', revision: 2,
+      createdAt: 1760486399, correlationId: 'synthetic-correlation-5' }],
+    nextCursor: null }), { ...context, beforeRevision: page.oldestRevision });
+  assert.equal(older.complete, true);
+  assert.equal(older.oldestRevision, 2);
+});
+
+test('history pages fail closed on scope, order, size and hidden fields', () => {
+  const context = { projectId: A, assetId: 'synthetic-asset-a', assetRevision: 7,
+    beforeRevision: 6, versionIds: ['synthetic-version-1', 'synthetic-version-2'] };
+  const event = { actorId: 'synthetic-actor-a', priorRevision: 2, revision: 3,
+    changed: { name: { before: 'poster', after: 'poster revised' } },
+    createdAt: 1760486400, correlationId: 'synthetic-correlation-2' };
+  const page = { projectId: A, assetId: context.assetId,
+    metadataHistory: [event], reviewHistory: [], nextCursor: null };
+  const parse = value => Contract.parseHistoryPage(envelope(value), context);
+  assert.throws(() => parse({ ...page, projectId: B }), { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, assetId: 'synthetic-asset-b' }), { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, metadataHistory: [{ ...event, storageKey: 'hidden' }] }),
+    { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, metadataHistory: [{ ...event, revision: 6 }] }),
+    { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, metadataHistory: [event, event] }),
+    { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, metadataHistory: Array(101).fill(event) }),
+    { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, metadataHistory: [], nextCursor: 'still-more' }),
+    { code: 'INVALID_RESPONSE' });
+  assert.throws(() => parse({ ...page, reviewHistory: [{ actorId: 'synthetic-actor-a',
+    versionId: 'synthetic-version-foreign', decision: 'submitted', revision: 4,
+    createdAt: 1760486400, correlationId: 'synthetic-correlation-3' }] }),
+  { code: 'INVALID_RESPONSE' });
 });
 
 test('foreign, cyclic and incomplete exact records fail closed', () => {
