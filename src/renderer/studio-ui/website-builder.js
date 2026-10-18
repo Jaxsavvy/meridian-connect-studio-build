@@ -115,6 +115,11 @@
     if (input.meridianProjectId !== expectedProjectId) throw new Error('Website project does not belong to the selected Meridian project.');
     if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 50) throw new Error('Website project pages are invalid.');
     if (typeof input.name !== 'string' || input.name.length > 160 || !Number.isSafeInteger(input.revision) || input.revision < 0 || !input.brief || ['audience','goal','tone','offer'].some(field => typeof input.brief[field] !== 'string' || input.brief[field].length > 4000)) throw new Error('Website draft fields are invalid.');
+    if (['createdAt', 'updatedAt'].some(field => typeof input[field] !== 'string' || input[field].length > 128)) throw new Error('Website saved date fields are invalid.');
+    // Older drafts may omit styles. Normalize only that known legacy shape;
+    // malformed values must not reach HTML or Date/string coercion in the UI.
+    const design = input.design === undefined ? { accent: '#1f6fd6', font: 'system-ui' } : input.design;
+    if (!design || typeof design !== 'object' || Array.isArray(design) || typeof design.accent !== 'string' || !/^#[0-9a-f]{6}$/i.test(design.accent) || typeof design.font !== 'string' || !Object.hasOwn(FONTS, design.font)) throw new Error('Website style settings are invalid.');
     const pageIds = new Set();
     const slugs = new Set();
     const filenames = new Set();
@@ -149,7 +154,7 @@
       shared.set(section.sharedId, shape);
     }
     navigationRows(input);
-    return copy(input);
+    return copy({ ...input, design });
   }
 
   function createMemoryStorage() {

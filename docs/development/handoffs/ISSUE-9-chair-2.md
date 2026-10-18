@@ -291,3 +291,9 @@ Continued retained-input review found four raw section identity interpolations i
 editor label/input attributes. Escaped all four and added failing-then-passing
 renderer coverage plus an inert mounted DOM attribute probe.189 local tests pass.
 Still continuing the available-input audit and exact-source hosted verification.
+
+The next audit pass reproduced malformed saved style/date objects reaching renderer
+coercion. Added bounded date-string/safe-style validation, recovery tests, and
+legacy missing-style defaults without read-time writes. Mounted malformed/legacy
+record and subsequent explicit style-save probes added.191 local tests pass;
+continuing final runtime checks and remaining-work review.

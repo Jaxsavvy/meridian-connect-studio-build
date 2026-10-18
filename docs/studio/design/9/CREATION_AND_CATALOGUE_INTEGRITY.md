@@ -83,3 +83,15 @@ second fixture mistake: a top-level `const heading` collided with an earlier
 executeJavaScript declaration. The new probe is now locally scoped. Failed runs
 39099656339 and39099845294 remain retained; neither is accepted as passing runtime
 evidence. These failures do not establish an application or installer regression.
+
+## Presentation record validation
+
+Further retained-record review reproduced malformed style/date objects passing
+validation and reaching renderer string/Date coercion. Style settings now require
+a supported font and six-digit color; saved date fields require bounded strings.
+This checks safe types, not calendar correctness. The known older shape with no
+style object normalizes to safe defaults in memory without rewriting retained
+bytes. Explicit editing/saving remains possible. Two new model regressions cover
+backup fallback, all-invalid catalogue safety, legacy defaults and explicit save.
+The mounted flow verifies recovery/defaults/unchanged bytes and a later style save.
+191 relevant local tests pass; final hosted runtime evidence follows below.

@@ -845,6 +845,35 @@ app.whenReady().then(async () => {
     await fs.writeFile(join(evidence,'section-identity-escape.json'),JSON.stringify({status:'passed',noInjectedAttribute:true,headingIdRetained:true,actionIdRetained:true,limits:'Inert synthetic identity attribute probe; no executable payload'},null,2));
     await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(identityFixture.key)}+suffix)`);
     await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+conflictOriginal.id+'"]');
+    const presentationFixture=await window.webContents.executeJavaScript(`(() => {
+      const source=JSON.parse(localStorage.getItem(${JSON.stringify(conflictOriginal.key)}));
+      const record={...source,id:'website-presentation-evidence',name:'Validated synthetic presentation'};
+      const key='meridian.website.'+encodeURIComponent(record.meridianProjectId)+'.'+encodeURIComponent(record.id);
+      localStorage.setItem(key+'.backup',JSON.stringify(record));
+      const broken={...record,design:{accent:{toString:1},font:{toString:1}},updatedAt:{toString:1}};
+      const raw=JSON.stringify(broken);localStorage.setItem(key,raw);return {key,id:record.id,record,raw};
+    })()`);
+    await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+presentationFixture.id+'"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-design-font').value"),'system-ui');
+    assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(presentationFixture.key)})`),presentationFixture.raw);
+    const legacyBytes=await window.webContents.executeJavaScript(`(() => {
+      const record=${JSON.stringify(presentationFixture.record)};delete record.design;const raw=JSON.stringify(record);
+      localStorage.setItem(${JSON.stringify(presentationFixture.key)},raw);localStorage.removeItem(${JSON.stringify(presentationFixture.key)}+'.backup');return raw;
+    })()`);
+    await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+presentationFixture.id+'"]');
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#website-design-font').value"),'system-ui');
+    assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(presentationFixture.key)})`),legacyBytes);
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    await window.webContents.executeJavaScript("(() => {const field=document.querySelector('#website-design-accent');field.value='#16715a';field.dispatchEvent(new Event('change',{bubbles:true}));})()");
+    await click(window,'[data-action="website-save"]');
+    const persistedDesign=await window.webContents.executeJavaScript(`JSON.parse(localStorage.getItem(${JSON.stringify(presentationFixture.key)})).design`);
+    assert.deepEqual(persistedDesign,{accent:'#16715a',font:'system-ui'});
+    await fs.writeFile(join(evidence,'saved-presentation-validation.json'),JSON.stringify({status:'passed',malformedStylesAndDateRecover:true,corruptPrimaryBytesUnchanged:true,legacyMissingStylesDefaultedInMemory:true,legacyBytesUnchangedUntilSave:true,explicitStyleSaveWorks:true,limits:'Synthetic retained-record shapes; timestamp validation checks types and bounds, not calendar correctness'},null,2));
+    await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(presentationFixture.key)}+suffix)`);
+    await click(window,'[data-action="website-list"]');
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

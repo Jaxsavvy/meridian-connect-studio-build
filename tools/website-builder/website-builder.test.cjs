@@ -944,3 +944,23 @@ test('a second copy failure before writing must not misidentify the earlier own 
   failure='none';assert.equal(active.saveSeparateCopy(),true);
   assert.equal(active.snapshot().project.id,attempt.id);assert.equal(active.snapshot().project.brief.goal,'Second copy edit');assert.equal(repo.list().length,2);
 });
+
+test('malformed saved styles and timestamp types recover safely instead of reaching renderer coercion', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Validated presentation');active.save();
+  const good=active.snapshot().project,key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(good.id)}`;
+  const damage=[p=>{p.design.font={toString:1};},p=>{p.design.accent={toString:1};},p=>{p.design=null;},p=>{p.design=[];},p=>{p.updatedAt={toString:1};},p=>{p.createdAt=17;}];
+  const repo=createRepository(storage,meridianProject.id),backup=JSON.parse(storage.getItem(key+'.backup'));
+  for(const change of damage){const bad=JSON.parse(JSON.stringify(good));change(bad);storage.setItem(key,JSON.stringify(bad));assert.deepEqual(repo.open(good.id),backup);assert.doesNotThrow(()=>repo.catalogue());}
+  const bad=JSON.parse(JSON.stringify(good));bad.updatedAt={toString:1};for(const suffix of ['', '.backup','.pending'])storage.setItem(key+suffix,JSON.stringify(bad));
+  assert.doesNotThrow(()=>repo.catalogue());assert.equal(repo.catalogue().unavailableProjects[0].id,good.id);
+});
+
+test('legacy drafts without style settings open with safe defaults without modifying the retained bytes', () => {
+  const storage=createMemoryStorage(),active=controller(storage);active.createProject('Legacy style defaults');
+  const legacy=active.snapshot().project;delete legacy.design;
+  const key=`meridian.website.${encodeURIComponent(meridianProject.id)}.${encodeURIComponent(legacy.id)}`,raw=JSON.stringify(legacy);storage.setItem(key,raw);
+  const reopened=controller(storage,'legacy');assert.equal(reopened.openProject(legacy.id),true);
+  assert.deepEqual(reopened.snapshot().project.design,{accent:'#1f6fd6',font:'system-ui'});
+  assert.equal(storage.getItem(key),raw);assert.equal(reopened.updateDesign('accent','#16715a'),true);assert.equal(reopened.save(),true);
+  assert.equal(JSON.parse(storage.getItem(key)).design.font,'system-ui');
+});
