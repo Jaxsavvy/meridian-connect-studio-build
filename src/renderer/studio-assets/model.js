@@ -8,7 +8,9 @@
   const clone = (value) => structuredClone(value);
   function text(value, max = 160) {
     if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_TEXT');
-    return value.normalize('NFC').trim();
+    const normalized = value.normalize('NFC').trim();
+    if (!normalized || normalized.length > max || /[\u0000-\u001f]/.test(normalized)) fail('INVALID_TEXT');
+    return normalized;
   }
   function safeName(value) {
     let name = text(value).replace(/[<>:"/\\|?*]/g, '-').replace(/[. ]+$/g, '');
