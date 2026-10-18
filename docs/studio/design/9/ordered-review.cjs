@@ -75,10 +75,3 @@ app.whenReady().then(async()=>{try{
  await fs.writeFile(path.join(out,`item-${String(item).padStart(2,'0')}.json`),JSON.stringify({item,status:'reviewed',details,rendererErrors:errors,blockedNetworkRequests:requests.length},null,2));
  console.log('ORDERED_ITEM_DONE',item);app.exit(0);
 }catch(e){await fs.writeFile(path.join(out,`item-${item}-failure.txt`),e.stack);if(win&&!win.isDestroyed())await capture('failure').catch(()=>{});console.error(e);app.exit(1);}});
-
-
-
-
-
-
-
