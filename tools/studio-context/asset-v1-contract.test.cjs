@@ -51,6 +51,9 @@ test('foreign and duplicate summaries fail before display', () => {
     storageKey: 'internal-object-key' }), A), { code: 'INVALID_RESPONSE' });
   const tooLong = summary(); tooLong.name = 'n'.repeat(161);
   assert.throws(() => Contract.parseSearchPage(envelope({ items: [tooLong], nextCursor: null }), A), { code: 'INVALID_RESPONSE' });
+  const expandsAfterNfc = summary(); expandsAfterNfc.name = '\u0344'.repeat(160);
+  assert.throws(() => Contract.parseSearchPage(envelope({ items: [expandsAfterNfc], nextCursor: null }), A),
+    { code: 'INVALID_RESPONSE' });
 });
 
 test('exact record maps complete lineage to Cassy component shape', () => {
@@ -62,6 +65,12 @@ test('exact record maps complete lineage to Cassy component shape', () => {
   assert.equal(mapped.versions[1].bytes, 18);
   assert.equal(mapped.versions[0].sha256, H1);
   assert.equal(mapped.description, 'First line\nSecond line');
+});
+
+test('exact record rejects a name that expands beyond the read limit after NFC', () => {
+  const record = asset(); record.name = '\u0344'.repeat(160);
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'INVALID_RESPONSE' });
 });
 
 test('staged metadata and review history map without losing provenance', () => {
@@ -174,9 +183,18 @@ test('mutation names stay within the current Asset Model read limit', async () =
     await assert.rejects(Contract.bodyDigest('files.import-begin', A,
       { ...begin, filename }), { code: 'INVALID_REQUEST' });
   }
+  assert.equal(typeof await Contract.bodyDigest('files.import-begin', A,
+    { ...begin, filename: '\u0344'.repeat(80) }), 'string');
+  const expanding = '\u0344'.repeat(160);
+  assert.equal(expanding.length, 160);
+  assert.equal(expanding.normalize('NFC').length, 320);
+  await assert.rejects(Contract.bodyDigest('files.import-begin', A,
+    { ...begin, filename: expanding }), { code: 'INVALID_REQUEST' });
   const metadata = { assetId: 'synthetic-asset-a', expectedRevision: 2, name: 'n'.repeat(161),
     tags: [], description: '', section: 'Files', mutationKey: 'synthetic-mutation-0008' };
   await assert.rejects(Contract.bodyDigest('files.metadata', A, metadata), { code: 'INVALID_REQUEST' });
   await assert.rejects(Contract.bodyDigest('files.metadata', A,
     { ...metadata, name: '😀'.repeat(81) }), { code: 'INVALID_REQUEST' });
+  await assert.rejects(Contract.bodyDigest('files.metadata', A,
+    { ...metadata, name: expanding }), { code: 'INVALID_REQUEST' });
 });

@@ -12,10 +12,14 @@ module.exports = (function (Model) {
   const integer = value => Number.isSafeInteger(value) && value >= 1;
   const responseText = (value, max) => {
     if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_RESPONSE');
+    const normalized = value.normalize('NFC').trim();
+    if (!normalized || normalized.length > max || /[\u0000-\u001f]/.test(normalized)) fail('INVALID_RESPONSE');
   };
   function text(value, max) {
     if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_REQUEST');
-    return value.normalize('NFC').trim();
+    const normalized = value.normalize('NFC').trim();
+    if (!normalized || normalized.length > max || /[\u0000-\u001f]/.test(normalized)) fail('INVALID_REQUEST');
+    return normalized;
   }
   function keys(value, allowed) {
     if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) fail('INVALID_REQUEST');
