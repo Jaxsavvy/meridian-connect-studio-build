@@ -791,11 +791,13 @@
         render();
         if (callback) requestTransition(callback, reason);
       } else if (action === 'save-leave') {
+        const transition = pendingLeave;
+        if (!transition) return;
         const callback = pendingLeave && pendingLeave.callback;
         const scope = pendingLeave && pendingLeave.scope;
         const reason = pendingLeave && pendingLeave.reason;
         const saved = scope === 'website' ? website.save() : await workspace.saveDraft();
-        if (saved) {
+        if (saved && pendingLeave === transition) {
           pendingLeave = null;
           dialogReturnFocus = null;
           render();

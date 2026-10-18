@@ -279,3 +279,10 @@ tests include a seeded18,000-transition invariant audit. Mounted copy/index and
 catalogue/key rejection evidence is pending fresh CI. See
 CREATION_AND_CATALOGUE_INTEGRITY.md. Keep all PRs unmerged and remaining owner/
 service/human dependencies explicit.
+
+Further audit after that batch found late campaign-save acknowledgement could
+revive cancelled navigation or clear a newer leave dialog. Two failing renderer
+cases now pass with transition identity checks; mounted acknowledgement/cancel/
+new-dialog sequencing added.188 local tests pass. Corrected a mounted catalogue
+fixture returning a non-cloneable function to Electron; retain the failed run as
+fixture feedback. Continuing verification and the wider remaining-work audit.

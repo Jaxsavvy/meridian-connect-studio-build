@@ -790,7 +790,7 @@ app.whenReady().then(async () => {
     await fs.writeFile(join(evidence,'retained-record-recovery.json'),JSON.stringify({status:'passed',pendingOnlyDiscovered:true,malformedRecordVisible:true,failedRetryPreservesRecord:true,failedRetryFocusRetained:true,repairedRetryOpens:true,warningClearsAfterRemoval:true,limits:'Synthetic local-storage fixture; no automatic repair or data deletion by application'},null,2));
     await click(window,'[data-action="website-open"][data-value="'+conflictOriginal.id+'"]');
     const catalogueBytes=await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(conflictOriginal.key)})`);
-    await window.webContents.executeJavaScript("window.__catalogueStorageKey=Storage.prototype.key;Storage.prototype.key=function(){throw new Error('Synthetic enumeration denied');};");
+    await window.webContents.executeJavaScript("window.__catalogueStorageKey=Storage.prototype.key;Storage.prototype.key=function(){throw new Error('Synthetic enumeration denied');};void 0;");
     try {
       await click(window,'[data-action="website-list"]');
       await waitFor(window,'#website-catalogue-retry');
@@ -808,6 +808,24 @@ app.whenReady().then(async () => {
     assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-saved-title');
     assert.equal(await window.webContents.executeJavaScript(`localStorage.getItem(${JSON.stringify(conflictOriginal.key)})`),catalogueBytes);
     await fs.writeFile(join(evidence,'catalogue-access-retry.json'),JSON.stringify({status:'passed',listingFailureVisible:true,noFalseEmptyClaim:true,failedRetryFocusRetained:true,retryAfterStorageReturn:true,savedHeadingFocused:true,originalBytesUnchanged:true,limits:'Synthetic Storage.key denial; no actual storage permission changed'},null,2));
+    await click(window,'[data-action="surface"][data-value="editor"]');
+    await waitFor(window,'#studio-scene-notes');
+    await window.webContents.executeJavaScript("(() => {const field=document.querySelector('#studio-scene-notes');field.value='Keep editing after the save acknowledgement';field.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await click(window,'[data-action="surface"][data-value="states"]');
+    await waitFor(window,'#studio-leave-title');
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=save-leave]').click();document.querySelector('[data-action=keep-editing]').click();void 0;");
+    await until(window,"Boolean(document.querySelector('[data-surface=editor] .studio-pill--saved'))");
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#studio-leave-title'))"),false);
+    assert.equal(await window.webContents.executeJavaScript("document.querySelector('#studio-scene-notes').value"),'Keep editing after the save acknowledgement');
+    await capture(window,'36-keep-editing-save-acknowledgement');
+    await window.webContents.executeJavaScript("(() => {const field=document.querySelector('#studio-scene-notes');field.value='Protect the newer leave choice';field.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await click(window,'[data-action="surface"][data-value="states"]');
+    await window.webContents.executeJavaScript("document.querySelector('[data-action=save-leave]').click();document.querySelector('[data-action=keep-editing]').click();document.querySelector('[data-action=surface][data-value=operations]').click();void 0;");
+    await until(window,"Boolean(document.querySelector('[data-surface=editor] .studio-pill--saved'))");
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('#studio-leave-title'))"),true,'Old acknowledgement cannot clear the newer leave dialog');
+    await click(window,'[data-action="discard-leave"]');
+    await until(window,"Boolean(document.querySelector('[data-surface=operations]'))");
+    await fs.writeFile(join(evidence,'leave-save-race.json'),JSON.stringify({status:'passed',cancelledNavigationNotRevived:true,savedNotesRetained:true,newerDialogNotCleared:true,newTargetUsedAfterExplicitChoice:true,limits:'Synthetic adapter save acknowledgements in mounted renderer; no service write'},null,2));
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

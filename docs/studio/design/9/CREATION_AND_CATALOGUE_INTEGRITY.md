@@ -53,3 +53,17 @@ Fresh hosted runtime verification will be recorded below after publication.
 No main/preload/API, owner/Cassy runtime, package/installer, security policy,
 provider or live service change. No merge, Complete or deployment. Prior installer
 reliability, authoritative integrations and independent/human review remain open.
+
+## Continued leave-transition audit
+
+After publishing the first batch, continued source review reproduced another
+race with two failing renderer tests: Keep editing during an asynchronous campaign
+Save then continue was ignored when its acknowledgement later succeeded, and the
+old acknowledgement could clear a newer leave dialog. A save now retains the
+specific transition object and only continues while that exact request is still
+pending. Cancelling navigation does not cancel or erase a successful synthetic
+save. Added actual mounted acknowledgement/cancel/new-dialog sequencing.
+188 relevant local tests pass after this correction. The first batch's mounted
+catalogue fixture failed because its setup returned a function across Electron's
+execution boundary; setup now returns void. Preserve that failed run as test
+fixture feedback, not a product or installer failure. Fresh checks follow.

@@ -6,7 +6,7 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const root = join(__dirname, '../..');
 
-function harness({ fallback = false } = {}) {
+function harness({ fallback = false, saveDraft = null } = {}) {
   const listeners = {};
   const values = new Map();
   const storage = {
@@ -36,6 +36,11 @@ function harness({ fallback = false } = {}) {
         notify = onChange;
         return { destroy() {}, snapshot: () => state,
           openSurface(surface) { state = { ...state, surface }; notify(state); },
+          async saveDraft() {
+            const saved = saveDraft ? await saveDraft() : true;
+            if (saved) { state = { ...state, unsaved: false, saveState: 'Saved' }; notify(state); }
+            return saved;
+          },
         };
       },
     },
@@ -62,7 +67,7 @@ function harness({ fallback = false } = {}) {
     return [...host.innerHTML.matchAll(/<(?:section|aside) [^>]*data-website-panel="([^"]+)"([^>]*)>/g)]
       .filter(match => !/\bhidden\b/.test(match[2])).map(match => match[1]);
   }
-  return { host, click, input, select, visiblePanels, instance, values };
+  return { host, click, input, select, visiblePanels, instance, values, makeStudioDirty() { state = { ...state, unsaved: true, saveState: 'Unsaved' }; notify(state); } };
 }
 
 test('guided steps preserve unsaved edits and expose one panel', async () => {
@@ -155,4 +160,25 @@ test('saved website catalogue failures show retry rather than an empty list and 
   h.values.keys=keys;await h.click('website-refresh');
   assert.doesNotMatch(h.host.innerHTML,/Saved website list unavailable/);
   assert.match(h.host.innerHTML,/data-action="website-open"/);
+});
+
+test('Keep editing cancels a leave request even when its asynchronous save later succeeds', async () => {
+  let finish;
+  const h=harness({saveDraft:()=>new Promise(resolve=>{finish=resolve;})});h.select('synthetic-alpha');h.makeStudioDirty();
+  let navigated=0;
+  assert.equal(h.instance.guardLeave(()=>navigated++,'leave Studio'),false);
+  const saving=h.click('save-leave');await h.click('keep-editing');finish(true);await saving;
+  assert.equal(navigated,0,'A save acknowledgement must not revive cancelled navigation');
+  assert.doesNotMatch(h.host.innerHTML,/id="studio-leave-title"/);
+});
+
+test('a late save acknowledgement cannot clear or accept a newer leave dialog', async () => {
+  let finish;const completion=new Promise(resolve=>{finish=resolve;});
+  const h=harness({saveDraft:()=>completion});h.select('synthetic-alpha');h.makeStudioDirty();
+  let oldTarget=0,newTarget=0;
+  h.instance.guardLeave(()=>oldTarget++,'old target');const saving=h.click('save-leave');await h.click('keep-editing');
+  assert.equal(h.instance.guardLeave(()=>newTarget++,'new target'),false);
+  finish(true);await saving;
+  assert.equal(oldTarget,0);assert.equal(newTarget,0);assert.match(h.host.innerHTML,/id="studio-leave-title"/);
+  await h.click('save-leave');assert.equal(oldTarget,0);assert.equal(newTarget,1);
 });
