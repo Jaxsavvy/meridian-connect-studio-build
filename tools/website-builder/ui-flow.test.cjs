@@ -182,3 +182,13 @@ test('a late save acknowledgement cannot clear or accept a newer leave dialog', 
   assert.equal(oldTarget,0);assert.equal(newTarget,0);assert.match(h.host.innerHTML,/id="studio-leave-title"/);
   await h.click('save-leave');assert.equal(oldTarget,0);assert.equal(newTarget,1);
 });
+
+test('retained section identities are escaped in every editor label and input attribute', async () => {
+  const h=harness();h.select('synthetic-alpha');await h.click('website-create');
+  const key=[...h.values.keys()].find(key=>key.startsWith('meridian.website.')&&!key.endsWith('.index')&&!key.endsWith('.pending')&&!key.endsWith('.backup'));
+  const project=JSON.parse(h.values.get(key));project.pages[0].sections[0].id='section" data-preview-injection="yes';h.values.set(key,JSON.stringify(project));
+  await h.click('website-list');await h.click('website-open',project.id);await h.click('website-step','edit');
+  assert.doesNotMatch(h.host.innerHTML,/data-preview-injection="yes/,'A stored identity must not introduce an HTML attribute');
+  assert.match(h.host.innerHTML,/id="website-section&quot; data-preview-injection=&quot;yes-heading"/);
+  assert.match(h.host.innerHTML,/for="website-section&quot; data-preview-injection=&quot;yes-action"/);
+});

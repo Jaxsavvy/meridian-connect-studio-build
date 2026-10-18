@@ -286,3 +286,8 @@ cases now pass with transition identity checks; mounted acknowledgement/cancel/
 new-dialog sequencing added.188 local tests pass. Corrected a mounted catalogue
 fixture returning a non-cloneable function to Electron; retain the failed run as
 fixture feedback. Continuing verification and the wider remaining-work audit.
+
+Continued retained-input review found four raw section identity interpolations in
+editor label/input attributes. Escaped all four and added failing-then-passing
+renderer coverage plus an inert mounted DOM attribute probe.189 local tests pass.
+Still continuing the available-input audit and exact-source hosted verification.

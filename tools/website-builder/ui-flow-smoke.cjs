@@ -797,7 +797,7 @@ app.whenReady().then(async () => {
       assert.doesNotMatch(await window.webContents.executeJavaScript("document.querySelector('.website-builder').textContent"),/No website projects have been saved|0 saved projects/);
       await click(window,'#website-catalogue-retry');
       assert.equal(await window.webContents.executeJavaScript('document.activeElement.id'),'website-catalogue-retry');
-      await window.webContents.executeJavaScript("const heading=document.querySelector('#website-catalogue-title');heading.focus({preventScroll:true});heading.closest('section').scrollIntoView({block:'start'});");
+      await window.webContents.executeJavaScript("(() => {const heading=document.querySelector('#website-catalogue-title');heading.focus({preventScroll:true});heading.closest('section').scrollIntoView({block:'start'});})()");
       assert.equal(await window.webContents.executeJavaScript("(() => {const r=document.querySelector('#website-catalogue-title').closest('section').getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return r.top>=w.top-1&&r.bottom<=w.bottom+1;})()"),true,'Catalogue warning and retry must be visible');
       await capture(window,'35-catalogue-access-retry');
     } finally {
@@ -826,6 +826,25 @@ app.whenReady().then(async () => {
     await click(window,'[data-action="discard-leave"]');
     await until(window,"Boolean(document.querySelector('[data-surface=operations]'))");
     await fs.writeFile(join(evidence,'leave-save-race.json'),JSON.stringify({status:'passed',cancelledNavigationNotRevived:true,savedNotesRetained:true,newerDialogNotCleared:true,newTargetUsedAfterExplicitChoice:true,limits:'Synthetic adapter save acknowledgements in mounted renderer; no service write'},null,2));
+    await click(window,'[data-action="surface"][data-value="website"]');
+    await waitFor(window,'[data-action="website-open"][data-value="'+conflictOriginal.id+'"]');
+    await click(window,'[data-action="website-open"][data-value="'+conflictOriginal.id+'"]');
+    const identityFixture=await window.webContents.executeJavaScript(`(() => {
+      const original=JSON.parse(localStorage.getItem(${JSON.stringify(conflictOriginal.key)}));
+      const record={...original,id:'website-identity-escape-evidence',name:'Escaped identity synthetic draft'};
+      record.pages[0].sections[0].id='section" data-meridian-identity-probe="present';
+      const key='meridian.website.'+encodeURIComponent(record.meridianProjectId)+'.'+encodeURIComponent(record.id);
+      localStorage.setItem(key,JSON.stringify(record));return {key,id:record.id,sectionId:record.pages[0].sections[0].id};
+    })()`);
+    await click(window,'[data-action="website-list"]');
+    await click(window,'[data-action="website-open"][data-value="'+identityFixture.id+'"]');
+    await click(window,'.website-flow-nav [data-value="edit"]');
+    assert.equal(await window.webContents.executeJavaScript("Boolean(document.querySelector('[data-meridian-identity-probe]'))"),false,'Stored identity cannot create an HTML attribute');
+    assert.equal(await window.webContents.executeJavaScript(`Boolean(document.getElementById('website-'+${JSON.stringify(identityFixture.sectionId)}+'-heading'))`),true);
+    assert.equal(await window.webContents.executeJavaScript(`Boolean(document.getElementById('website-'+${JSON.stringify(identityFixture.sectionId)}+'-action'))`),true);
+    await fs.writeFile(join(evidence,'section-identity-escape.json'),JSON.stringify({status:'passed',noInjectedAttribute:true,headingIdRetained:true,actionIdRetained:true,limits:'Inert synthetic identity attribute probe; no executable payload'},null,2));
+    await window.webContents.executeJavaScript(`for(const suffix of ['', '.backup','.pending'])localStorage.removeItem(${JSON.stringify(identityFixture.key)}+suffix)`);
+    await click(window,'[data-action="website-list"]');
     await require('./export-layout-check.cjs').checkExportLayout(evidence);
     console.log('UI_FLOW_SMOKE_PASSED');
     app.exit(0);

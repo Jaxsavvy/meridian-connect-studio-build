@@ -67,3 +67,19 @@ save. Added actual mounted acknowledgement/cancel/new-dialog sequencing.
 catalogue fixture failed because its setup returned a function across Electron's
 execution boundary; setup now returns void. Preserve that failed run as test
 fixture feedback, not a product or installer failure. Fresh checks follow.
+
+## Retained section identity escaping
+
+Continued attribute-boundary review found four raw section-ID interpolations in
+heading/action label and input attributes. Saved identities are not trusted HTML;
+all four now use the existing attribute escaper. A failing renderer test uses an
+inert extra-attribute probe, then passes with the correction. Mounted DOM coverage
+checks the probe cannot introduce an attribute while both exact editor IDs remain
+usable. No executable payload or OS call is used.189 local tests pass. This is a
+renderer escaping correction, not a change to owner security or service policy.
+
+The next mounted pass reached the catalogue retry/focus checks, then exposed a
+second fixture mistake: a top-level `const heading` collided with an earlier
+executeJavaScript declaration. The new probe is now locally scoped. Failed runs
+39099656339 and39099845294 remain retained; neither is accepted as passing runtime
+evidence. These failures do not establish an application or installer regression.
