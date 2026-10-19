@@ -99,46 +99,20 @@ function setStudioGatePresentation(enabled) {
     nav.disabled = !enabled;
     nav.setAttribute('aria-disabled', String(!enabled));
     nav.dataset.availability = enabled ? 'development-only' : 'unavailable';
-    nav.title = enabled ? 'Open synthetic development-only Studio' : 'Studio unavailable — development integration is not enabled';
+    nav.title = enabled ? 'Open synthetic development-only Studio' : 'Studio is being rebuilt — coming soon';
   }
-  if (badge) badge.textContent = enabled ? 'Dev' : 'Unavailable';
+  if (badge) badge.textContent = enabled ? 'Dev' : 'Soon';
   if (host) {
     host.hidden = true;
     host.dataset.mode = enabled ? 'synthetic-development' : 'employee-unavailable';
   }
 }
 
-function loadStudioDevelopmentScript(source) {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-studio-development="${source}"]`);
-    if (existing) {
-      if (existing.dataset.loaded === 'true') resolve();
-      else existing.addEventListener('load', resolve, { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = source;
-    script.dataset.studioDevelopment = source;
-    script.addEventListener('load', () => { script.dataset.loaded = 'true'; resolve(); }, { once: true });
-    script.addEventListener('error', () => reject(new Error('Studio development module failed to load.')), { once: true });
-    document.head.appendChild(script);
-  });
-}
-
-async function configureStudioGate(isDevelopment) {
-  setStudioGatePresentation(Boolean(isDevelopment));
-  if (!isDevelopment) return false;
-  try {
-    for (const source of ['studio-ui/studio-fixtures.js', 'studio-ui/studio-workspace.js', 'studio-ui/studio-shell.js']) {
-      await loadStudioDevelopmentScript(source);
-    }
-    initStudioUI();
-    return true;
-  } catch (error) {
-    console.error('Studio development UI remains unavailable.', error);
-    setStudioGatePresentation(false);
-    return false;
-  }
+// Studio is being rebuilt under docs/PLAN.md (Wave 1). It stays closed until the
+// new Studio frame lands; initStudioUI() below is the mount point it will use.
+async function configureStudioGate() {
+  setStudioGatePresentation(false);
+  return false;
 }
 
 function initStudioUI() {

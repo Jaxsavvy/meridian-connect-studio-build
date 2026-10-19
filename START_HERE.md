@@ -1,26 +1,41 @@
-# Start here: Meridian Connect development
+# Start here
 
-This private repository is the **Meridian Connect v0.2.12 employee desktop client**. Meridian Studio is the planned creative workspace inside Connect. This checkout contains client code, not Meridian Core, the Team Hub backend, Overseer, customer data, or a working Studio backend.
+Meridian Connect is the desktop app for the Breakthrough Ventures team. We're building **Meridian Studio** inside it. The plan is `docs/PLAN.md`; the rules every AI follows are in `AGENTS.md`.
 
-## Choose your chair
+## Your lane
+| You | You work on | Your issues |
+|---|---|---|
+| Tyler | Studio screens (frame, Space home, tiles) | label `owner:tyler` |
+| Cassy | Asset Library + Image gen tool | label `owner:cassy` |
+| Jax (with Claude) | Core app, server, Meridian Studio AI, reviews and merges | label `owner:jax` |
 
-| You are | Working branch | Development Board view | Read next | Copy this AI startup prompt |
-| --- | --- | --- | --- | --- |
-| Owner, Chair 1 | `feature/studio-integration` | [Owner Command](https://github.com/users/Jaxsavvy/projects/1/views/3) | [Owner package](docs/developer-onboarding/chair-1-owner/README.md) | [Chair 1 prompt](docs/developer-onboarding/chair-1-owner/STARTUP_PROMPT.md) |
-| Tyler, Chair 2 | `feature/studio-ui` | [Chair 2 — Tyler](https://github.com/users/Jaxsavvy/projects/1/views/4) | [Tyler package](docs/developer-onboarding/chair-2-tyler/README.md) | [Chair 2 prompt](docs/developer-onboarding/chair-2-tyler/STARTUP_PROMPT.md) |
-| Cassy, Chair 3 | `feature/studio-assets` | [Chair 3 — Cassy](https://github.com/users/Jaxsavvy/projects/1/views/5) | [Cassy package](docs/developer-onboarding/chair-3-cassy/README.md) | [Chair 3 prompt](docs/developer-onboarding/chair-3-cassy/STARTUP_PROMPT.md) |
+## Every work session
+1. Open GitHub -> Issues -> filter by your label (`owner:tyler` or `owner:cassy`) and `status:ready`. Take the lowest-numbered one. If none, ask Jax.
+2. Open your AI (ChatGPT/Codex or Claude) in your local copy of this repo.
+3. Paste the issue's **"Prompt for your AI"** section into it. That's all the direction it needs.
+4. Let it walk you through one step at a time. Ask it to explain anything you don't understand before you run it.
+5. When the PR is open and checks pass, post the 3-line update on the issue (done / next / blocked).
+6. Pick up the next `status:ready` issue in your lane and repeat. You don't need to wait for Jax: Claude reviews and merges in-lane PRs at least twice a day, and you can review each other's. If someone asked for changes on one of your PRs, fix that first.
 
-**First day, in plain language:** Ask the owner for your own repository and Project access and an assigned issue. Install Git, Node.js 24 with npm, GitHub CLI, and your chosen coding assistant on your own computer. Follow the [safe setup guide](docs/developer-onboarding/shared/SAFE_SETUP.md) to sign in, clone, check out your branch, and run source checks. Open your chair's prompt and paste its complete text into Codex or Claude Code. Let the AI guide you one step at a time; ask it to explain any command before you run it.
+## First-time setup (once)
+In PowerShell, using **your own** GitHub account:
+```
+git --version
+node --version
+gh auth status
+gh repo clone Jaxsavvy/meridian-connect-studio-build
+cd meridian-connect-studio-build
+npm ci --ignore-scripts --no-audit --no-fund
+```
+If `gh auth status` says you're not signed in, run `gh auth login --web` and finish the sign-in in your browser. Never paste a token or password into AI chat, an issue, or a commit.
 
-Before any change, your AI must find the **current GitHub issue**, its acceptance criteria, your branch, the [collaboration rules](docs/development/COLLABORATION_RULES.md), the [architecture](docs/developer-onboarding/shared/ARCHITECTURE.md), and any prior task handoff. If no assigned issue exists, ask the owner for one. Always check the live repository and Project because their state changes.
+## Before every new issue
+```
+git switch main
+git pull
+git switch -c wave1/<issue-number>-<short-name>
+```
+This gets the latest code and starts a fresh branch just for that issue.
 
-## What to read for each question
-
-- What exists and what is planned: [Architecture and current code](docs/developer-onboarding/shared/ARCHITECTURE.md)
-- Where each chair may work: [File boundaries](docs/developer-onboarding/shared/FILE_BOUNDARIES.md)
-- Login, clone, prerequisites, and first-day checks: [Safe setup](docs/developer-onboarding/shared/SAFE_SETUP.md)
-- Testing, commits, pull requests, handoff, and recovery: [Daily workflow](docs/developer-onboarding/shared/WORKFLOW.md)
-- Project fields and status updates: [Board and handoffs](docs/developer-onboarding/shared/BOARD_AND_HANDOFF.md)
-- Studio look and design evidence: [Visual design standard](docs/developer-onboarding/shared/STUDIO_VISUAL_STANDARD.md)
-
-These guides are procedures, not technical access controls. Scoped work may proceed through PR merge and issue completion without routine owner approval; final release and the restricted actions named in the collaboration rules remain separate decisions. Never paste a token, password, customer file, or private endpoint into AI chat, an issue, a handoff, or a commit.
+## If something looks wrong
+Wrong branch, files you didn't change, a password or key in a diff, a command that wants to "reset" or "force": stop and message Jax. Don't try to fix it.

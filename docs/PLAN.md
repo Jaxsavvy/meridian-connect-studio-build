@@ -1,0 +1,56 @@
+# Meridian Studio plan
+
+Approved by Jax, Oct 2026. This is the single plan. If an issue, comment or old doc disagrees, this file wins; ask before guessing.
+
+## The idea in one paragraph
+Studio is where Cassy and Tyler make client work. You pick a **Space** (your Sandbox, the team Sandbox, or a client project), then either **open a tool** (Image gen, Video, Storyboard...) or **start a guided workflow** (Website, Ad campaign...). You mostly work by talking to **Meridian Studio**, the AI, which runs the tools for you and shows exactly what settings it used. Everything you make is saved to the Space's assets and can be **sent to** another tool or to Review.
+
+## Building blocks
+| Block | Meaning |
+|---|---|
+| Space | Sandbox (personal or team) or a client project. Everything lives in one. |
+| Project DNA | A client's brief, brand colors, fonts, voice, audience, logo. Every tool reads it. Jax approves it. |
+| Asset | Anything made or uploaded. Originals never change; each edit is a new version linked to its parent. |
+| Tool | One ability (Image gen, Video...). Works the same standalone or inside a workflow. |
+| Tool Library | The approved list of tools. Jax approves additions. |
+| Workflow | A guided path: ordered stages with preloaded tools. |
+| Stage | One step: goal, tools, "this stage needs" checklist, quality check, who approves. |
+| Job | One workflow run for one client (e.g. "Website v2"). Maps to Meridian's existing project Jobs. |
+| Send to | Hands an asset to another tool, stage, or Review. |
+| Review | Approval queue (existing Deliverables flow). Jax approves anything a client will see. |
+| Meridian Studio | The AI in creative mode: the main way people work. Sees DNA, stage, assets; runs tools. |
+| Router + log | On the cloud server: holds API keys, picks the model per tool, logs every action, enforces budgets. |
+| Preset | A recipe for one kind of task (e.g. "Website hero image"). Made by Jax + Overseer only. |
+
+## Screens
+1. **Studio home**: Space switcher (Sandbox + assigned client projects), "Continue where you left off".
+2. **Space home**: Project DNA card, active Jobs with progress, recent assets, two rows of tiles: "Start a workflow" and "Open a tool". Unfinished tools/workflows show honestly as "Coming soon".
+3. **Work view** (one frame for everything): Meridian Studio conversation on the left; canvas on the right (results, compare A/B, "settings Meridian used" drawer); stage bar on top only inside a workflow; assets strip along the bottom (drag any asset into any tool).
+
+Every screen handles: loading, empty, offline, no access, failed, unsaved changes. Keyboard works; 200% zoom works.
+
+## Rules that never bend
+- Employees never see costs. Budgets are enforced on the server; over budget shows "waiting on Jax".
+- API keys live only on the server. Never in Connect, never in this repo.
+- One client's DNA or assets are never used in another client's Space.
+- Meridian Studio proposes, shows a preview, and applies only when the person says yes. It never publishes, sends to a client, deletes approved work, or mentions money.
+- Retries are safe: a retried generation never charges twice.
+- Unkept generated images auto-delete after 14 days; deleted kept items sit in a 30-day trash; only Jax deletes approved work.
+
+## Image gen (Wave 1 tool)
+The person describes the image in their own words. Meridian picks the preset, asks only what's missing, suggests a sharper description, and generates after the person confirms. It checks results against the preset and brand, retries weak ones (max 3 rounds), then shows the best with notes. Per result: Keep, Variations, Edit part, Send to. OpenAI images via the server router. Starter presets: Website hero, Page header, Service in action, Before/after, Team/crew portrait, Clean product shot, Social promo, Ad creative, Seasonal promo.
+
+## Website workflow (Wave 2)
+Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Motion (Cinematic only) -> Build (Claude on the cloud) -> Check -> Review -> Launch (Cloudflare Pages). Employees change the site by clicking an element and telling Meridian; no code editing.
+
+## Waves
+- **Wave 0** (now): clean slate, new rules, labels, Wave 1 issues.
+- **Wave 1**: cloud server + router/keys/log/budgets (Jax+Claude); Studio frame and Space home (Tyler); Project DNA; Meridian Studio panel; Asset Library + Image gen (Cassy).
+  Done when: Tyler or Cassy asks Meridian Studio for on-brand images for a real client, keeps them, sends them to Review, and Jax approves, with everything logged.
+- **Wave 2**: Website, Standard tier. **Wave 3**: Website Cinematic + Video/Motion. **Wave 4**: Ad campaign, Social, Logo/Brand kit. **Wave 5**: Landing page, SEO, Pitch deck, autopilot, A/B, learning presets.
+
+## Old work
+Everything from before this plan is saved in git tags named `archive/2026-10-18/<branch>`. Issues tell you exactly which archived file to reuse. Don't copy from the archive unless your issue says to.
+
+## Reference
+`docs/reference/` holds older contracts with good rules (asset versions, project isolation, asset host). Use them for detail; this plan wins on any conflict.
