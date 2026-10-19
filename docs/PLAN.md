@@ -25,7 +25,7 @@ Studio is where Cassy and Tyler make client work. You pick a **Space** (your San
 ## Screens
 1. **Studio home**: Space switcher (Sandbox + assigned client projects), "Continue where you left off".
 2. **Space home**: Project DNA card, active Jobs with progress, recent assets, two rows of tiles: "Start a workflow" and "Open a tool". Unfinished tools/workflows show honestly as "Coming soon".
-3. **Work view** (one frame for everything): Meridian Studio conversation on the left; canvas on the right (results, compare A/B, "settings Meridian used" drawer); stage bar on top only inside a workflow; assets strip along the bottom (drag any asset into any tool).
+3. **Work view** (one frame for everything): canvas on the left (results, compare A/B, "settings Meridian used" drawer); Meridian Studio conversation on the right; stage bar on top only inside a workflow; assets strip along the bottom (drag any asset into any tool).
 
 Every screen handles: loading, empty, offline, no access, failed, unsaved changes. Keyboard works; 200% zoom works.
 
