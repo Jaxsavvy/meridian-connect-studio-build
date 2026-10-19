@@ -99,7 +99,7 @@ function setStudioGatePresentation(enabled) {
     nav.disabled = !enabled;
     nav.setAttribute('aria-disabled', String(!enabled));
     nav.dataset.availability = enabled ? 'development-only' : 'unavailable';
-    nav.title = enabled ? 'Open synthetic development-only Studio' : 'Studio is being rebuilt — coming soon';
+    nav.title = enabled ? 'Open Studio (development preview, sample data)' : 'Studio is being rebuilt — coming soon';
   }
   if (badge) badge.textContent = enabled ? 'Dev' : 'Soon';
   if (host) {
@@ -108,11 +108,13 @@ function setStudioGatePresentation(enabled) {
   }
 }
 
-// Studio is being rebuilt under docs/PLAN.md (Wave 1). It stays closed until the
-// new Studio frame lands; initStudioUI() below is the mount point it will use.
-async function configureStudioGate() {
-  setStudioGatePresentation(false);
-  return false;
+// Studio is being rebuilt under docs/PLAN.md (Wave 1). Employees see "Soon";
+// developers running `npm run dev` get the new Studio on sample data.
+async function configureStudioGate(isDevelopment) {
+  const enabled = Boolean(isDevelopment && window.MeridianStudioUI);
+  setStudioGatePresentation(enabled);
+  if (enabled) initStudioUI();
+  return enabled;
 }
 
 function initStudioUI() {

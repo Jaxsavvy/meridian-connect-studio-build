@@ -1,0 +1,18 @@
+/* Meridian Studio base styles. Tyler's lane from here on (see AGENTS.md).
+ * Uses the Meridian design tokens from meridian-standard.css where they exist. */
+#studioCenter {
+  min-height: 100%;
+  color: #e8eef7;
+}
+
+.studio-placeholder {
+  margin: 48px auto;
+  max-width: 520px;
+  padding: 28px 32px;
+  border: 1px dashed rgba(232, 238, 247, 0.28);
+  border-radius: 14px;
+  text-align: center;
+  font-size: 15px;
+  color: rgba(232, 238, 247, 0.8);
+  background: rgba(11, 31, 58, 0.45);
+}
