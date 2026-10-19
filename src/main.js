@@ -14,6 +14,31 @@ const fs = require('fs');
 const AuthManager = require('./auth');
 const LayoutStore = require('./layout-store');
 const api = require('./api');
+const { isSafeExternalUrl } = require('./safe-url');
+
+/** Opens a link in the person's browser or mail app, but only if it's a normal web or email link. */
+function openSafeExternal(url) {
+  if (!isSafeExternalUrl(url)) {
+    console.warn('Blocked opening a non-web link.');
+    return false;
+  }
+  shell.openExternal(url);
+  return true;
+}
+
+// Every window: pop-ups never open inside the app; safe links go to the browser,
+// and app windows never navigate away from the app's own pages.
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(({ url }) => { openSafeExternal(url); return { action: 'deny' }; });
+});
+
+function keepWindowOnAppPages(win) {
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('file://')) return;
+    event.preventDefault();
+    openSafeExternal(url);
+  });
+}
 
 const isDev = process.argv.includes('--dev');
 const isTestMode = process.argv.includes('--test-automation');
@@ -205,6 +230,7 @@ function createMainWindow() {
 
   mainWindow = new BrowserWindow(winOpts);
 
+  keepWindowOnAppPages(mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   // REOPEN FIX: if the page is slow or fails, still show the window after 15 s instead of leaving an
@@ -314,6 +340,7 @@ function createPopoutWindow(panelId) {
     role: currentUser ? currentUser.role : 'Member'
   });
 
+  keepWindowOnAppPages(popWin);
   popWin.loadFile(path.join(__dirname, 'renderer', 'popout.html'), {
     search: queryParams.toString()
   });
@@ -619,7 +646,7 @@ if (!gotTheLock) {
     ipcMain.handle('settings:save', (e, newSettings) => saveSettings(newSettings));
     ipcMain.handle('app:check-update', () => checkUpdate());
     ipcMain.handle('app:show-notification', (e, opts) => showNotification(opts));
-    ipcMain.handle('app:open-external', (e, url) => shell.openExternal(url));
+    ipcMain.handle('app:open-external', (e, url) => openSafeExternal(url));
 
     ipcMain.handle('layout:get-user-layout', (event, userId) => {
       return layoutStore.getUserLayout(userId);
@@ -678,9 +705,6 @@ if (!gotTheLock) {
       });
       if (pick.canceled || !pick.filePaths.length) return { success: true, canceled: true };
       return await api.uploadChatMedia(convo, pick.filePaths[0], caption);
-    });
-    ipcMain.handle('ws:upload-chat-file', async (e, { convo, filePath, caption }) => {
-      return await api.uploadChatMedia(convo, filePath, caption);
     });
     ipcMain.handle('ws:download-chat-media', async (e, { mediaId, name }) => {
       const r = await api.downloadChatMedia(mediaId);
@@ -746,7 +770,7 @@ if (!gotTheLock) {
       const parent = BrowserWindow.fromWebContents(e.sender);
       const win = new BrowserWindow({ width: 1180, height: 800, title: title || 'Website preview', autoHideMenuBar: true,
         backgroundColor: '#070912', webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
-      win.webContents.setWindowOpenHandler(({ url: u }) => { shell.openExternal(u); return { action: 'deny' }; });
+      win.webContents.setWindowOpenHandler(({ url: u }) => { openSafeExternal(u); return { action: 'deny' }; });
       win.loadURL(url);
       if (parent) { const b = parent.getBounds(); win.setPosition(b.x + 60, b.y + 60); }
       return { success: true };
