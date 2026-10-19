@@ -1,0 +1,20 @@
+/* Meridian Studio conversation panel. Uses Tyler's theme variables when present, with safe fallbacks. */
+.mc-panel { display: flex; flex-direction: column; height: 100%; min-height: 320px; gap: 10px; color: var(--studio-text, #f2f6fb); }
+.mc-title { margin: 0; font-size: 15px; letter-spacing: 0.02em; color: var(--studio-sky, #71c5ff); }
+.mc-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.mc-msg { max-width: 92%; padding: 10px 12px; border-radius: 12px; line-height: 1.45; font-size: 14px; }
+.mc-msg p { margin: 0; }
+.mc-meridian { align-self: flex-start; background: var(--studio-panel, #0e1b2e); border: 1px solid var(--studio-line-soft, #1b2d45); }
+.mc-you { align-self: flex-end; background: var(--studio-raised, #13243a); border: 1px solid var(--studio-line, #263d5b); }
+.mc-msg.is-working { opacity: 0.75; font-style: italic; }
+.mc-msg.is-error { border-color: var(--studio-danger, #ff9aa9); }
+.mc-proposal { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--studio-teal, #62d8c3); background: rgba(98, 216, 195, 0.08); border-radius: 6px; }
+.mc-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.mc-actions button, .mc-send { border-radius: 8px; padding: 6px 12px; border: 1px solid var(--studio-line, #263d5b); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.mc-actions .mc-primary, .mc-send { background: var(--studio-action, #1f6fd6); border-color: var(--studio-action, #1f6fd6); }
+.mc-settings { margin-top: 8px; font-size: 13px; color: var(--studio-muted, #a6b5ca); }
+.mc-settings ul { margin: 6px 0 0; padding-left: 18px; }
+.mc-form { display: flex; gap: 8px; align-items: flex-end; }
+.mc-input { flex: 1; resize: vertical; min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--studio-line, #263d5b); background: var(--studio-night, #07101d); color: inherit; font: inherit; }
+.mc-panel :focus-visible { outline: 2px solid var(--studio-sky, #71c5ff); outline-offset: 2px; }
+.mc-send:disabled { opacity: 0.5; cursor: wait; }

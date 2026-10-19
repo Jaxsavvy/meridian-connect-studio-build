@@ -27,7 +27,7 @@
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
 
   const PRESETS = [
-    ['website-hero', 'Website hero', '16:9', ['What should the hero show?', 'People visible or anonymous?']],
+    ['website-hero', 'Website hero', '16:9', ['People visible, or keep them anonymous?', 'What should the hero show?']],
     ['page-header', 'Page header', '21:9', ['Which page is it for?']],
     ['service-in-action', 'Service in action', '3:2', ['Which service?', 'Indoor or outdoor?']],
     ['before-after', 'Before/after', '3:2', ['What changed between before and after?']],
