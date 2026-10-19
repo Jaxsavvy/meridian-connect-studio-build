@@ -1,0 +1,30 @@
+#studioCenter .studio-space {
+  display: grid;
+  gap: var(--studio-space-4);
+  max-width: var(--studio-content-max);
+  margin: var(--studio-space-0) auto;
+  padding: var(--studio-space-6);
+  overflow-wrap: anywhere;
+}
+#studioCenter .studio-space-tiles, #studioCenter .studio-space-assets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--studio-card-min)), 1fr));
+  gap: var(--studio-space-4);
+}
+#studioCenter .studio-space-assets figure { min-width: 0; margin: var(--studio-space-0); }
+#studioCenter .studio-space-assets img { display: block; max-width: 100%; height: auto; }
+#studioCenter .studio-space progress { max-width: 100%; }
+#studioCenter .studio-space-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--studio-space-3);
+}
+#studioCenter .studio-space-color {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--studio-space-2);
+}
+#studioCenter .studio-space-color input {
+  width: var(--studio-control-height);
+  height: var(--studio-control-height);
+}
