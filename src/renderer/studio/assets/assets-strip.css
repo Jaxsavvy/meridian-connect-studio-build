@@ -1,0 +1,16 @@
+.assets-strip { color: var(--studio-text, #e8eef7); background: var(--studio-surface, #162234); padding: .75rem; min-inline-size: 0; }
+.assets-strip-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-block-end: .5rem; }
+.assets-strip label { display: grid; gap: .25rem; max-inline-size: 100%; }
+.assets-strip input { min-inline-size: 0; max-inline-size: 100%; box-sizing: border-box; }
+.assets-strip button, .assets-strip input { font: inherit; min-block-size: 2.5rem; }
+.assets-strip button { color: var(--studio-text, #e8eef7); background: var(--studio-button, #24364c); border: 1px solid var(--studio-border, #64748b); }
+.assets-strip :focus-visible { outline: 2px solid var(--studio-accent, #65cfc2); outline-offset: 2px; }
+.assets-strip-items { display: flex; gap: .75rem; overflow-x: auto; list-style: none; padding: .25rem; margin: 0; }
+.asset-thumb { flex: 0 0 10rem; max-inline-size: 100%; box-sizing: border-box; padding: .5rem; border: 1px solid var(--studio-border, #64748b); overflow-wrap: anywhere; }
+.asset-thumb img { inline-size: 100%; block-size: 6rem; object-fit: contain; }
+.asset-thumb h3 { font-size: 1rem; }
+.asset-thumb button { display: block; margin-block: .25rem; max-inline-size: 100%; }
+.asset-thumb.is-kept { border-color: var(--studio-accent, #65cfc2); }
+.asset-thumb.is-trashed { border-style: dashed; }
+.assets-strip.is-loading { cursor: progress; }
+.assets-strip [hidden] { display: none; }
