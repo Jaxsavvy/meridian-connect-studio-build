@@ -6,18 +6,19 @@ Read this file at the start of every session. If anything else in the repo disag
 Meridian Connect: the Electron desktop app Breakthrough Ventures employees use. We are building **Meridian Studio** inside it, following `docs/PLAN.md`. Meridian Core, Team Hub, Overseer, keys and customer data never live in this repo.
 
 ## How a session works
-1. **One issue per session.** Your person tells you the issue number. Read that issue, its "Prompt for your AI" section, and `docs/PLAN.md`. If there is no assigned issue, stop and say so.
-2. **Stay in your lane.** Only change the files the issue lists. If you need to touch a file outside your lane, stop and say which file and why (see Lanes).
-3. **Small change.** Aim for under ~400 lines of code per PR, tests included. If it's growing past that, stop and tell your person how to split it.
+1. **One issue at a time, then the next.** Work through your lane's `status:ready` issues in number order. For each one, read the issue, its "Prompt for your AI" section, and `docs/PLAN.md`. Each issue gets its own branch and its own PR. If your lane has no ready issue, say so and stop.
+2. **Stay in your lane.** Only change the files the issue lists. If you think a file outside your lane needs to change, don't touch it: write which file and why in the PR's **Blocked** line, finish what you can, and keep going.
+3. **Small change.** Aim for under ~400 lines of code per PR, tests included. If it's growing past that, split it yourself into two PRs (finish and open the first part, then do the rest as a second PR) and keep going.
 4. **Explain as you go.** Your person is still learning. Before each command, say in one plain sentence what it does.
 5. **Check it.** Run `node --check` on every JS file you changed and the tests the issue names. Fix failures before opening the PR.
 6. **Open a PR** from a branch named `wave1/<issue-number>-<short-name>` into `main`. Fill in the PR template (3 lines + checks). Mark it draft until checks pass, then ready for review.
-7. **Finish the issue cleanly.** When the PR is open and checks pass, post the 3-line update (done / next / blocked) on the issue. Don't keep polishing it.
-8. **Move to the next one.** Your person may then start the next `status:ready` issue in their lane. Always branch the next issue from fresh `main`, never from your unmerged PR. Issues in a lane are written so they don't depend on each other unless the issue says "after #N". If it says "after #N" and #N isn't merged yet, pick a different ready issue or stop.
+7. **Finish the issue cleanly.** When the PR is open, marked ready for review and checks pass, post the 3-line update (done / next / blocked) on the issue. Don't keep polishing it.
+8. **Move straight to the next one.** Don't wait for a review or merge. Start the next `status:ready` issue in your lane right away, always on a new branch from fresh `main`, never from your unmerged PR. Issues are written so they don't depend on each other unless the issue says "Start after #N"; if #N isn't merged yet, skip that issue and take the next one.
 9. **Fix review comments first.** If a reviewer asked for changes on one of your open PRs, do that before starting anything new.
+10. **Work without asking for permission.** You never need Jax's approval to work on your own lane: no check-ins, no sign-offs, no waiting. Approval happens once, at review, on the PR. Only stop for the hard rules below (a secret in a diff, the wrong branch, a command that wants to reset or force-push).
 
 ## Reviews and merging (so nobody waits on Jax)
-- Claude reviews open PRs at least twice a day and merges the ones that pass: checks green, in-lane, under the size limit, matches the issue.
+- Claude reviews open PRs twice a day (about 11am and 6pm Pacific) and merges only finalized PRs: marked ready for review (not draft), checks green, only the issue's files changed, matches the issue's "Done when", 3-line update posted. Anything else gets review comments, and the author fixes them before starting anything new.
 - Tyler and Cassy may review each other's PRs too; a teammate approval plus green checks is enough to merge in-lane work.
 - Only these need Jax: anything in the Core lane or shared files, anything a client will see, new paid tools or spending, and marking a wave complete.
 
