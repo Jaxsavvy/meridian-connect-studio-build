@@ -1,0 +1,555 @@
+{
+  "implementationHead": "82d242c7d007780f7c8a550be8d5a1efe5b0caf8",
+  "standalone": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "zoom": 1,
+      "sections": [
+        "studio-section studio-continue",
+        "studio-section studio-tools",
+        "studio-campaign",
+        "studio-operations-grid",
+        "studio-section studio-decisions"
+      ],
+      "tools": [
+        {
+          "name": "ChatGPT Images",
+          "state": "Planned"
+        },
+        {
+          "name": "Storyboard",
+          "state": "Planned"
+        },
+        {
+          "name": "Video Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Blender",
+          "state": "Planned"
+        },
+        {
+          "name": "Krita",
+          "state": "Planned"
+        },
+        {
+          "name": "Upscayl",
+          "state": "Planned"
+        },
+        {
+          "name": "Website Builder",
+          "state": "Development"
+        },
+        {
+          "name": "Audio Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Studio Files",
+          "state": "Planned"
+        }
+      ],
+      "projectBeforeSummary": true,
+      "fits": true,
+      "summaryHeight": 96.59375,
+      "keyboardActions": 13,
+      "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+      "passed": true
+    },
+    {
+      "name": "narrow",
+      "width": 800,
+      "zoom": 1,
+      "sections": [
+        "studio-section studio-continue",
+        "studio-section studio-tools",
+        "studio-campaign",
+        "studio-operations-grid",
+        "studio-section studio-decisions"
+      ],
+      "tools": [
+        {
+          "name": "ChatGPT Images",
+          "state": "Planned"
+        },
+        {
+          "name": "Storyboard",
+          "state": "Planned"
+        },
+        {
+          "name": "Video Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Blender",
+          "state": "Planned"
+        },
+        {
+          "name": "Krita",
+          "state": "Planned"
+        },
+        {
+          "name": "Upscayl",
+          "state": "Planned"
+        },
+        {
+          "name": "Website Builder",
+          "state": "Development"
+        },
+        {
+          "name": "Audio Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Studio Files",
+          "state": "Planned"
+        }
+      ],
+      "projectBeforeSummary": true,
+      "fits": true,
+      "summaryHeight": 163.59375,
+      "keyboardActions": 13,
+      "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+      "passed": true
+    },
+    {
+      "name": "200pct",
+      "width": 1440,
+      "zoom": 2,
+      "sections": [
+        "studio-section studio-continue",
+        "studio-section studio-tools",
+        "studio-campaign",
+        "studio-operations-grid",
+        "studio-section studio-decisions"
+      ],
+      "tools": [
+        {
+          "name": "ChatGPT Images",
+          "state": "Planned"
+        },
+        {
+          "name": "Storyboard",
+          "state": "Planned"
+        },
+        {
+          "name": "Video Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Blender",
+          "state": "Planned"
+        },
+        {
+          "name": "Krita",
+          "state": "Planned"
+        },
+        {
+          "name": "Upscayl",
+          "state": "Planned"
+        },
+        {
+          "name": "Website Builder",
+          "state": "Development"
+        },
+        {
+          "name": "Audio Studio",
+          "state": "Planned"
+        },
+        {
+          "name": "Studio Files",
+          "state": "Planned"
+        }
+      ],
+      "projectBeforeSummary": true,
+      "fits": true,
+      "summaryHeight": 163.59375,
+      "keyboardActions": 13,
+      "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+      "passed": true
+    }
+  ],
+  "composition": {
+    "Linux": {
+      "inputs": {
+        "uiHead": "82d242c7d007780f7c8a550be8d5a1efe5b0caf8",
+        "uiTree": "af9feb9de11b62b25d5761341a5d9ececd7d2ecf",
+        "assetHead": "69dbc7b688ed94823d082ee400833db1feb3f28c",
+        "assetTree": "970dd339bc2bf8530e73e57b3b30111413667a48",
+        "composedCommit": "97e286762c5928a9fa783128b71e8012735f9552",
+        "composedTree": "aa05b71220e9b152dcc076656105ff1b911e335c",
+        "cleanBeforeRuntime": true,
+        "platform": "linux",
+        "limits": [
+          "Local disposable composition, never pushed or merged through GitHub.",
+          "Synthetic runtime does not authorize service access or release."
+        ]
+      },
+      "home": [
+        {
+          "name": "desktop",
+          "width": 1440,
+          "zoom": 1,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 96.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        },
+        {
+          "name": "narrow",
+          "width": 800,
+          "zoom": 1,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 163.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        },
+        {
+          "name": "200pct",
+          "width": 1440,
+          "zoom": 2,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 163.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        }
+      ]
+    },
+    "Windows": {
+      "inputs": {
+        "uiHead": "82d242c7d007780f7c8a550be8d5a1efe5b0caf8",
+        "uiTree": "af9feb9de11b62b25d5761341a5d9ececd7d2ecf",
+        "assetHead": "69dbc7b688ed94823d082ee400833db1feb3f28c",
+        "assetTree": "970dd339bc2bf8530e73e57b3b30111413667a48",
+        "composedCommit": "17c465b954d8c178f9b1ce66e1222d8aaed58ba6",
+        "composedTree": "aa05b71220e9b152dcc076656105ff1b911e335c",
+        "cleanBeforeRuntime": true,
+        "platform": "win32",
+        "limits": [
+          "Local disposable composition, never pushed or merged through GitHub.",
+          "Synthetic runtime does not authorize service access or release."
+        ]
+      },
+      "home": [
+        {
+          "name": "desktop",
+          "width": 1440,
+          "zoom": 1,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 127.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        },
+        {
+          "name": "narrow",
+          "width": 800,
+          "zoom": 1,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 163.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        },
+        {
+          "name": "200pct",
+          "width": 1440,
+          "zoom": 2,
+          "sections": [
+            "studio-section studio-continue",
+            "studio-section studio-tools",
+            "studio-campaign",
+            "studio-operations-grid",
+            "studio-section studio-decisions"
+          ],
+          "tools": [
+            {
+              "name": "ChatGPT Images",
+              "state": "Planned"
+            },
+            {
+              "name": "Storyboard",
+              "state": "Planned"
+            },
+            {
+              "name": "Video Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Blender",
+              "state": "Planned"
+            },
+            {
+              "name": "Krita",
+              "state": "Planned"
+            },
+            {
+              "name": "Upscayl",
+              "state": "Planned"
+            },
+            {
+              "name": "Website Builder",
+              "state": "Development"
+            },
+            {
+              "name": "Audio Studio",
+              "state": "Planned"
+            },
+            {
+              "name": "Studio Files",
+              "state": "Planned"
+            }
+          ],
+          "projectBeforeSummary": true,
+          "fits": true,
+          "summaryHeight": 194.59375,
+          "keyboardActions": 13,
+          "keyboardOrder": "selector \u2192 continue summary \u2192 nine tools \u2192 campaign",
+          "passed": true
+        }
+      ],
+      "actualOSContrast": {
+        "status": "passed",
+        "originalFlags": 126,
+        "enabledFlags": 127,
+        "mechanism": "Win32 SPI_SETHIGHCONTRAST, not Chromium media emulation",
+        "restored": true,
+        "restoredFlags": 126
+      }
+    }
+  }
+}

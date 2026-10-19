@@ -389,3 +389,23 @@ request on9/comment6246072096. Remaining owner clients/contracts/services/polici
 installer/security review, independent PR review and human acceptance are concrete
 external gates mapped in REPOSITORY_TASK_AUDIT.md. Keep every PR unmerged; no
 Complete, new board-state claim, service deployment or release acceptance.
+
+
+## Tools-first home — focused owner correction, October 19, 2026 UTC
+
+Implementation 82d242c retains the project selector, reduces continuation to three
+wrapping actions, and places all nine honest tool tiles before campaign,
+production, assets and decisions in DOM order. Only Studio shell/CSS and scoped
+renderer/runtime tests changed. No Cassy, service or bridge edits.
+
+17 targeted and 231 full local tests pass; five hosted jobs pass, including
+263 regressions in disposable Linux and Windows composition with current #33
+69dbc7b. Actual Tab order, 800px narrow window and 200% zoom pass with synthetic
+data. Current screenshots inspected and saved under design/9/tools-first.
+Exact inputs, trees, run links, archive hashes and limits are in
+[latest CROSS_CHAIR_RUNTIME entry](../../studio/design/9/CROSS_CHAIR_RUNTIME.md).
+The final PR comment records evidence-only head checks. Keep PR #39 unmerged and
+issue #9 open for independent review, human accessibility/native-pointer
+observations, installer investigation and service acceptance. Optional additions
+remain paused. Local Electron startup crashed in this restricted session; actual
+runtime evidence comes from the disposable CI runners, not a local runtime claim.
