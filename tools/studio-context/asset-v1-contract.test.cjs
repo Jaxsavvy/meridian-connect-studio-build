@@ -282,3 +282,30 @@ test('mutation names stay within the current Asset Model read limit', async () =
   await assert.rejects(Contract.bodyDigest('files.metadata', A,
     { ...metadata, name: expanding }), { code: 'INVALID_REQUEST' });
 });
+
+test('metadata text limits count UTF-16 units before and after normalization', async () => {
+  const base = { assetId: 'synthetic-asset-a', expectedRevision: 2, name: 'poster',
+    tags: ['launch'], description: '', section: 'Files', mutationKey: 'synthetic-mutation-0009' };
+  for (const change of [
+    { description: '😀'.repeat(1001) },
+    { description: 'e\u0301'.repeat(1001) },
+    { description: '\u0344'.repeat(1500) },
+    { section: '😀'.repeat(51) },
+    { section: '\u0344'.repeat(75) },
+    { tags: ['😀'.repeat(33)] },
+    { tags: ['\u0344'.repeat(40)] },
+    { description: '\ud800' },
+    { section: '\ud800' },
+    { tags: ['\ud800'] },
+  ]) {
+    await assert.rejects(Contract.bodyDigest('files.metadata', A, { ...base, ...change }),
+      { code: 'INVALID_REQUEST' });
+  }
+  assert.match(await Contract.bodyDigest('files.metadata', A, {
+    ...base, tags: ['😀'.repeat(32)], description: '😀'.repeat(1000),
+    section: '😀'.repeat(50),
+  }), /^[0-9a-f]{64}$/);
+  const record = asset(); record.description = '😀'.repeat(1001);
+  assert.throws(() => Contract.mapAsset(envelope({ asset: record }), A, record.assetId),
+    { code: 'INVALID_RESPONSE' });
+});

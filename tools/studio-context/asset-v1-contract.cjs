@@ -10,13 +10,25 @@ module.exports = (function (Model) {
   const id = value => typeof value === 'string' && ID.test(value);
   const sha = value => typeof value === 'string' && SHA.test(value);
   const integer = value => Number.isSafeInteger(value) && value >= 1;
+  const wellFormed = value => {
+    for (let index = 0; index < value.length; index++) {
+      const unit = value.charCodeAt(index);
+      if (unit >= 0xd800 && unit <= 0xdbff) {
+        if (++index >= value.length || value.charCodeAt(index) < 0xdc00 ||
+            value.charCodeAt(index) > 0xdfff) return false;
+      } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+    }
+    return true;
+  };
   const responseText = (value, max) => {
-    if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_RESPONSE');
+    if (typeof value !== 'string' || !wellFormed(value) || !value.trim() ||
+        value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_RESPONSE');
     const normalized = value.normalize('NFC').trim();
     if (!normalized || normalized.length > max || /[\u0000-\u001f]/.test(normalized)) fail('INVALID_RESPONSE');
   };
   function text(value, max) {
-    if (typeof value !== 'string' || !value.trim() || value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_REQUEST');
+    if (typeof value !== 'string' || !wellFormed(value) || !value.trim() ||
+        value.length > max || /[\u0000-\u001f]/.test(value)) fail('INVALID_REQUEST');
     const normalized = value.normalize('NFC').trim();
     if (!normalized || normalized.length > max || /[\u0000-\u001f]/.test(normalized)) fail('INVALID_REQUEST');
     return normalized;
@@ -50,8 +62,12 @@ module.exports = (function (Model) {
         if (!Object.hasOwn(change, 'before') || !Object.hasOwn(change, 'after')) fail('INVALID_RESPONSE');
         for (const value of [change.before, change.after]) {
           if (field === 'tags') {
-            if (!Array.isArray(value) || value.length > 30 || value.some(tag => typeof tag !== 'string' || !tag.trim() || tag.length > 64)) fail('INVALID_RESPONSE');
-          } else if (typeof value !== 'string' || value.length > (field === 'description' ? 2000 : field === 'section' ? 100 : 160)) fail('INVALID_RESPONSE');
+             if (!Array.isArray(value) || value.length > 30 || value.some(tag =>
+                 typeof tag !== 'string' || !wellFormed(tag) || !tag.trim() ||
+                 tag.length > 64 || tag.normalize('NFC').length > 64)) fail('INVALID_RESPONSE');
+           } else if (typeof value !== 'string' || !wellFormed(value) ||
+               value.length > (field === 'description' ? 2000 : field === 'section' ? 100 : 160) ||
+               value.normalize('NFC').length > (field === 'description' ? 2000 : field === 'section' ? 100 : 160)) fail('INVALID_RESPONSE');
         }
       }
       return { actor: event.actorId, at: historyTime(event.createdAt),
@@ -148,7 +164,8 @@ module.exports = (function (Model) {
       'historyCursor','provenance','metadataHistory','reviewHistory']);
     responseText(a.name, 160);
     responseText(a.originalFilename, 160);
-    if (typeof a.description !== 'string' || a.description.length > 2000) fail('INVALID_RESPONSE');
+    if (typeof a.description !== 'string' || !wellFormed(a.description) ||
+        a.description.length > 2000 || a.description.normalize('NFC').length > 2000) fail('INVALID_RESPONSE');
     responseText(a.section, 100);
     const mapped = {
       id: a.assetId, projectId: a.projectId, revision: a.revision, name: a.name,
@@ -205,7 +222,8 @@ module.exports = (function (Model) {
       keys(payload, ['assetId','expectedRevision','name','tags','description','section','mutationKey']);
       if (!id(payload.assetId) || !integer(payload.expectedRevision) || !Array.isArray(payload.tags) ||
           payload.tags.length > 30 || typeof payload.description !== 'string' ||
-          payload.description.length > 2000) fail('INVALID_REQUEST');
+          !wellFormed(payload.description) || payload.description.length > 2000 ||
+          payload.description.normalize('NFC').length > 2000) fail('INVALID_REQUEST');
       const tags = payload.tags.map(tag => text(tag, 64));
       return [operation, projectId, payload.assetId, payload.expectedRevision,
         text(payload.name, 160), tags, payload.description.normalize('NFC'), text(payload.section, 100)];
