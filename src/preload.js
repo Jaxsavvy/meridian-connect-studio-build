@@ -62,7 +62,6 @@ contextBridge.exposeInMainWorld('meridian', {
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
     wsDownload: (projectId, name, section) => ipcRenderer.invoke('ws:download', { projectId, name, section }),
     wsUploadChatMedia: (convo, caption) => ipcRenderer.invoke('ws:upload-chat-media', { convo, caption }),
-    wsUploadChatFile: (convo, filePath, caption) => ipcRenderer.invoke('ws:upload-chat-file', { convo, filePath, caption }),
     wsDownloadChatMedia: (mediaId, name) => ipcRenderer.invoke('ws:download-chat-media', { mediaId, name }),
     getChatMediaUrl: (mediaId) => ipcRenderer.invoke('ws:chat-media-url', { mediaId }),
     wsPreview: (url, title) => ipcRenderer.invoke('ws:preview', { url, title }),
