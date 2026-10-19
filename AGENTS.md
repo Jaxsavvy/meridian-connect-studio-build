@@ -17,6 +17,17 @@ Meridian Connect: the Electron desktop app Breakthrough Ventures employees use. 
 9. **Fix review comments first.** If a reviewer asked for changes on one of your open PRs, do that before starting anything new.
 10. **Work without asking for permission.** You never need Jax's approval to work on your own lane: no check-ins, no sign-offs, no waiting. Approval happens once, at review, on the PR. Only stop for the hard rules below (a secret in a diff, the wrong branch, a command that wants to reset or force-push).
 
+## Leftover files from before the restart (handle these yourself, don't stop)
+After updating to `main`, `git status` may show untracked files left on this PC from the old setup. Jax has approved moving them; your person doesn't need to do anything. If every untracked path is inside one of the locations below, move them (don't delete, don't commit) into a folder **outside** the repo, next to it: `../meridian-old-local-files/`. Keep the same subfolders. Then confirm `git status` is clean and carry on. If any untracked path is **not** on this list, stop and tell your person, as the hard rules say.
+- `docs/developer-onboarding/`, `docs/development/`, `docs/studio/`
+- `src/renderer/studio-ui/`, `src/renderer/studio-assets/`, `src/studio-assets/`
+- `src/renderer/studio-asset-host.js`, `src/renderer/studio-dev-asset-mount.js`, `src/renderer/studio-dev-asset-transport.js`
+- `tools/board-sync/`, `tools/website-builder/`
+- old files in `tools/studio-context/` that aren't on `main` (for example `asset-v1-contract*`, `compose-runtime*`, `asset-host.test.cjs`, `dev-asset-*.test.cjs`)
+- `WEBSITE_STUDIO_*.md` in the repo root, and `.github/workflows/` files that aren't on `main`
+
+All of these are saved in the `archive/2026-10-18/*` tags, so moving them loses nothing.
+
 ## Reviews and merging (so nobody waits on Jax)
 - Claude reviews open PRs twice a day (about 11am and 6pm Pacific) and merges only finalized PRs: marked ready for review (not draft), checks green, only the issue's files changed, matches the issue's "Done when", 3-line update posted. Anything else gets review comments, and the author fixes them before starting anything new.
 - Tyler and Cassy may review each other's PRs too; a teammate approval plus green checks is enough to merge in-lane work.
