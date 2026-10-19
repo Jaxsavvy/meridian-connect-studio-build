@@ -1,0 +1,16 @@
+.image-gen { color: var(--studio-text, #e8eef7); background: var(--studio-surface, #162234); padding: .75rem; min-inline-size: 0; overflow-wrap: anywhere; }
+.image-gen label { display: grid; gap: .25rem; margin-block: .5rem; }
+.image-gen textarea, .image-gen select { inline-size: 100%; max-inline-size: 100%; min-inline-size: 0; box-sizing: border-box; }
+.image-gen button, .image-gen textarea, .image-gen select { font: inherit; min-block-size: 2.5rem; }
+.image-gen button { color: var(--studio-text, #e8eef7); background: var(--studio-button, #24364c); border: 1px solid var(--studio-border, #64748b); margin: .25rem; }
+.image-gen :focus-visible { outline: 2px solid var(--studio-accent, #65cfc2); outline-offset: 2px; }
+.image-gen-presets { display: flex; flex-wrap: wrap; gap: .25rem; }
+.image-gen-presets [aria-pressed=true], .image-gen-result.is-kept { border-color: var(--studio-accent, #65cfc2); }
+.image-gen-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .75rem; }
+.image-gen-result { padding: .5rem; min-inline-size: 0; border: 1px solid var(--studio-border, #64748b); }
+.image-gen-result img { inline-size: 100%; max-block-size: 24rem; object-fit: contain; }
+.image-gen summary { cursor: pointer; padding-block: .5rem; }
+.image-gen-settings dd { margin-inline-start: .75rem; }
+.image-gen-coming-soon { display: block; margin-block: .5rem; }
+.image-gen.is-loading { cursor: progress; }
+.image-gen [hidden] { display: none; }
