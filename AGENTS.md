@@ -1,13 +1,43 @@
-# Meridian Connect development instructions
+# Rules for every AI coding agent (ChatGPT, Codex, Claude, Copilot)
 
-- This repository is the employee desktop client. Keep Meridian Core, Team Hub, Overseer, owner-only assets, private configuration, and customer records out of it.
-- Work in small, reviewable changes. Preserve existing Electron main/preload/renderer boundaries and the established Meridian visual identity.
-- Read `docs/development/COLLABORATION_RULES.md` before editing. Confirm the assigned chair, task, and feature branch; coordinate shared files and cross-chair scope with affected chairs, and escalate unresolved conflicts.
-- Start with `START_HERE.md` and the matching `docs/developer-onboarding/chair-*/` package. Find an assigned GitHub issue and its existing Project item before changing code; do not invent an assignment.
-- Guide nontechnical developers one step at a time. Record tests, commits, PRs, and a task-specific handoff. Verify board updates and mark Complete only when the issue's acceptance criteria have evidence. Routine design, PR, merge, and board transitions do not require owner signoff.
-- Treat all renderer input, project IDs, file references, and bridge requests as untrusted. Server-side services must validate identity, project membership, and permissions for every request.
-- Never add secrets, private endpoints, personal filesystem paths, production data, local databases, logs, packaged builds, or generated dependencies to commits or fixtures.
-- Keep `package.json` `build.files` narrow. Any new packaged file must be explicitly reviewed for employee distribution.
-- Use local or synthetic data for development. Do not call paid services or live customer systems in automated checks.
-- Do not change or deploy backend services from this repository. Document required API contracts and coordinate backend changes in their restricted source repositories.
-- Before proposing a commit, review the exact file list, scan it for secrets and sensitive paths, and run safe static checks. Build and runtime checks require an authorized development environment.
+Read this file at the start of every session. If anything else in the repo disagrees with it, this file and `docs/PLAN.md` win.
+
+## What this repo is
+Meridian Connect: the Electron desktop app Breakthrough Ventures employees use. We are building **Meridian Studio** inside it, following `docs/PLAN.md`. Meridian Core, Team Hub, Overseer, keys and customer data never live in this repo.
+
+## How a session works
+1. **One issue per session.** Your person tells you the issue number. Read that issue, its "Prompt for your AI" section, and `docs/PLAN.md`. If there is no assigned issue, stop and say so.
+2. **Stay in your lane.** Only change the files the issue lists. If you need to touch a file outside your lane, stop and say which file and why (see Lanes).
+3. **Small change.** Aim for under ~400 lines of code per PR, tests included. If it's growing past that, stop and tell your person how to split it.
+4. **Explain as you go.** Your person is still learning. Before each command, say in one plain sentence what it does.
+5. **Check it.** Run `node --check` on every JS file you changed and the tests the issue names. Fix failures before opening the PR.
+6. **Open a PR** from a branch named `wave1/<issue-number>-<short-name>` into `main`. Fill in the PR template (3 lines + checks). Mark it draft until checks pass, then ready for review.
+7. **Finish the issue cleanly.** When the PR is open and checks pass, post the 3-line update (done / next / blocked) on the issue. Don't keep polishing it.
+8. **Move to the next one.** Your person may then start the next `status:ready` issue in their lane. Always branch the next issue from fresh `main`, never from your unmerged PR. Issues in a lane are written so they don't depend on each other unless the issue says "after #N". If it says "after #N" and #N isn't merged yet, pick a different ready issue or stop.
+9. **Fix review comments first.** If a reviewer asked for changes on one of your open PRs, do that before starting anything new.
+
+## Reviews and merging (so nobody waits on Jax)
+- Claude reviews open PRs at least twice a day and merges the ones that pass: checks green, in-lane, under the size limit, matches the issue.
+- Tyler and Cassy may review each other's PRs too; a teammate approval plus green checks is enough to merge in-lane work.
+- Only these need Jax: anything in the Core lane or shared files, anything a client will see, new paid tools or spending, and marking a wave complete.
+
+## Hard rules
+- Never push to `main`. Never force-push. Never merge your own PR.
+- No evidence documents, handoff files, audit reports, screenshots folders or long write-ups in the repo. Evidence goes in the PR description, short.
+- Never add secrets, API keys, tokens, `.env` files, personal paths (`C:\Users\...`), logs, databases, installers or customer data.
+- No paid APIs or live customer systems in tests. Use small synthetic data.
+- Never trust anything from the renderer (project IDs, file paths, URLs). The server checks identity and permissions on every request.
+- Keep `package.json` `build.files` narrow; don't ship dev-only code.
+- If something looks wrong (wrong branch, unexpected files, a secret in a diff), stop and tell your person. Don't try to fix git history yourself.
+
+## Lanes (who changes what)
+| Lane | Owner | Files |
+|---|---|---|
+| Studio screens | Tyler | `src/renderer/studio/shell/**`, `src/renderer/studio/screens/**`, `src/renderer/studio/studio.css` |
+| Assets + Image gen | Cassy | `src/renderer/studio/assets/**`, `src/renderer/studio/tools/image-gen/**` |
+| Core + shared | Jax (with Claude) | `src/main.js`, `src/preload.js`, `src/api.js`, `src/auth.js`, `src/renderer/app.js`, `src/renderer/index.html`, `src/renderer/studio-context.js`, `src/renderer/studio/ai/**`, `package.json`, `.github/**`, `AGENTS.md`, `docs/**` |
+
+Shared files change only through the Core lane. If your issue needs a shared-file change, the issue will say so, or you stop and ask.
+
+## Words we use
+Space (Sandbox or client project), Project DNA, Asset, Tool, Tool Library, Workflow, Stage, Job, Send to, Review, Meridian Studio (the AI), Preset. See `docs/PLAN.md`. Don't invent new names for these.

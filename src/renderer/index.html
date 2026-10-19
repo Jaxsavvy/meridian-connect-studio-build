@@ -7,7 +7,6 @@
   <link rel="icon" href="assets/meridian.ico">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="meridian-standard.css">
-  <link rel="stylesheet" href="studio-ui/studio-ui.css">
 </head>
 <body class="home-view">
 
@@ -81,10 +80,10 @@
         <span class="nav-badge-pill" id="nav-projects-count">3</span>
       </button>
       <button type="button" class="nav-link" id="nav-studio-link" data-view="studio" disabled aria-disabled="true"
-        title="Studio unavailable — development integration is not enabled">
+        title="Studio is being rebuilt — coming soon">
         <span class="nav-icon">✦</span>
         <span class="nav-text">Studio</span>
-        <span class="nav-badge-pill" id="nav-studio-status">Unavailable</span>
+        <span class="nav-badge-pill" id="nav-studio-status">Soon</span>
       </button>
       <button type="button" class="nav-link" data-view="tasks">
         <span class="nav-icon">☑</span>
@@ -520,7 +519,7 @@
         </div>
       </section>
 
-      <!-- DEV-006: project-scoped Studio host. Content is rendered by studio-ui/studio-shell.js. -->
+      <!-- Studio host. The new Studio frame (docs/PLAN.md, Wave 1) mounts here. -->
       <section id="studioCenter" aria-label="Meridian Studio" hidden></section>
 
       <!-- Popped View Notice Placeholder -->
