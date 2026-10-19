@@ -81,8 +81,14 @@ class AuthManager {
    * DEV BYPASS for Jax:
    * Only accessible when started with --dev. Logs in directly as Jax.
    */
+  /** Developer-mode sample sign-in: lets developers open Studio on sample data without a server.
+   *  Only works when started with `npm run dev` from source (never in the installed app). No token,
+   *  nothing saved to disk, and the server rejects it, so it can't see real data. */
   async devLogin() {
-    return { success: false, error: 'Dev login is turned off. Sign in with your Meridian account.' };
+    if (!this.isDev) return { success: false, error: 'Sample sign-in only works in developer mode.' };
+    const user = { username: 'sample-dev', displayName: 'Sample developer', name: 'Sample developer', sample: true, token: null };
+    this.currentUser = user;
+    return { success: true, user };
   }
 
   /**

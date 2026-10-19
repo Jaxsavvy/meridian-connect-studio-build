@@ -666,12 +666,12 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     const userData = app.getPath('userData');
     process.env.MERIDIAN_CONNECT_SETTINGS = path.join(userData, 'settings.json');
-    authManager = new AuthManager(userData, isDev);
+    authManager = new AuthManager(userData, isDev && !app.isPackaged);   // sample sign-in never works in the installed app
     protocol.handle('meridian-media', handleMediaRequest);
     layoutStore = new LayoutStore(userData);
 
     // Setup IPC
-    ipcMain.handle('auth:is-dev', () => isDev);
+    ipcMain.handle('auth:is-dev', () => isDev && !app.isPackaged);   // developer tools never appear in the installed app
     ipcMain.handle('auth:get-current-user', () => authManager.getCurrentUser());
 
     ipcMain.handle('auth:dev-login', async () => {

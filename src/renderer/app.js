@@ -145,6 +145,16 @@ async function enterApp(user) {
   currentUser = user;
   document.getElementById('login-view').style.display = 'none';
 
+  if (user && user.sample) {   // developer-mode sample sign-in: no server, Studio on sample data only
+    currentMe = Object.assign({}, user);
+    const nameLabel = document.getElementById('user-name-label');
+    if (nameLabel) nameLabel.textContent = user.displayName;
+    switchView('studio');
+    setupSettingsUI();
+    setupPopoutListeners();
+    return;
+  }
+
   // Load authoritative profile & permissions
   const meRes = await window.meridian.api.getMe(user.username);
   if (!meRes || !meRes.success || !meRes.data) {   // 2026-10-06: a saved sign-in must still be valid at home base

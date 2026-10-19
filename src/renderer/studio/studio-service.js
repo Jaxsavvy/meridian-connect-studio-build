@@ -59,7 +59,8 @@
       return [
         { id: 'sandbox-me', type: 'sandbox-personal', name: 'My sandbox' },
         { id: 'sandbox-team', type: 'sandbox-team', name: 'Team sandbox' },
-        ...projects.map(p => ({ id: p.id, type: 'client', name: p.name })),
+        ...(projects.length ? projects : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
+          .map(p => ({ id: p.id, type: 'client', name: p.name })),
       ];
     }
 
