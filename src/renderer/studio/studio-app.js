@@ -3,7 +3,8 @@
  *   MeridianStudio.registerScreen(name, { render(el, params, studio) })  Tyler: 'home', 'space', 'work'
  *   MeridianStudio.registerTool(id, { mountCanvas(el, ctx) })             Cassy: 'image-gen', 'asset-library'
  *   MeridianStudio.registerPart(name, { mount(el, ctx) })                 'conversation' (Core), 'assets-strip' (Cassy)
- *   MeridianStudio.navigate(name, params) / current() / setDirty(bool) / on(fn)
+ *   MeridianStudio.navigate(name, params) / current() / setDirty(bool) / on(fn) / emit(event, detail)
+ *   MeridianStudio.mountInto(el, 'tool' | 'part', id, ctx)               screens use this to fill slots
  *   MeridianStudio.service  -> studio-service.js (the only data source)
  *
  * mount/mountCanvas may return a cleanup function; it runs when the view changes.
@@ -22,6 +23,29 @@
   let cleanups = [];
 
   const service = window.MeridianStudioService.createSampleService();
+
+  // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
+  // edits index.html or another lane's file. Files that don't exist yet are skipped.
+  const LANE_FILES = [
+    'studio/screens/theme.css',
+    'studio/screens/home.js', 'studio/screens/home.css',
+    'studio/screens/space.js', 'studio/screens/space.css',
+    'studio/screens/work.js', 'studio/screens/work.css',
+    'studio/assets/asset-model.js',
+    'studio/assets/assets-strip.js', 'studio/assets/assets-strip.css',
+    'studio/tools/asset-library/asset-library.js', 'studio/tools/asset-library/asset-library.css',
+    'studio/tools/image-gen/image-gen.js', 'studio/tools/image-gen/image-gen.css',
+    'studio/ai/conversation.js', 'studio/ai/conversation.css',
+  ];
+
+  function loadLaneFiles() {
+    for (const path of LANE_FILES) {
+      const node = path.endsWith('.css') ? document.createElement('link') : document.createElement('script');
+      if (path.endsWith('.css')) { node.rel = 'stylesheet'; node.href = path; } else { node.src = path; }
+      node.addEventListener('error', () => node.remove(), { once: true });
+      document.head.appendChild(node);
+    }
+  }
 
   function emit(event, detail) { for (const fn of listeners) fn(event, detail); }
 
@@ -83,6 +107,8 @@
       }, 'leave this screen');
     },
     setDirty(value) { dirty = Boolean(value); },
+    /** Lets parts talk to each other, e.g. emit('image-results', out) from the conversation to the Image gen canvas. */
+    emit,
     on(fn) {
       if (typeof fn !== 'function') throw new TypeError('Listener must be a function.');
       listeners.add(fn);
@@ -104,6 +130,7 @@
   window.MeridianStudioUI = Object.freeze({
     mount({ host: el, getProjects }) {
       host = el;
+      loadLaneFiles();
       const sync = () => service.setProjects(getProjects ? getProjects() : []);
       sync();
       if (window.meridianStudioContext) window.meridianStudioContext.subscribe(sync);

@@ -33,11 +33,21 @@ Meridian Connect: the Electron desktop app Breakthrough Ventures employees use. 
 ## Lanes (who changes what)
 | Lane | Owner | Files |
 |---|---|---|
-| Studio screens | Tyler | `src/renderer/studio/shell/**`, `src/renderer/studio/screens/**`, `src/renderer/studio/studio.css` |
-| Assets + Image gen | Cassy | `src/renderer/studio/assets/**`, `src/renderer/studio/tools/image-gen/**` |
-| Core + shared | Jax (with Claude) | `src/main.js`, `src/preload.js`, `src/api.js`, `src/auth.js`, `src/renderer/app.js`, `src/renderer/index.html`, `src/renderer/studio-context.js`, `src/renderer/studio/ai/**`, `package.json`, `.github/**`, `AGENTS.md`, `docs/**` |
+| Studio screens | Tyler | `src/renderer/studio/screens/**`, `tools/studio/screens-*.test.cjs` |
+| Assets + Image gen | Cassy | `src/renderer/studio/assets/**`, `src/renderer/studio/tools/**`, `tools/studio/assets-*.test.cjs` |
+| Core + shared | Jax (with Claude) | everything else: `src/main.js`, `src/preload.js`, `src/api.js`, `src/auth.js`, `src/renderer/app.js`, `src/renderer/index.html`, `src/renderer/studio-context.js`, `src/renderer/studio/studio-app.js`, `src/renderer/studio/studio-service.js`, `src/renderer/studio/studio.css`, `src/renderer/studio/ai/**`, `package.json`, `.github/**`, `AGENTS.md`, `docs/**` |
 
 Shared files change only through the Core lane. If your issue needs a shared-file change, the issue will say so, or you stop and ask.
+
+## How Studio code plugs in (don't edit these files; use them)
+- Get data only from `MeridianStudio.service` (`src/renderer/studio/studio-service.js`). It runs on sample data now and will switch to the server later without your code changing. Never call `fetch` or `window.meridian` from Studio files.
+- Screens: `MeridianStudio.registerScreen('home' | 'space' | 'work', { render(el, params, studio) })`.
+- Tools: `MeridianStudio.registerTool('<tool-id>', { mountCanvas(el, ctx) })`.
+- Panels: `MeridianStudio.registerPart('assets-strip' | 'conversation', { mount(el, ctx) })`.
+- Fill a slot with `studio.mountInto(el, 'tool' | 'part', id, ctx)`; move with `studio.navigate(name, params)`; mark unsaved work with `studio.setDirty(true)`.
+- `render`/`mount`/`mountCanvas` may return a cleanup function (remove listeners there).
+- Each issue's files are already listed in `LANE_FILES` in `studio-app.js`, so they load automatically. Don't edit `index.html`.
+- Plain JavaScript and CSS only, like the rest of the app. No new npm packages.
 
 ## Words we use
 Space (Sandbox or client project), Project DNA, Asset, Tool, Tool Library, Workflow, Stage, Job, Send to, Review, Meridian Studio (the AI), Preset. See `docs/PLAN.md`. Don't invent new names for these.
