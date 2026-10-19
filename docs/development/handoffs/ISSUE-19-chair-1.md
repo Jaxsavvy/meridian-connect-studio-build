@@ -7,6 +7,13 @@
 - Task branch: `task/dev010-asset-contract-v1`; [draft PR #36](https://github.com/Jaxsavvy/meridian-connect-studio-build/pull/36). Implementation commit `cd9b8088bc404d10c0cdbcb7c0cab356abe8d199`.
 - Scope: public-safe Connect contract and test reference only. Restricted Team Hub implementation remains separate and unmounted.
 
+## Current checkpoint — 2026-10-18 metadata text compatibility
+
+- Public draft implementation commit `5b4385ad37ac067763a04b2db837e589aeadb98a` tightens the unmounted v1 reference: names, tags, sections, and descriptions use their documented JavaScript UTF-16-unit bounds before and after NFC normalization; unpaired surrogates fail before fingerprinting or response mapping. The two contract docs and focused tests were updated. This does not edit Cassy's component or enable a live route.
+- The focused contract suite passed 16/16 against Cassy's exact `69dbc7b` Asset Model in an isolated checkout; syntax checks passed. [Connect source checks](https://github.com/Jaxsavvy/meridian-connect-studio-build/actions/runs/39186490564) passed on that implementation commit. Earlier 38-case Studio context evidence belongs to the prior head and was not rerun for this change.
+- The separate private, unmounted stage at local commit `f5102b4` enforces the same limits. Its direct permission checks and full disposable authenticated synthetic A/B HTTP run passed; the synthetic database and files were removed. This is staging evidence, not live Team Hub or packaged Connect acceptance.
+- Remaining owner decisions: production media/pixel/transfer/quota limits, cleanup and retention, reviewed preview provider, named Connect host methods, and isolated packaged end-to-end verification. PR #36 stays draft, DEV-010 stays Building, Task 01 stays PARTIAL, and Studio Assets stay Unavailable.
+
 ## Work and evidence
 
 - The test reference now validates the bounded Studio Files metadata and review history event shapes, converts metadata history to Cassy's current Asset Model fields, and retains validated review events. Foreign version references, unexpected internal fields, and unsupported history sizes fail closed.
