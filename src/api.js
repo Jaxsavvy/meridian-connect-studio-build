@@ -337,10 +337,18 @@ const api = {
     }
   },
 
+  /** Address the page uses for chat media. It goes through the app's private meridian-media: channel,
+   *  so the login token never appears in a URL; main.js adds it as a header (see chatMediaRequest). */
   getChatMediaUrl(mediaId) {
-    const baseUrl = getServerUrl();
-    const token = currentAuthToken ? `?token=${encodeURIComponent(currentAuthToken)}` : '';
-    return `${baseUrl}/api/chat-hub/media/${encodeURIComponent(mediaId)}${token}`;
+    return `meridian-media://media/${encodeURIComponent(mediaId)}`;
+  },
+
+  /** Server address + headers for one chat media file (used only inside the main process). */
+  chatMediaRequest(mediaId) {
+    return {
+      url: `${getServerUrl()}/api/chat-hub/media/${encodeURIComponent(mediaId)}`,
+      headers: currentAuthToken ? { Authorization: `Bearer ${currentAuthToken}` } : {},
+    };
   },
 
   /**

@@ -7,14 +7,14 @@
 
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const AuthManager = require('./auth');
 const LayoutStore = require('./layout-store');
 const api = require('./api');
-const { isSafeExternalUrl } = require('./safe-url');
+const { isSafeExternalUrl, isAllowedServerUrl } = require('./safe-url');
 
 /** Opens a link in the person's browser or mail app, but only if it's a normal web or email link. */
 function openSafeExternal(url) {
@@ -31,6 +31,59 @@ function openSafeExternal(url) {
 app.on('web-contents-created', (_event, contents) => {
   contents.setWindowOpenHandler(({ url }) => { openSafeExternal(url); return { action: 'deny' }; });
 });
+
+// Chat images/video/audio load through this private channel so the login token
+// travels in a header from the main process and never appears in a page URL.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'meridian-media', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
+
+const MEDIA_ID = /^[A-Za-z0-9._-]{1,200}$/;
+
+function handleMediaRequest(request) {
+  let mediaId = '';
+  try { mediaId = decodeURIComponent(new URL(request.url).pathname.replace(/^\/+/, '')); } catch (e) { mediaId = ''; }
+  if (!MEDIA_ID.test(mediaId)) return new Response('Not found', { status: 404 });
+  const { url, headers } = api.chatMediaRequest(mediaId);
+  if (!isAllowedServerUrl(url.slice(0, url.indexOf('/api/')))) return new Response('Server address not allowed', { status: 403 });
+  const range = request.headers.get('range');
+  return net.fetch(url, { headers: range ? { ...headers, Range: range } : headers });
+}
+
+/** Saves settings from the Settings screen. Only known, harmless keys are accepted. Changing the
+ *  server address needs a native confirmation the page can't fake, and signs the person out. */
+const PAGE_SETTINGS = ['apiTimeoutMs', 'notificationsEnabled', 'speakReplies', 'idleTimeoutHours', 'reconnectIntervalMs'];
+
+async function saveSettingsFromPage(event, incoming) {
+  const input = incoming && typeof incoming === 'object' ? incoming : {};
+  const safe = {};
+  for (const key of PAGE_SETTINGS) if (key in input) safe[key] = input[key];
+  const current = getSettings();
+  const wanted = typeof input.serverUrl === 'string' ? input.serverUrl.trim().replace(/\/+$/, '') : '';
+  const changingServer = wanted && wanted !== String(current.serverUrl || '').replace(/\/+$/, '');
+  if (changingServer) {
+    if (!isAllowedServerUrl(wanted)) {
+      return { success: false, error: 'Server address must start with https:// (ask Jax for the right address).' };
+    }
+    const choice = await dialog.showMessageBox(BrowserWindow.fromWebContents(event.sender), {
+      type: 'warning',
+      buttons: ['Cancel', 'Switch server'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Change server',
+      message: `Connect will sign you out and send your next login to:\n${new URL(wanted).origin}`,
+      detail: 'Only do this if Jax gave you this address.',
+    });
+    if (choice.response !== 1) return { success: false, canceled: true };
+    safe.serverUrl = wanted;
+  }
+  const result = saveSettings(safe);
+  if (result.success && changingServer) {
+    await authManager.logout();
+    return { ...result, signedOut: true };
+  }
+  return result;
+}
 
 function keepWindowOnAppPages(win) {
   win.webContents.on('will-navigate', (event, url) => {
@@ -598,7 +651,9 @@ if (!gotTheLock) {
     updater.on('error', () => {});   // home base offline or no update published: try again later
     const check = () => {
       try {
-        updater.setFeedURL({ provider: 'generic', url: api.getServerUrl() + '/updates' });
+        const server = api.getServerUrl();
+        if (!isAllowedServerUrl(server)) return;   // never take app updates from an unsafe address
+        updater.setFeedURL({ provider: 'generic', url: server + '/updates' });
         updater.checkForUpdates().catch(() => {});
       } catch (e) { /* ignore */ }
     };
@@ -612,6 +667,7 @@ if (!gotTheLock) {
     const userData = app.getPath('userData');
     process.env.MERIDIAN_CONNECT_SETTINGS = path.join(userData, 'settings.json');
     authManager = new AuthManager(userData, isDev);
+    protocol.handle('meridian-media', handleMediaRequest);
     layoutStore = new LayoutStore(userData);
 
     // Setup IPC
@@ -643,7 +699,7 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle('settings:get', () => getSettings());
-    ipcMain.handle('settings:save', (e, newSettings) => saveSettings(newSettings));
+    ipcMain.handle('settings:save', saveSettingsFromPage);
     ipcMain.handle('app:check-update', () => checkUpdate());
     ipcMain.handle('app:show-notification', (e, opts) => showNotification(opts));
     ipcMain.handle('app:open-external', (e, url) => openSafeExternal(url));

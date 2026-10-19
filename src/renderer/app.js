@@ -1075,12 +1075,18 @@ function setupSettingsUI() {
       const timeout = parseInt(document.getElementById('settings-timeout').value, 10) || 10000;
       const notifications = document.getElementById('settings-notifications').checked;
 
-      await window.meridian.saveSettings({
+      const result = await window.meridian.saveSettings({
         serverUrl: url,
         apiTimeoutMs: timeout,
         notificationsEnabled: notifications
       });
+      if (result && result.canceled) return;
+      if (result && result.success === false) {
+        window.alert(result.error || 'Settings could not be saved.');
+        return;
+      }
       modal.style.display = 'none';
+      if (result && result.signedOut) showLogin();
     };
   }
 }

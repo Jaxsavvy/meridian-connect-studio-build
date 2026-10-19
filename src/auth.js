@@ -13,11 +13,26 @@ const path = require('path');
 
 // 2026-10-06: fake/stub users removed. Every login is checked by home base (Team Hub).
 
+/** Encrypts the saved login with the operating system's own protection (Windows DPAPI via Electron safeStorage). */
+function osCipher() {
+  try {
+    const { safeStorage } = require('electron');
+    if (!safeStorage || !safeStorage.isEncryptionAvailable()) return null;
+    return {
+      encrypt: (text) => safeStorage.encryptString(text).toString('base64'),
+      decrypt: (b64) => safeStorage.decryptString(Buffer.from(b64, 'base64')),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 class AuthManager {
-  constructor(userDataDir, isDev = false) {
+  constructor(userDataDir, isDev = false, cipher) {
     this.userDataDir = userDataDir;
     this.isDev = isDev;
     this.sessionFile = userDataDir ? path.join(userDataDir, 'session.json') : null;
+    this.cipher = cipher === undefined ? osCipher() : cipher;
     this.currentUser = null;
     this._loadSavedSession();
   }
@@ -26,15 +41,20 @@ class AuthManager {
     if (!this.sessionFile) return;
     try {
       if (fs.existsSync(this.sessionFile)) {
-        const raw = fs.readFileSync(this.sessionFile, 'utf8');
-        const data = JSON.parse(raw);
+        const stored = JSON.parse(fs.readFileSync(this.sessionFile, 'utf8'));
+        let data = stored;
+        if (stored && stored.v === 2 && typeof stored.enc === 'string') {
+          if (!this.cipher) return;   // can't decrypt here: ask the person to sign in again
+          data = JSON.parse(this.cipher.decrypt(stored.enc));
+        }
         if (data && data.user && data.user.token) {
           this.currentUser = data.user;
           require('./api').setAuthToken(data.user.token, data.user);
+          if (stored.v !== 2) this._saveSession(data.user, true);   // upgrade an old plain-text session file
         }
       }
     } catch (e) {
-      // Ignore corrupted session file
+      // Ignore unreadable or corrupted session file; the person signs in again
     }
   }
 
@@ -43,7 +63,12 @@ class AuthManager {
     if (!this.sessionFile) return;
     try {
       if (remember && user) {
-        fs.writeFileSync(this.sessionFile, JSON.stringify({ user, savedAt: Date.now() }, null, 2));
+        if (!this.cipher) {   // no OS encryption available: don't leave the login on disk in plain text
+          if (fs.existsSync(this.sessionFile)) fs.unlinkSync(this.sessionFile);
+          return;
+        }
+        const enc = this.cipher.encrypt(JSON.stringify({ user, savedAt: Date.now() }));
+        fs.writeFileSync(this.sessionFile, JSON.stringify({ v: 2, enc }), { mode: 0o600 });
       } else if (fs.existsSync(this.sessionFile)) {
         fs.unlinkSync(this.sessionFile);
       }
