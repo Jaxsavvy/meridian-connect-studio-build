@@ -414,6 +414,11 @@ body.view-studio .workspace-main > #mx-dock { display: none !important; }
 .studio-inline-error p { margin: 0; color: var(--studio-muted); }
 .studio-review-panel > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
 
+.studio-continue { padding-block: 16px; }
+.studio-continue .studio-section-heading { margin-bottom: 10px; }
+.studio-continue-actions { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.studio-continue-actions .studio-text-action { max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+
 .studio-tools { padding-bottom: 12px; }
 .studio-tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .studio-tool-card { display: flex; flex-direction: column; min-width: 0; padding: 17px; border-top: 1px solid var(--studio-line-soft); border-right: 1px solid var(--studio-line-soft); }

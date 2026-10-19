@@ -6,7 +6,7 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const root = join(__dirname, '../..');
 
-function harness({ fallback = false, saveDraft = null, writeBlocked = false, stored = [] } = {}) {
+function harness({ fallback = false, saveDraft = null, writeBlocked = false, stored = [], operations = false } = {}) {
   const listeners = {};
   const registrations = [];
   const values = new Map(stored);
@@ -18,7 +18,7 @@ function harness({ fallback = false, saveDraft = null, writeBlocked = false, sto
     key: index => [...values.keys()][index] || null,
     get length() { return values.size; },
   };
-  let state = { project: null, surface: 'website', phase: 'ready', unsaved: false, data: {} };
+  let state = { project: null, surface: operations ? 'operations' : 'website', phase: 'ready', unsaved: false, data: operations ? require('../../src/renderer/studio-ui/studio-fixtures.js').createProjectFixture({id:'synthetic-alpha',name:'Synthetic Alpha'}) : {} };
   let notify;
   const host = {
     innerHTML: '', hidden: false,
@@ -28,14 +28,14 @@ function harness({ fallback = false, saveDraft = null, writeBlocked = false, sto
     removeEventListener: (event, fn) => { const i=registrations.findIndex(r=>r.event===event&&r.fn===fn); if(i>=0)registrations.splice(i,1); if(listeners[event]===fn)delete listeners[event]; },
     replaceChildren: () => {},
   };
-  const context = { snapshot: () => ({ tools: [] }) };
+  const context = { snapshot: () => ({ tools: operations ? require('../../src/renderer/studio-context.js').createStudioContext().snapshot().tools : [] }) };
   const sandbox = {
     document: { activeElement: null }, CSS: { escape: value => value },
     requestAnimationFrame: fn => fn(), setTimeout: () => 0, clearTimeout: () => {},
     localStorage: storage,
     addEventListener: (name, callback) => { windowListeners[name] = callback; },
     removeEventListener: (name, callback) => { if (windowListeners[name] === callback) delete windowListeners[name]; },
-    MeridianStudioFixtures: { createSyntheticAdapter: () => ({}) },
+    MeridianStudioFixtures: { ...require('../../src/renderer/studio-ui/studio-fixtures.js'), createSyntheticAdapter: () => ({}) },
     MeridianStudioWorkspace: {
       createWorkspace({ onChange }) {
         notify = onChange;
@@ -245,4 +245,14 @@ test('destroy removes all host listeners and remains idempotent after a replacem
 });
 test('thirty successive shell mounts do not accumulate handlers on the reused host',()=>{
  const h=harness();for(let i=0;i<30;i++){const instance=h.remount();assert.equal(h.registrations.length,8);instance.destroy();assert.equal(h.registrations.length,0);assert.equal(h.windowListeners.beforeunload,undefined);assert.equal(h.windowListeners.resize,undefined);}
+});
+
+ test('Tools-first home keeps project and compact continuation before all nine honest tiles', () => {
+  const h=harness({operations:true});h.select('synthetic-alpha');
+  const html=h.host.innerHTML;
+  const ids=['studio-project-select','studio-current-work-title','studio-tools-title','studio-campaign-title','studio-production-title','studio-assets-preview-title','studio-decisions-title'];
+  const positions=ids.map(id=>html.indexOf('id="'+id+'"'));assert.ok(positions.every(p=>p>=0));assert.deepEqual(positions,[...positions].sort((a,b)=>a-b));
+  const summary=html.slice(positions[1],positions[2]);assert.equal((summary.match(/<button /g)||[]).length,3);assert.doesNotMatch(summary,/studio-decision/);
+  const tiles=html.slice(positions[2],positions[3]);assert.equal((tiles.match(/class="studio-tool-card"/g)||[]).length,9);assert.equal((tiles.match(/>Development<\/span>/g)||[]).length,1);assert.equal((tiles.match(/>Planned<\/span>/g)||[]).length,8);
+  assert.match(tiles,/Open development Website Builder/);assert.doesNotMatch(tiles,/Ready|Connected|Available now/);
 });

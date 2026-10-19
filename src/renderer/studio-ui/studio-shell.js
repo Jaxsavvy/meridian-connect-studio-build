@@ -271,14 +271,15 @@
       const campaign = data.campaign;
       const reviewed = data.decisions.find(item => item.id === state.reviewedDecisionId);
       return `<div class="studio-surface" data-surface="operations">
-        <section class="studio-section" aria-labelledby="studio-current-work-title">
-          <div class="studio-section-heading"><div><span class="studio-kicker">Selected project</span><h2 id="studio-current-work-title">Continue your work</h2></div><p>Website drafts stay on this device. Campaign scenes and assets are synthetic.</p></div>
-          <div class="studio-decision-grid">
-            <article class="studio-decision"><h3>Website projects</h3><p>${websiteState ? websiteState.projects.length : 0} local website projects in this project.</p><button type="button" class="studio-button studio-button--primary" data-action="surface" data-value="website">${websiteState && websiteState.project ? 'Continue website' : 'Create or reopen website'}</button></article>
-            <article class="studio-decision"><h3>Storyboard draft</h3><p>${data.scenes.length} synthetic scenes. Save a scene before copying its content into an open website.</p><button type="button" class="studio-button studio-button--secondary" data-action="continue-campaign">Continue storyboard draft</button></article>
-            <article class="studio-decision"><h3>Review readiness</h3><p>${data.decisions.filter(item => item.state === 'Needs review').length} synthetic decisions awaiting a choice.</p><button type="button" class="studio-button studio-button--secondary" data-action="surface" data-value="handoff">Review handoff readiness</button></article>
+        <section class="studio-section studio-continue" aria-labelledby="studio-current-work-title">
+          <div class="studio-section-heading"><h2 id="studio-current-work-title">Continue your work</h2><p>Website drafts are local. Storyboard and review data are synthetic.</p></div>
+          <div class="studio-continue-actions">
+            <button type="button" class="studio-text-action" data-action="surface" data-value="website">${websiteState && websiteState.project ? 'Continue website' : 'Create or reopen website'} · ${websiteState ? websiteState.projects.length : 0} local projects</button>
+            <button type="button" class="studio-text-action" data-action="continue-campaign">Continue storyboard · ${data.scenes.length} synthetic scenes</button>
+            <button type="button" class="studio-text-action" data-action="surface" data-value="handoff">Review handoff · ${data.decisions.filter(item => item.state === 'Needs review').length} synthetic decisions</button>
           </div>
         </section>
+        ${renderTools(state)}
         <section class="studio-campaign" aria-labelledby="studio-campaign-title">
           <div class="studio-campaign__copy">
             <span class="studio-kicker">Active campaign · ${escapeHtml(campaign.status)}</span>
@@ -334,7 +335,6 @@
             <button type="button" class="studio-button studio-button--primary" data-action="resolve-decision" data-value="Approved">Record synthetic approval</button></div>
           </div>` : ''}
         </section>
-        ${renderTools(state)}
       </div>`;
     }
 

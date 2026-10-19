@@ -69,6 +69,43 @@ async function jobRecoveryVisible(window) {
     return heading.top>=workspace.top-1 && controls.bottom<=workspace.bottom+1;
   })()`);
 }
+// Mounted synthetic home checks run standalone and in both current-head compositions.
+async function verifyToolsFirstHome(window) {
+  const results = [];
+  for (const [name, width, zoom] of [['desktop',1440,1],['narrow',800,1],['200pct',1440,2]]) {
+    window.setSize(width, 1000); window.webContents.setZoomFactor(zoom); await pause(180);
+    const layout = await window.webContents.executeJavaScript(`(() => {
+      const surface=document.querySelector('[data-surface=operations]');
+      const sections=[...surface.children].map(el=>el.className);
+      const tools=[...surface.querySelectorAll('.studio-tool-card')];
+      const select=document.querySelector('#studio-project-select');
+      document.querySelector('.studio-workspace').scrollTop=0;
+      return {sections, tools:tools.map(el=>({name:el.querySelector('h3').textContent,state:el.querySelector('.studio-pill').textContent})),
+        projectBeforeSummary:!!(select.compareDocumentPosition(surface)&Node.DOCUMENT_POSITION_FOLLOWING),
+        fits:['.studio-workspace','.studio-main','.studio-continue','.studio-tools'].every(q=>{const el=document.querySelector(q);return el.scrollWidth<=el.clientWidth+1;}),
+        summaryHeight:surface.firstElementChild.getBoundingClientRect().height};
+    })()`);
+    assert.match(layout.sections[0],/studio-continue/); assert.match(layout.sections[1],/studio-tools/); assert.match(layout.sections[2],/studio-campaign/);
+    assert.equal(layout.tools.length,9); assert.equal(layout.projectBeforeSummary,true); assert.equal(layout.fits,true);
+    assert.deepEqual(layout.tools.map(t=>t.state),['Planned','Planned','Planned','Planned','Planned','Planned','Development','Planned','Planned']);
+    assert.ok(layout.summaryHeight < (zoom===2?260:220),'Continue summary stays compact');
+    await capture(window,'40-tools-first-'+name);
+    // Actual Tab input from persistent selector through summary, nine tiles, then campaign.
+    await window.webContents.executeJavaScript("document.querySelector('#studio-project-select').focus()");
+    const expected=await window.webContents.executeJavaScript(`['.studio-continue button','.studio-tool-card button','.studio-campaign button'].flatMap(q=>[...document.querySelectorAll(q)].map(el=>({action:el.dataset.action,value:el.dataset.value||''})))`);
+    for (const target of expected) {
+      window.webContents.sendInputEvent({type:'keyDown',keyCode:'Tab'}); window.webContents.sendInputEvent({type:'keyUp',keyCode:'Tab'}); await pause(15);
+      const focus=await window.webContents.executeJavaScript(`(() => {const el=document.activeElement,r=el.getBoundingClientRect(),w=document.querySelector('.studio-workspace').getBoundingClientRect();return {action:el.dataset.action,value:el.dataset.value||'',visible:r.top>=w.top-1&&r.bottom<=w.bottom+1&&r.left>=w.left-1&&r.right<=w.right+1};})()`);
+      assert.deepEqual({action:focus.action,value:focus.value},target); assert.equal(focus.visible,true,'Tabbed home action is visible');
+    }
+    await window.webContents.executeJavaScript("document.querySelector('#studio-tools-title').scrollIntoView({block:'start'})");
+    await capture(window,'41-tools-grid-'+name);
+    results.push({name,width,zoom,...layout,keyboardActions:expected.length,keyboardOrder:'selector → continue summary → nine tools → campaign',passed:true});
+  }
+  await fs.writeFile(join(evidence,'tools-first-home.json'),JSON.stringify(results,null,2));
+  window.webContents.setZoomFactor(1); window.setSize(1440,1000);
+  await window.webContents.executeJavaScript("document.querySelector('.studio-workspace').scrollTop=0");
+}
 async function metrics(window) {
   return window.webContents.executeJavaScript('(' + (() => ({
     visiblePanels: [...document.querySelectorAll('[data-website-panel]')].filter(panel => !panel.hidden && getComputedStyle(panel).display !== 'none').map(panel => panel.dataset.websitePanel),
@@ -111,6 +148,7 @@ app.whenReady().then(async () => {
     await pause(500);
     await window.webContents.executeJavaScript("switchView('studio')");
     await waitFor(window, '#studio-current-work-title');
+    await verifyToolsFirstHome(window);
     await capture(window, '00-project-overview');
     await click(window, '[data-action="surface"][data-value="website"]');
     await waitFor(window, '#website-new-name');
