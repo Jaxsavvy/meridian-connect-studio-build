@@ -1,0 +1,135 @@
+/* Shared Studio tokens and primitives. Screen layout belongs in screen CSS. */
+#studioCenter {
+  --studio-night: #07101d;
+  --studio-rail: #091525;
+  --studio-panel: #0e1b2e;
+  --studio-raised: #13243a;
+  --studio-line: #263d5b;
+  --studio-line-soft: #1b2d45;
+  --studio-text: #f2f6fb;
+  --studio-muted: #a6b5ca;
+  --studio-action: #1f6fd6;
+  --studio-sky: #71c5ff;
+  --studio-teal: #62d8c3;
+  --studio-gold: #f1c879;
+  --studio-danger: #ff9aa9;
+  --studio-transparent: transparent;
+  --studio-font: "Inter", "Segoe UI", sans-serif;
+  --studio-text-small: 0.875rem;
+  --studio-text-base: 1rem;
+  --studio-text-large: 1.25rem;
+  --studio-text-title: 1.75rem;
+  --studio-leading: 1.5;
+  --studio-weight-normal: 400;
+  --studio-weight-strong: 600;
+  --studio-space-0: 0;
+  --studio-space-1: 0.25rem;
+  --studio-space-2: 0.5rem;
+  --studio-space-3: 0.75rem;
+  --studio-space-4: 1rem;
+  --studio-space-6: 1.5rem;
+  --studio-space-8: 2rem;
+  --studio-radius: 0.5rem;
+  --studio-radius-pill: 99rem;
+  --studio-border: 1px;
+  --studio-focus-width: 3px;
+  --studio-focus-offset: 3px;
+  --studio-control-height: 2.75rem;
+  --studio-card-min: 14rem;
+  --studio-content-max: 75rem;
+  --studio-shadow: 0 0.25rem 1rem #00000026;
+  --studio-disabled-opacity: 0.75;
+  min-width: 0;
+  color: var(--studio-text);
+  background: var(--studio-night);
+  font-family: var(--studio-font);
+  font-size: var(--studio-text-base);
+  line-height: var(--studio-leading);
+}
+
+#studioCenter *, #studioCenter *::before, #studioCenter *::after {
+  box-sizing: border-box;
+}
+
+#studioCenter :focus-visible {
+  outline: var(--studio-focus-width) solid var(--studio-sky);
+  outline-offset: var(--studio-focus-offset);
+}
+
+#studioCenter .studio-card, #studioCenter .studio-tile {
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--studio-space-4);
+  border: var(--studio-border) solid var(--studio-line);
+  border-radius: var(--studio-radius);
+  background: var(--studio-panel);
+  color: var(--studio-text);
+  overflow-wrap: anywhere;
+  box-shadow: var(--studio-shadow);
+}
+
+#studioCenter .studio-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--studio-space-2);
+  text-align: start;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#studioCenter .studio-tile.is-coming-soon {
+  color: var(--studio-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+/* Screens also set disabled and include a real text label for accessibility. */
+#studioCenter .studio-tile.is-coming-soon::after {
+  content: "Coming soon";
+  font-size: var(--studio-text-small);
+}
+#studioCenter .studio-tile.is-coming-soon:has(.studio-chip)::after { content: none; }
+
+#studioCenter .studio-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--studio-space-2);
+  min-height: var(--studio-control-height);
+  max-width: 100%;
+  padding: var(--studio-space-2) var(--studio-space-4);
+  border: var(--studio-border) solid var(--studio-line);
+  border-radius: var(--studio-radius);
+  background: var(--studio-raised);
+  color: var(--studio-text);
+  font: inherit;
+  font-weight: var(--studio-weight-strong);
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+#studioCenter .studio-button.is-primary {
+  background: var(--studio-teal);
+  border-color: var(--studio-teal);
+  color: var(--studio-night);
+}
+#studioCenter .studio-button.is-secondary { background: var(--studio-raised); }
+#studioCenter .studio-button:disabled {
+  opacity: var(--studio-disabled-opacity);
+  cursor: not-allowed;
+}
+#studioCenter .studio-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: var(--studio-space-1) var(--studio-space-2);
+  border: var(--studio-border) solid var(--studio-line);
+  border-radius: var(--studio-radius-pill);
+  background: var(--studio-raised);
+  color: var(--studio-muted);
+  font-size: var(--studio-text-small);
+  overflow-wrap: anywhere;
+}
