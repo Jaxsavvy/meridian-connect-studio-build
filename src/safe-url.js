@@ -18,4 +18,16 @@ function isSafeExternalUrl(value) {
   return true;
 }
 
-module.exports = { isSafeExternalUrl };
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+
+/** The server Connect sends logins to and takes updates from: https only (plain http only on this same computer). */
+function isAllowedServerUrl(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_LENGTH) return false;
+  let url;
+  try { url = new URL(value.trim()); } catch { return false; }
+  if (url.username || url.password || url.search || url.hash) return false;
+  if (url.protocol === 'https:') return Boolean(url.hostname);
+  return url.protocol === 'http:' && LOOPBACK.has(url.hostname);
+}
+
+module.exports = { isSafeExternalUrl, isAllowedServerUrl };
