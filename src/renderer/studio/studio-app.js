@@ -4,6 +4,7 @@
  *   MeridianStudio.registerTool(id, { mountCanvas(el, ctx) })             Cassy: 'image-gen', 'asset-library'
  *   MeridianStudio.registerPart(name, { mount(el, ctx) })                 'conversation' (Core), 'assets-strip' (Cassy)
  *   MeridianStudio.navigate(name, params) / current() / setDirty(bool) / on(fn) / emit(event, detail)
+ *   setDirty is per panel: each mounted tool/part gets its own flag, so one panel can't clear another's.
  *   MeridianStudio.mountInto(el, 'tool' | 'part', id, ctx)               screens use this to fill slots
  *   MeridianStudio.service  -> studio-service.js (the only data source)
  *
@@ -18,7 +19,8 @@
   const listeners = new Set();
   let host = null;
   let active = false;
-  let dirty = false;
+  const dirtyOwners = new Set(); // each screen/panel keeps its own unsaved flag
+  let mountCount = 0;
   let view = { name: 'home', params: {} };
   let cleanups = [];
 
@@ -79,7 +81,10 @@
     const entry = kind === 'tool' ? tools.get(id) : parts.get(id);
     const mount = entry && (kind === 'tool' ? entry.mountCanvas : entry.mount);
     if (!mount) { placeholder(el, kind === 'tool' ? `Tool "${id}"` : `Panel "${id}"`); return; }
-    try { track(mount(el, { ...ctx, studio: api })); }
+    const owner = `${kind}:${id}:${++mountCount}`;
+    const studio = Object.freeze(Object.create(api, { setDirty: { value: value => setDirtyFor(owner, value) } }));
+    track(() => dirtyOwners.delete(owner));
+    try { track(mount(el, { ...ctx, studio })); }
     catch (error) { console.error(`Studio ${kind} ${id} failed.`, error); placeholder(el, 'This panel hit a problem and'); }
   }
 
@@ -100,13 +105,13 @@
     current: () => ({ name: view.name, params: { ...view.params } }),
     navigate(name, params = {}) {
       guardLeave(() => {
-        dirty = false;
+        dirtyOwners.clear();
         view = { name, params: { ...params } };
         emit('navigate', api.current());
         render();
       }, 'leave this screen');
     },
-    setDirty(value) { dirty = Boolean(value); },
+    setDirty(value) { setDirtyFor('screen', value); },
     /** Lets parts talk to each other, e.g. emit('image-results', out) from the conversation to the Image gen canvas. */
     emit,
     on(fn) {
@@ -116,10 +121,12 @@
     },
   });
 
+  function setDirtyFor(owner, value) { if (value) dirtyOwners.add(owner); else dirtyOwners.delete(owner); }
+
   /** Unsaved-work guard used by Connect before sign-out, project switch, or leaving Studio. */
   function guardLeave(proceed, actionLabel) {
-    if (!dirty || window.confirm(`You have unsaved work. ${actionLabel} anyway?`)) {
-      dirty = false;
+    if (!dirtyOwners.size || window.confirm(`You have unsaved work. ${actionLabel} anyway?`)) {
+      dirtyOwners.clear();
       proceed();
       return true;
     }
