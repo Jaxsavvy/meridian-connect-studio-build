@@ -1,0 +1,14 @@
+#studioCenter .studio-home {
+  max-width: var(--studio-content-max);
+  margin: var(--studio-space-0) auto;
+  padding: var(--studio-space-6);
+}
+#studioCenter .studio-home-spaces {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--studio-card-min)), 1fr));
+  gap: var(--studio-space-4);
+}
+#studioCenter .studio-home h1, #studioCenter .studio-home h2 {
+  overflow-wrap: anywhere;
+}
+#studioCenter .studio-home-continue { margin-bottom: var(--studio-space-6); }
