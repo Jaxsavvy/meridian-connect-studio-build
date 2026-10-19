@@ -1,0 +1,26 @@
+#studioCenter .studio-work {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--studio-space-4);
+  padding: var(--studio-space-4);
+  min-width: 0;
+  align-items: start;
+  overflow-wrap: anywhere;
+}
+#studioCenter .studio-work-header,
+#studioCenter .studio-work-stage-bar,
+#studioCenter .studio-work-assets,
+#studioCenter .studio-work > .studio-state { grid-column: 1 / -1; }
+#studioCenter .studio-work-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--studio-space-4);
+}
+#studioCenter .studio-work-slot { min-width: 0; max-width: 100%; }
+#studioCenter .studio-work img, #studioCenter .studio-work canvas { max-width: 100%; }
+#studioCenter .studio-work [hidden] { display: none; }
+/* A layout breakpoint, kept here so the final reskin can change panel stacking. */
+@media (max-width: 56.25rem) {
+  #studioCenter .studio-work { grid-template-columns: minmax(0, 1fr); }
+}
