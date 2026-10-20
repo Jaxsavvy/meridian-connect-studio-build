@@ -177,7 +177,7 @@
         return;
       }
       const best = payload.results.find(r => r && r.note) || payload.results[0];
-      say('meridian', `${payload.results.length} ready on the right. ${best && best.note ? `#${payload.results.indexOf(best) + 1} fits the brief best. ` : ''}Keep the ones you like, or tell me what to change.`,
+      say('meridian', `${payload.results.length} ready on the canvas. ${best && best.note ? `#${payload.results.indexOf(best) + 1} fits the brief best. ` : ''}Keep the ones you like, or tell me what to change.`,
         { settings: safeSettings(out.settingsUsed) });
     }
 
