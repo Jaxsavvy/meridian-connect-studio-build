@@ -212,7 +212,6 @@ function createTray() {
 
 // SPLASH (2026-10-08): the same small loading window Meridian Command uses, shown while Connect's main window loads.
 let splashWindow = null;
-let splashShownAt = 0;
 function createSplashWindow() {
   const { screen } = require('electron');
   const area = screen.getPrimaryDisplay().workArea;
@@ -240,17 +239,19 @@ function createSplashWindow() {
     <div class="sub">Meridian Connect</div><div class="status-row"><div class="pulse-dot"></div><span>Starting Meridian Connect...</span></div>
     <div class="shimmer-bar"></div></div></body></html>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-  splashWindow.once('ready-to-show', () => { if (splashWindow) { splashWindow.show(); splashShownAt = Date.now(); } });
+  splashWindow.once('ready-to-show', () => { if (splashWindow) splashWindow.show(); });
   splashWindow.on('closed', () => { splashWindow = null; });
 }
+// The splash only appears when the main window is slow (not ready after SPLASH_DELAY_MS), and closes the moment the
+// main window shows. It used to stay up for at least 1.2 s, which added about a second to every normal launch.
+const SPLASH_DELAY_MS = 400;
+let splashTimer = null;
 function closeSplashThen(done) {
-  if (!splashWindow || splashWindow.isDestroyed()) return done();
-  const wait = Math.max(0, 1200 - (Date.now() - (splashShownAt || Date.now())));   // no flash: show it at least ~1.2 s
-  setTimeout(() => {
-    done();
-    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
-    splashWindow = null;
-  }, wait);
+  clearTimeout(splashTimer);
+  splashTimer = null;
+  done();
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  splashWindow = null;
 }
 
 function createMainWindow() {
@@ -853,7 +854,7 @@ if (!gotTheLock) {
 
 
     createTray();
-    if (!isTestMode) createSplashWindow();
+    if (!isTestMode) splashTimer = setTimeout(createSplashWindow, SPLASH_DELAY_MS);
     createMainWindow();
     setupAutoUpdate();
 
@@ -869,4 +870,5 @@ if (!gotTheLock) {
       app.quit();
     }
   });
+  app.on('will-quit', () => { if (layoutStore) layoutStore.flush(); });   // save the last window position (writes are batched)
 }

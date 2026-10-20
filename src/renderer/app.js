@@ -333,6 +333,9 @@ function switchView(viewKey, options = {}) {
     }
   }
 
+  if (currentMe && viewKey === 'send') loadSendQueue();
+  if (currentMe && viewKey === 'tools') loadTools();
+
   updatePoppedState();
 }
 
@@ -360,9 +363,8 @@ async function loadAllPanelData() {
   await Promise.all([
     loadProjects(),
     loadTasks(),
-    loadTeamMessages(),
-    loadSendQueue(),
-    loadTools()
+    activeView === 'send' ? loadSendQueue() : null,   // Send to Jax and Tools load when their page opens (switchView)
+    activeView === 'tools' ? loadTools() : null
   ]);
 }
 

@@ -378,7 +378,9 @@
   if (typeof enterApp === 'function') {
     const baseEnter = enterApp;
     // eslint-disable-next-line no-global-assign
-    enterApp = async function (u) { const r = await baseEnter(u); tidyChrome(); renderOverview(); renderDock(); return r; };
+    // (enterApp already opens the Overview through switchView, which draws it; drawing it again here fetched tasks,
+    // projects and messages a second time at every sign-in.)
+    enterApp = async function (u) { const r = await baseEnter(u); tidyChrome(); renderDock(); return r; };
   }
   document.addEventListener('DOMContentLoaded', tidyChrome);
   if (window.meridian && window.meridian.onDataSync) window.meridian.onDataSync(() => { if (activeView === 'overview') renderOverview(); });
