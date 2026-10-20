@@ -210,7 +210,6 @@ async function enterApp(user) {
 
   setupQuickSearch();
   setupSettingsUI();
-  setupChatHandlers();
   setupIdleWatcher();
   setupPopoutListeners();
 }
@@ -268,16 +267,6 @@ function setupNavigation() {
       updatePoppedState();
     };
   }
-
-  // Dock close button
-  const dockCloseBtn = document.getElementById('dockCloseBtn');
-  const chatDock = document.getElementById('chatDock');
-  if (dockCloseBtn && chatDock) {
-    dockCloseBtn.onclick = () => {
-      const isHidden = chatDock.style.display === 'none';
-      chatDock.style.display = isHidden ? 'flex' : 'none';
-    };
-  }
 }
 
 function switchView(viewKey, options = {}) {
@@ -312,7 +301,6 @@ function switchView(viewKey, options = {}) {
   const sendEl = document.getElementById('sendCenter');
   const toolsEl = document.getElementById('toolsCenter');
   const studioEl = document.getElementById('studioCenter');
-  const chatDock = document.getElementById('chatDock');
 
   if (msgsEl) msgsEl.style.display = (viewKey === 'overview') ? 'block' : 'none';
   if (tasksEl) tasksEl.style.display = (viewKey === 'tasks') ? 'flex' : 'none';
@@ -322,16 +310,6 @@ function switchView(viewKey, options = {}) {
   if (toolsEl) toolsEl.style.display = (viewKey === 'tools') ? 'flex' : 'none';
   if (studioEl) studioEl.hidden = viewKey !== 'studio';
   if (window.MeridianStudioUI) window.MeridianStudioUI.setActive(viewKey === 'studio');
-
-  if (chatDock) {
-    if (viewKey === 'chat') {
-      chatDock.style.display = 'flex';
-      const textEl = document.getElementById('text');
-      if (textEl) textEl.focus();
-    } else {
-      chatDock.style.display = 'flex';
-    }
-  }
 
   updatePoppedState();
 }
@@ -379,10 +357,8 @@ function clearProjectCards(message) {
     const list = document.getElementById(id);
     if (list) list.textContent = message;
   }
-  for (const id of ['activeProjectScopeTitle', 'dockProjectName']) {
-    const label = document.getElementById(id);
-    if (label) label.textContent = 'No project selected';
-  }
+  const scopeTitle = document.getElementById('activeProjectScopeTitle');
+  if (scopeTitle) scopeTitle.textContent = 'No project selected';
 }
 
 async function loadProjects() {
@@ -497,9 +473,6 @@ async function selectProject(projectId, options = {}) {
 
   const scopeTitle = document.getElementById('activeProjectScopeTitle');
   if (scopeTitle) scopeTitle.textContent = `${currentProject.name} Scope`;
-
-  const dockTitle = document.getElementById('dockProjectName');
-  if (dockTitle) dockTitle.textContent = currentProject.name;
 
   // Load project files
   const filesRes = await window.meridian.api.getProjectFiles(projectId);
@@ -841,68 +814,6 @@ async function loadTools() {
   }
 }
 
-
-// 5. Chat Dock Handlers
-function setupChatHandlers() {
-  const textInput = document.getElementById('text');
-  const sendBtn = document.getElementById('dockSendBtn');
-
-  const doSend = async () => {
-    const text = textInput.value.trim();
-    if (!text) return;
-    textInput.value = '';
-    if (window.meridianNav) { const nav = await window.meridianNav.handle(text).catch(() => null); if (nav) return; }   // "take me to…"
-
-    const container = document.getElementById('dockMessages');
-    if (!container) return;
-
-    // Use the selected project from the authenticated list; never invent an ID.
-    const studio = window.meridianStudioContext;
-    const request = studio.beginProjectRequest();
-    if (!request) {
-      textInput.value = text;
-      const notice = document.createElement('div');
-      notice.className = 'm mer';
-      notice.textContent = 'Select a project before sending.';
-      container.appendChild(notice);
-      return;
-    }
-    const you = document.createElement('div');
-    you.className = 'm you';
-    you.textContent = text;
-    container.appendChild(you);
-    container.scrollTop = container.scrollHeight;
-    const res = await window.meridian.api.sendChatMessage(request.projectId, text);
-    if (!studio.isCurrentRequest(request)) return;
-    if (res && res.success && res.data) {
-      const mer = document.createElement('div');
-      mer.className = 'm mer';
-      mer.innerHTML = `<span class="route" style="font-size: 10px; color: var(--ion); display: block; margin-bottom: 4px;">MERIDIAN CORE · SAMPLE</span><div>${escapeHtml(res.data.reply)}</div>`;
-      container.appendChild(mer);
-      container.scrollTop = container.scrollHeight;
-    }
-  };
-
-  if (sendBtn) sendBtn.onclick = doSend;
-  if (textInput) {
-    textInput.onkeydown = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        doSend();
-      }
-    };
-  }
-
-  // Quick Action Buttons
-  document.querySelectorAll('[data-prompt]').forEach(btn => {
-    btn.onclick = () => {
-      if (textInput) {
-        textInput.value = btn.dataset.prompt;
-        textInput.focus();
-      }
-    };
-  });
-}
 
 /* ==========================================================================
    4. ATMOSPHERIC BOKEH GLINTS & LIVE SKY ORB

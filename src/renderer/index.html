@@ -532,66 +532,6 @@
         <button type="button" class="btn-dock-back" id="btn-dock-current">↙ Dock Back to Main Window</button>
       </div>
 
-      <!-- ================================================================
-           VIEW 6 / DOCKED: EXACT COMMAND CHAT DOCK (Right rail)
-           ================================================================ -->
-      <aside id="chatDock" aria-label="Meridian AI panel">
-        <div class="dock-top">
-          <div>
-            <span class="dock-kicker">MERIDIAN AI</span>
-            <h2 id="dockProjectName">Voice Pipeline</h2>
-          </div>
-          <span class="dock-online"><i></i>Connecting</span>
-          <button type="button" id="dockCloseBtn" title="Toggle Meridian AI" style="font-size: 18px; line-height: 1; padding: 2px 6px; color: var(--ash);">−</button>
-        </div>
-
-        <div class="dock-modes" aria-label="Meridian prompt modes">
-          <button type="button" class="active" data-mode="personal">Personal</button>
-          <button type="button" data-mode="research">Research</button>
-          <button type="button" data-mode="plan">Plan</button>
-        </div>
-
-        <div class="dock-controls">
-          <button type="button" id="voiceToggleDisabled" title="Voice coming soon" style="opacity: 0.6; cursor: not-allowed;">
-            🎙️ Voice disabled
-          </button>
-          <button type="button" id="callMeridianDisabled" style="opacity: 0.6; cursor: not-allowed;">
-            Call Meridian
-          </button>
-        </div>
-
-        <div class="dock-quick-head">
-          <span>Quick Actions</span>
-          <span style="font-size: 10px; color: var(--ion);">Sample</span>
-        </div>
-
-        <div class="dock-shortcuts" aria-label="Meridian quick actions">
-          <button type="button" data-prompt="Summarize this project for me: "><span>▤</span>Summarize</button>
-          <button type="button" data-prompt="Research the latest updates on "><span>⌕</span>Research</button>
-          <button type="button" data-prompt="Help me turn this deliverable into next steps: "><span>▦</span>Plan</button>
-          <button type="button" data-prompt="Analyze requirements for "><span>▥</span>Analyze</button>
-          <button type="button" data-prompt="Help me write a client update for "><span>✎</span>Write</button>
-          <button type="button" data-prompt="Organize my project files: "><span>◇</span>Organize</button>
-        </div>
-
-        <div id="dockMessages" role="log" aria-live="polite">
-          <div class="m mer">
-            <span class="route" style="font-size: 10px; color: var(--ion); display: block; margin-bottom: 4px;">MERIDIAN CORE · SAMPLE</span>
-            <div>Welcome to Meridian Connect. Responses stream directly from Jax's host PC over Cloudflare Access.</div>
-          </div>
-        </div>
-
-        <div class="composer">
-          <button class="talk" type="button" disabled title="Hold to talk: Voice coming soon">
-            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
-          </button>
-          <textarea id="text" rows="1" placeholder="Message Meridian in this project scope…"></textarea>
-          <button class="send" id="dockSendBtn" type="button" title="Send message">➤</button>
-        </div>
-        <div class="hint">Enter to send · Shift+Enter for a new line</div>
-        <div class="dock-foot">Saved on Jax's PC · employee session scoped</div>
-      </aside>
-
     </div>
   </section>
 

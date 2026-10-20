@@ -29,8 +29,7 @@ body{background:var(--bv-night)!important}
 
 /* ---------- remove noise ---------- */
 .bokeh-field,.sky,.stage-tag,.health,.nav-kicker,.nav-integrations,.nav-separator,.nav-local,.nav-time,.nav-date,
-#top-server-pill,#btn-popout-active,#openSettingsBtn,.nav-link[data-view="tools"],
-.dock-modes,.dock-controls,.dock-quick-head,.dock-shortcuts,.dock-online,#dockCloseBtn,.dock-foot,#chatDock .talk{display:none!important}
+#top-server-pill,#btn-popout-active,#openSettingsBtn,.nav-link[data-view="tools"]{display:none!important}
 .log:after,.log:before{display:none!important}
 
 /* ---------- sidebar ---------- */
@@ -89,17 +88,6 @@ body{background:var(--bv-night)!important}
 .form-input,input[type="text"],input[type="url"],input[type="search"],textarea{font-family:var(--bv-sans)!important}
 button{font-family:var(--bv-sans)}
 .btn-primary,#teamMessageFullForm button,#fullLinkForm button{background:var(--bv-blue)!important;border:0!important;border-radius:10px!important;color:#fff!important;font:600 13.5px var(--bv-sans)!important;box-shadow:0 6px 20px rgba(47,140,255,.25)!important}
-
-/* ---------- Meridian AI: only on its own page, full width ---------- */
-body:not(.view-chat) #chatDock{display:none!important}
-body.view-chat #chatDock{flex:1 1 auto!important;width:auto!important;max-width:none!important;border-left:0!important;background:transparent!important;padding:26px clamp(18px,4vw,64px)!important}
-#chatDock .dock-top{border-bottom:1px solid var(--bv-line);padding-bottom:14px;margin-bottom:10px}
-#chatDock .dock-kicker{font:600 11px var(--bv-sans)!important;letter-spacing:.14em!important;color:var(--bv-sky)!important}
-#chatDock #dockProjectName{font-family:var(--bv-serif)!important;font-weight:400!important;font-size:30px!important;letter-spacing:0!important}
-#dockMessages{max-width:860px;width:100%;margin:0 auto}
-#chatDock .composer{max-width:860px;width:100%;margin:0 auto;background:var(--bv-panel)!important;border:1px solid var(--bv-line2)!important;border-radius:14px!important}
-#chatDock .hint{max-width:860px;margin:6px auto 0;width:100%;color:var(--bv-quiet)!important;font:400 11.5px var(--bv-sans)!important}
-#chatDock .send{background:var(--bv-blue)!important}
 
 /* ---------- overview (rebuilt by connect-shell.js): editorial bands like the reference ---------- */
 #empty>.orbit-board,#empty>.dash-label,#empty>.tool-ribbon{display:none!important}
@@ -483,7 +471,6 @@ body,.log{background:radial-gradient(1000px 480px at 25% -5%,rgba(26,132,248,.07
 .mx-open img{width:34px;height:34px;border-radius:50%;box-shadow:0 0 0 1px var(--bv-line2)}
 .mx-open span{writing-mode:vertical-rl;font:600 11px var(--bv-sans);letter-spacing:.14em;text-transform:uppercase}
 .mx-open:hover{color:#fff}
-body.view-chat #chatDock{display:none!important}
 body.view-chat .workspace-main>#mx-dock{flex:1 1 auto;border-left:0;padding:26px clamp(18px,8vw,180px) 18px}
 body.view-chat #mx-dock .bv-chat-h h3{font-size:30px;max-width:none}
 @media(max-width:900px){.workspace-main>#mx-dock:not(.mx-small){position:absolute;right:0;top:0;bottom:0;z-index:30;width:min(400px,92vw);box-shadow:-20px 0 40px rgba(0,0,0,.45)}}

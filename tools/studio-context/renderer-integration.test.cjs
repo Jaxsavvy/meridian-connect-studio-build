@@ -39,11 +39,10 @@ function appHarness() {
   const elements = new Map();
   for (const id of ['login-view', 'login-password', 'nav-projects-count',
     'overview-projects-stat', 'overview-projects-count', 'projCountBadge',
-    'dashboardProjectsList', 'projectsMasterList', 'dockMessages', 'text', 'dockSendBtn']) {
+    'dashboardProjectsList', 'projectsMasterList']) {
     elements.set(id, element());
   }
   const pending = [];
-  let sends = 0;
   const document = {
     addEventListener() {},
     getElementById(id) { return elements.get(id) || null; },
@@ -52,12 +51,11 @@ function appHarness() {
   };
   const window = { meridianStudioContext: studio, meridian: { api: {
     getProjects() { const request = deferred(); pending.push(request); return request.promise; },
-    sendChatMessage() { sends += 1; return Promise.resolve({ success: false }); },
   } } };
   const context = vm.createContext({ document, window, console, Set, Date, Promise });
   vm.runInContext(readFileSync(join(renderer, 'app.js'), 'utf8'), context, { filename: 'app.js' });
   context.selectProject = () => {};
-  return { context, studio, elements, pending, get sends() { return sends; } };
+  return { context, studio, elements, pending };
 }
 
 test('project refresh failure clears old cards and refuses a stale response', async () => {
@@ -98,19 +96,6 @@ test('an empty authorized project list removes the previous selection and cards'
   assert.equal(h.studio.snapshot().project, null);
   assert.equal(h.elements.get('projectsMasterList').textContent, 'No projects assigned.');
   assert.equal(h.elements.get('projectsMasterList').children.length, 0);
-});
-
-test('chat never sends a fabricated project ID when nothing is selected', async () => {
-  const h = appHarness();
-  h.context.setupChatHandlers();
-  const input = h.elements.get('text');
-  input.value = 'Synthetic question';
-  await h.elements.get('dockSendBtn').onclick();
-  assert.equal(h.sends, 0);
-  assert.equal(input.value, 'Synthetic question');
-  assert.equal(h.elements.get('dockMessages').children.length, 1);
-  assert.equal(h.elements.get('dockMessages').children.at(-1).textContent,
-    'Select a project before sending.');
 });
 
 test('sign-out prevents an in-flight project list from repopulating cards', async () => {

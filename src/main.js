@@ -516,7 +516,6 @@ async function runAutomationTests() {
   await captureElement('.tile-calendar', '03_panel_projects.png');
   await captureElement('.tile-projects', '04_panel_files.png');
   await captureElement('.tile-tasks', '05_panel_tasks.png');
-  await captureElement('#chatDock', '06_panel_chat.png');
   await captureElement('.tile-gmail', '07_panel_messages.png');
   await captureElement('.tile-attention', '08_panel_send.png');
 

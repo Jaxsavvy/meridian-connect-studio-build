@@ -363,8 +363,6 @@
     root.querySelectorAll('.pw-cover [data-goto]').forEach((b) => (b.onclick = () => { WS.tab = b.dataset.goto; render(); }));
     document.getElementById('pw-home').onclick = () => { const sp = root.closest('.projects-split'); if (sp) sp.classList.toggle('pw-full'); };
     document.getElementById('pw-swbtn').onclick = (e) => { e.stopPropagation(); openSwitcher(); };
-    const dock = document.getElementById('dockProjectName');
-    if (dock) dock.textContent = p.name;
     const body = document.getElementById('pw-body');
     return ({ overview, market, toolkit, deliverables, storyboards, tasks, files, notes, ai })[tab](body, p);
   }
