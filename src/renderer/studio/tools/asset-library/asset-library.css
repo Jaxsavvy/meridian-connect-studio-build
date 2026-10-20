@@ -1,0 +1,21 @@
+.asset-library { color: var(--studio-text, #e8eef7); background: var(--studio-surface, #162234); padding: .75rem; min-inline-size: 0; overflow-wrap: anywhere; }
+.asset-library-controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+.asset-library label { display: grid; gap: .25rem; max-inline-size: 100%; }
+.asset-library input, .asset-library select { min-inline-size: 0; max-inline-size: 100%; box-sizing: border-box; }
+.asset-library button, .asset-library input, .asset-library select { font: inherit; min-block-size: 2.5rem; }
+.asset-library button { color: var(--studio-text, #e8eef7); background: var(--studio-button, #24364c); border: 1px solid var(--studio-border, #64748b); }
+.asset-library :focus-visible { outline: 2px solid var(--studio-accent, #65cfc2); outline-offset: 2px; }
+.asset-library-layout { display: grid; gap: 1rem; align-items: start; margin-block-start: .75rem; }
+.asset-library-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; list-style: none; padding: 0; margin: 0; min-inline-size: 0; }
+.asset-library .asset-thumb { min-inline-size: 0; border: 1px solid var(--studio-border, #64748b); padding: .5rem; }
+.asset-library .asset-thumb.is-selected, .asset-library .asset-thumb.is-kept { border-color: var(--studio-accent, #65cfc2); }
+.asset-library .asset-thumb.is-trashed { border-style: dashed; }
+.asset-library .asset-library-select { inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
+.asset-library-thumbnail { inline-size: 100%; block-size: 6rem; object-fit: contain; }
+.asset-library-details { min-inline-size: 0; border: 1px solid var(--studio-border, #64748b); padding: .75rem; }
+.asset-library-preview { display: block; inline-size: 100%; max-block-size: 24rem; object-fit: contain; }
+.asset-library-details button { margin: .25rem; }
+.asset-library-details dd { margin-inline-start: .75rem; }
+.asset-library.is-loading { cursor: progress; }
+.asset-library [hidden] { display: none; }
+@media (min-width: 60rem) { .asset-library-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
