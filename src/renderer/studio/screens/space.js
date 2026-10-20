@@ -14,11 +14,11 @@
   }
   function progress(value) { return Math.min(100, Math.max(0, Number(value) || 0)); }
   function createSpace({ service, spaceId, navigate, report }) {
-    let disposed = false, revision = 0, tools = [];
+    let disposed = false, revision = 0, tools = [], jobs = [];
     async function load() {
       if (disposed) return;
       const request = ++revision;
-      tools = [];
+      tools = []; jobs = [];
       report({ state: 'loading' });
       try {
         const [space, catalog, assets] = await Promise.all([
@@ -26,7 +26,7 @@
         ]);
         if (disposed || revision !== request) return;
         if (!space || space.id !== spaceId) throw Error('Space unavailable');
-        tools = catalog;
+        tools = catalog; jobs = space.jobs || [];
         report({ state: 'ready', space, groups: groupTools(tools), assets: recentAssets(assets, spaceId) });
       } catch (_) {
         if (!disposed && revision === request) report({ state: 'failed',
@@ -34,15 +34,21 @@
       }
     }
     const off = service.on((event, detail) => {
-      if (event === 'spaces-changed' || (event === 'assets-changed' && detail?.spaceId === spaceId)) void load();
+      if (event === 'spaces-changed' || (['assets-changed', 'jobs-changed'].includes(event) && detail?.spaceId === spaceId)) void load();
     });
     return { load,
       back() { if (!disposed) navigate('home'); },
       open(toolId) {
-        if (disposed || !tools.some(t => t.id === toolId && t.state === 'available')) return false;
-        navigate('work', { spaceId, toolId }); return true;
+        const tool = tools.find(t => t.id === toolId && t.state === 'available');
+        if (disposed || !tool) return false;
+        navigate(tool.kind === 'workflow' ? 'workflow' : 'work',
+          tool.kind === 'workflow' ? { spaceId, workflowId: toolId } : { spaceId, toolId }); return true;
       },
-      dispose() { disposed = true; revision++; tools = []; off(); },
+      openJob(jobId) {
+        if (disposed || !jobs.some(job => job.id === jobId && job.workflowId)) return false;
+        navigate('work', { spaceId, jobId }); return true;
+      },
+      dispose() { disposed = true; revision++; tools = []; jobs = []; off(); },
     };
   }
   function render(el, { spaceId }, studio) {
@@ -99,7 +105,10 @@
         const jobs = section('Active Jobs');
         if (!space.jobs?.length) jobs.appendChild(states.panel(doc, 'empty', 'No active Jobs in this Space.'));
         for (const job of space.jobs || []) {
-          const item = node('article'); item.append(node('h3', job.name), node('p', job.stage));
+          const item = node('article'), heading = node('h3');
+          if (job.id && job.workflowId) heading.appendChild(button(job.name, () => model.openJob(job.id)));
+          else heading.textContent = job.name;
+          item.append(heading, node('p', job.stage));
           const bar = node('progress'); bar.max = 100; bar.value = progress(job.progress);
           bar.setAttribute('aria-label', `${job.name} progress`); bar.textContent = `${bar.value}%`;
           item.append(bar, node('span', `${bar.value}%`)); jobs.appendChild(item);
