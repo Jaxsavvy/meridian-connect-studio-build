@@ -1,0 +1,198 @@
+/* ==========================================================================================
+   The Meridian look: shared tokens and pieces (Overseer session 1, 2026-10-18)
+
+   One file every Meridian app can load: the Overseer now; Connect, Command, Build and Team Hub
+   later (James: only the Overseer changes in this session). It comes from James's locked
+   reference (Core docs/overseer/MERIDIAN_LOOK.md) and the nine page pictures: the dark space
+   background, gold for what is active and for the main button, dark glass panels.
+
+   How to use it:
+   - Load it first: <link rel="stylesheet" href="meridian-look.css">, then the app's own CSS.
+   - Build on the --m-* tokens below; never repeat their values. Alpha variants use the *-rgb
+     channels: rgba(var(--m-gold-rgb), .3).
+   - The shared pieces are plain classes, prefixed m-: m-look (the page), m-panel, m-button
+     (m-primary, m-danger), m-sidebar and m-nav-link, m-topbar, m-search, m-status, m-clock,
+     m-tabs and m-tab, m-badge, m-composer and m-send, m-dialog. lab/meridian-look/index.html
+     shows each one.
+   - Reduced motion: the OS setting, or the class m-reduce-motion on <body> (an app's own
+     "Reduce motion" switch), stops every animation and transition.
+   - Contrast: every text token passes WCAG AA (4.5:1) on --m-solid, the darkest panel fill over
+     the brightest part of the scene; tests/look-contrast.test.mjs checks it.
+   ========================================================================================== */
+
+:root {
+  /* The scene and surfaces */
+  --m-bg: #05080f;
+  --m-ink-rgb: 5, 8, 15;              /* the page colour, for shades over the scene */
+  --m-night-rgb: 6, 10, 20;           /* panel insets */
+  --m-glass: rgba(12, 18, 32, .80);   /* panels over the scene */
+  --m-solid: rgba(13, 20, 36, .84);   /* panels that hold small text */
+  --m-raised: rgba(255, 255, 255, .03);
+  --m-hover: rgba(255, 255, 255, .045);
+  --m-sidebar: linear-gradient(180deg, #0b1222 0%, #070b14 55%, #05080f 100%);
+  --m-line: rgba(150, 170, 210, .16);
+  --m-line-strong: rgba(150, 170, 210, .28);
+
+  /* Text, brightest first. --m-dim is for inactive items only (WCAG exempts disabled controls),
+     and still passes AA. */
+  --m-heading: #f4f7fc;
+  --m-text: #e9eef7;
+  --m-soft: #c9d3e3;
+  --m-muted: #9aa9c0;
+  --m-dim: #8593a9;
+
+  /* Gold: what is active, and the one main button per view */
+  --m-gold: #f0b85a;
+  --m-gold-rgb: 240, 184, 90;
+  --m-gold-light: #ffd58a;
+  --m-gold-top: #ffd27e;
+  --m-gold-bottom: #efa640;
+  --m-on-gold: #05080f;               /* dark text on gold */
+  --m-gold-glow: rgba(var(--m-gold-rgb), .35);
+
+  /* States */
+  --m-blue: #4a8dff;
+  --m-blue-rgb: 74, 141, 255;
+  --m-blue-text: #9cc2ff;
+  --m-green: #3ee0a1;
+  --m-green-rgb: 62, 224, 161;
+  --m-green-text: #7ff0bd;
+  --m-amber-rgb: 255, 179, 92;
+  --m-amber-text: #ffcf8a;
+  --m-red-rgb: 255, 122, 122;
+  --m-red-text: #ffa3a3;
+
+  /* Shape, depth, type, motion */
+  --m-radius: 18px;
+  --m-radius-sm: 12px;
+  --m-radius-pill: 999px;
+  --m-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 18px 50px rgba(0, 0, 0, .32);
+  --m-glow: 0 0 20px rgba(var(--m-gold-rgb), .35);
+  --m-focus: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-gold-light);
+  --m-font: Inter, "Segoe UI", Arial, sans-serif;
+  --m-mono: Consolas, "Cascadia Mono", monospace;
+  --m-speed: .2s;
+}
+
+@media (prefers-reduced-motion: reduce) { :root { --m-speed: 0s; } }
+.m-reduce-motion { --m-speed: 0s; }
+.m-reduce-motion *, .m-reduce-motion *::before, .m-reduce-motion *::after {
+  animation-duration: 0s !important; animation-iteration-count: 1 !important;
+  transition-duration: 0s !important; scroll-behavior: auto !important;
+}
+
+/* ------------------------------------------------------------------------------ the page */
+.m-look { background: var(--m-bg); color: var(--m-text); font-family: var(--m-font); color-scheme: dark; }
+.m-eyebrow { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .32em; text-transform: uppercase; color: var(--m-gold); }
+
+/* ------------------------------------------------------------------------------ panels */
+.m-panel {
+  background: var(--m-glass); border: 1px solid var(--m-line); border-radius: var(--m-radius);
+  box-shadow: var(--m-shadow); color: var(--m-text); padding: 22px; min-width: 0;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.m-panel.m-solid { background: var(--m-solid); }
+.m-panel h2, .m-panel h3 { color: var(--m-heading); }
+.m-panel p, .m-panel small { color: var(--m-soft); }
+
+/* ------------------------------------------------------------------------------ buttons */
+.m-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+  padding: 0 18px; border-radius: var(--m-radius-sm); border: 1px solid var(--m-line-strong);
+  background: var(--m-raised); color: var(--m-text); font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none;
+  transition: border-color var(--m-speed), background var(--m-speed), box-shadow var(--m-speed);
+}
+.m-button:hover:not(:disabled) { border-color: rgba(var(--m-gold-rgb), .55); color: #fff; }
+.m-button.m-primary {
+  background: linear-gradient(180deg, var(--m-gold-top), var(--m-gold-bottom)); color: var(--m-on-gold);
+  border: 0; font-weight: 700; box-shadow: 0 6px 20px rgba(var(--m-gold-rgb), .28);
+}
+.m-button.m-primary:hover:not(:disabled) { color: var(--m-on-gold); box-shadow: 0 6px 26px rgba(var(--m-gold-rgb), .45); }
+.m-button.m-danger { color: var(--m-red-text); border-color: rgba(var(--m-red-rgb), .45); background: rgba(var(--m-red-rgb), .08); }
+.m-button.m-danger:hover:not(:disabled) { color: #fff; border-color: rgba(var(--m-red-rgb), .75); background: rgba(var(--m-red-rgb), .16); }
+.m-button.m-small { min-height: 36px; padding: 0 14px; font-size: 13px; border-radius: 10px; }
+.m-button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.m-button:focus-visible { outline: 0; box-shadow: var(--m-focus); }
+
+/* ------------------------------------------------------------------------------ the sidebar */
+.m-sidebar { background: var(--m-sidebar); border-right: 1px solid var(--m-line); color: var(--m-muted); color-scheme: dark; }
+.m-nav-link {
+  display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid transparent; color: var(--m-soft); font-size: 13.5px; text-decoration: none;
+  transition: background var(--m-speed), color var(--m-speed);
+}
+.m-nav-link:hover { background: var(--m-hover); color: #fff; }
+.m-nav-link.active, .m-nav-link[aria-current="page"] {
+  background: linear-gradient(180deg, rgba(var(--m-gold-rgb), .17), rgba(var(--m-gold-rgb), .05));
+  border-color: rgba(var(--m-gold-rgb), .78); color: var(--m-gold-light);
+  box-shadow: var(--m-glow), inset 0 0 14px rgba(var(--m-gold-rgb), .12);
+}
+.m-count { margin-left: auto; padding: 1px 7px; border-radius: 7px; background: var(--m-gold); color: var(--m-on-gold); font-size: 10.5px; font-weight: 700; }
+
+/* ------------------------------------------------------------------------------ the top bar */
+.m-topbar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-height: 64px; }
+.m-search {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 280px; padding: 0 14px;
+  border-radius: var(--m-radius-pill); border: 1px solid var(--m-line-strong); background: rgba(var(--m-ink-rgb), .55);
+  color: var(--m-muted); font: inherit; font-size: 13px; cursor: pointer;
+}
+.m-search kbd { margin-left: auto; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--m-line-strong); color: var(--m-soft); font-family: var(--m-font); font-size: 11px; }
+.m-status {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: var(--m-radius-pill);
+  border: 1px solid var(--m-line); background: rgba(var(--m-ink-rgb), .55); color: var(--m-text); font-size: 13px; font-weight: 600;
+}
+.m-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--m-dim); }
+.m-status[data-state="online"]::before { background: var(--m-green); box-shadow: 0 0 8px rgba(var(--m-green-rgb), .8); }
+.m-status[data-state="offline"]::before, .m-status[data-state="signed-out"]::before { background: var(--m-red-text); }
+.m-clock { display: grid; justify-items: end; gap: 2px; color: var(--m-text); }
+.m-clock small { color: var(--m-soft); font-size: 13px; }
+.m-clock strong { font-size: 28px; font-weight: 500; letter-spacing: .02em; }
+
+/* ------------------------------------------------------------------------------ tabs and badges */
+.m-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.m-tab {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 12px;
+  border: 1px solid var(--m-line-strong); background: var(--m-raised); color: var(--m-soft); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+.m-tab:hover { border-color: rgba(var(--m-gold-rgb), .5); color: #fff; }
+.m-tab.active, .m-tab[aria-pressed="true"] {
+  border-color: rgba(var(--m-gold-rgb), .85); color: var(--m-gold-light);
+  background: linear-gradient(180deg, rgba(var(--m-gold-rgb), .2), rgba(var(--m-gold-rgb), .08));
+}
+.m-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: var(--m-radius-pill); border: 1px solid var(--m-line-strong); background: rgba(255, 255, 255, .05); color: var(--m-soft); font-size: 11.5px; white-space: nowrap; }
+.m-badge.m-gold { color: var(--m-gold-light); border-color: rgba(var(--m-gold-rgb), .6); background: rgba(var(--m-gold-rgb), .12); }
+.m-badge.m-green { color: var(--m-green-text); border-color: rgba(var(--m-green-rgb), .45); background: rgba(var(--m-green-rgb), .1); }
+.m-badge.m-blue { color: var(--m-blue-text); border-color: rgba(var(--m-blue-rgb), .45); background: rgba(var(--m-blue-rgb), .12); }
+.m-badge.m-amber { color: var(--m-amber-text); border-color: rgba(var(--m-amber-rgb), .5); background: rgba(var(--m-amber-rgb), .12); }
+.m-badge.m-red { color: var(--m-red-text); border-color: rgba(var(--m-red-rgb), .5); background: rgba(var(--m-red-rgb), .1); }
+
+/* ------------------------------------------------------------------------------ the chat box */
+.m-composer {
+  display: grid; gap: 10px; padding: 12px 14px; border-radius: var(--m-radius); border: 1px solid var(--m-line-strong);
+  background: var(--m-solid); box-shadow: var(--m-shadow); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.m-composer textarea, .m-composer input[type="text"] {
+  width: 100%; min-height: 44px; resize: none; border: 0; outline: 0; background: none; color: var(--m-text);
+  font: inherit; font-size: 15px; line-height: 1.5;
+}
+.m-composer textarea::placeholder, .m-composer input::placeholder { color: var(--m-muted); }
+.m-composer-tools { display: flex; align-items: center; gap: 8px; }
+.m-send {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 22px; border: 0;
+  border-radius: 12px; background: linear-gradient(180deg, var(--m-gold-top), var(--m-gold-bottom)); color: var(--m-on-gold);
+  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(var(--m-gold-rgb), .28);
+}
+.m-send:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+/* ------------------------------------------------------------------------------ dialogs and toasts (inside an m-look page) */
+.m-look dialog.m-dialog {
+  color: var(--m-text); background: linear-gradient(180deg, rgba(14, 21, 38, .97), rgba(8, 12, 22, .98));
+  border: 1px solid var(--m-line-strong); border-radius: var(--m-radius); box-shadow: 0 30px 90px rgba(0, 0, 0, .6), var(--m-glow);
+  color-scheme: dark;
+}
+.m-look dialog.m-dialog::backdrop { background: rgba(var(--m-ink-rgb), .62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.m-toast {
+  background: var(--m-solid); color: var(--m-text); border: 1px solid rgba(var(--m-gold-rgb), .45); border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+}

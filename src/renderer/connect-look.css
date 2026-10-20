@@ -1,0 +1,183 @@
+/* ==========================================================================================
+   Connect in the Meridian look (reskin stage 2, 2026-10-19)
+
+   meridian-look.css is the Overseer's shared theme file, copied unchanged from Overseer release
+   core-c6d3490-ui-5719f4e. To pick up a newer Overseer look, copy that file again; never edit the copy.
+   This file is loaded last. It points Connect's older tokens (--bv-*, --c-*, the legacy names and
+   Studio's --studio-*) at the --m-* tokens, then restyles the shell: the space scene behind
+   everything, dark glass panels, gold for what is active and for the one main button.
+
+   Rules for anyone styling Connect (people and AI):
+   - Use the --m-* tokens or the m-* classes. Never type a colour, font or radius value.
+   - Gold means "active" or "the main action on this view". One gold button per view.
+   - Blue (--m-blue-text) is for links. Green / amber / red are for status only.
+   ========================================================================================== */
+
+body.m-look {
+  /* Connect's design-standard tokens */
+  --bv-night: var(--m-bg);
+  --bv-navy: rgba(var(--m-night-rgb), .92);
+  --bv-panel: var(--m-glass);
+  --bv-raised: rgba(22, 32, 54, .88);
+  --bv-line: var(--m-line);
+  --bv-line2: var(--m-line-strong);
+  --bv-text: var(--m-text);
+  --bv-quiet: var(--m-muted);
+  --bv-blue: var(--m-blue);
+  --bv-sky: var(--m-blue-text);
+  --bv-good: var(--m-green);
+  --bv-late: var(--m-red-text);
+  --bv-serif: var(--m-font);           /* the Overseer look uses Inter for headlines too */
+  --bv-sans: var(--m-font);
+  --c-blue: var(--m-blue);
+  --c-cyan: var(--m-blue-text);
+  --c-amber: var(--m-gold);
+  --c-teal: var(--m-green);
+  --c-rose: var(--m-red-text);
+
+  /* the oldest names, still used in app.css */
+  --void: var(--m-bg); --deep: var(--m-bg); --surface: transparent;
+  --panel: var(--m-glass); --panel-card: var(--m-glass); --panel-hover: var(--m-hover);
+  --line: var(--m-line); --line-focus: var(--m-line-strong);
+  --bone: var(--m-text); --ash: var(--m-muted); --ash-light: var(--m-soft);
+  --ion: var(--m-gold); --ion-glow: var(--m-gold-glow); --flux: var(--m-blue-text);
+  --theme-bg: var(--m-bg); --theme-nav: transparent; --theme-surface: transparent;
+  --theme-card: var(--m-glass); --theme-composer: var(--m-solid);
+  --font-main: var(--m-font);
+
+  /* Studio's tokens (screens/theme.css stays Tyler's; these only change the values) */
+  --studio-night: var(--m-bg);
+  --studio-rail: rgba(var(--m-night-rgb), .9);
+  --studio-panel: var(--m-solid);
+  --studio-raised: rgba(22, 32, 54, .88);
+  --studio-line: var(--m-line-strong);
+  --studio-line-soft: var(--m-line);
+  --studio-text: var(--m-text);
+  --studio-muted: var(--m-muted);
+  --studio-sky: var(--m-gold-light);   /* focus rings and titles go gold, like the Overseer */
+  --studio-gold: var(--m-gold);
+  --studio-teal: var(--m-green-text);
+  --studio-danger: var(--m-red-text);
+  --studio-font: var(--m-font);
+  --studio-radius: var(--m-radius-sm);
+}
+
+/* ---------------------------------------------------------------- the scene behind everything */
+html, body.m-look { background: var(--m-bg) !important; }
+body.m-look {
+  background:
+    linear-gradient(90deg, rgba(var(--m-ink-rgb), .55) 0%, rgba(var(--m-ink-rgb), .12) 45%, rgba(var(--m-ink-rgb), .35) 100%),
+    linear-gradient(0deg, rgba(var(--m-ink-rgb), .80) 0%, rgba(var(--m-ink-rgb), 0) 55%),
+    url("assets/scene/connect-scene.jpg") center 30% / cover no-repeat fixed,
+    var(--m-bg) !important;
+  font-family: var(--m-font) !important;
+  color: var(--m-text);
+}
+body.m-look .log,
+body.m-look .workspace-main,
+body.m-look .log header { background: transparent !important; }
+body.m-look .log header { border-bottom-color: var(--m-line) !important; }
+
+/* ---------------------------------------------------------------- headlines and labels */
+body.m-look h1, body.m-look h2, body.m-look h3,
+body.m-look .login-title, body.m-look .bv-hero h2 {
+  font-family: var(--m-font) !important; font-weight: 600 !important; letter-spacing: -.01em !important;
+  color: var(--m-heading) !important; -webkit-text-fill-color: currentColor; background: none !important;
+}
+body.m-look .bv-kicker, body.m-look .bv-label {
+  font: 600 10.5px var(--m-font) !important; letter-spacing: .32em !important; text-transform: uppercase;
+  color: var(--m-gold) !important;
+}
+
+/* ---------------------------------------------------------------- the sidebar */
+body.m-look .side-nav {
+  background: var(--m-sidebar) !important; border-right: 1px solid var(--m-line) !important;
+}
+body.m-look .nav-brand { border-bottom-color: var(--m-line) !important; }
+body.m-look .nav-brand img { border-radius: 50% !important; }
+body.m-look .nav-brand .brand-words { font-family: var(--m-font) !important; letter-spacing: .32em !important; text-transform: uppercase; font-size: 15px !important; }
+body.m-look .nav-brand .brand-tagline { color: var(--m-gold) !important; letter-spacing: .28em !important; text-transform: uppercase; font-size: 9.5px !important; }
+body.m-look .nav-link { color: var(--m-soft) !important; border: 1px solid transparent !important; border-radius: 12px !important; }
+body.m-look .nav-link:hover { background: var(--m-hover) !important; color: #fff !important; }
+body.m-look .nav-link.active {
+  background: linear-gradient(180deg, rgba(var(--m-gold-rgb), .17), rgba(var(--m-gold-rgb), .05)) !important;
+  border-color: rgba(var(--m-gold-rgb), .78) !important; color: var(--m-gold-light) !important;
+  box-shadow: var(--m-glow), inset 0 0 14px rgba(var(--m-gold-rgb), .12) !important;
+}
+body.m-look .nav-link.active::before { display: none !important; }
+body.m-look .nav-link.active .nav-icon { color: var(--m-gold-light) !important; }
+
+/* ---------------------------------------------------------------- panels and cards */
+body.m-look .tk-panel, body.m-look .widget, body.m-look .tk-stat, body.m-look .dropzone,
+body.m-look .login-card {
+  background: var(--m-glass) !important; border: 1px solid var(--m-line) !important;
+  border-radius: var(--m-radius) !important; box-shadow: var(--m-shadow) !important;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+
+/* ---------------------------------------------------------------- the main button is gold */
+body.m-look .btn-primary, body.m-look .bv-btn, body.m-look #fullLinkForm button,
+body.m-look #teamMessageFullForm button, body.m-look .mh-compose .bv-btn, body.m-look #chatDock .send {
+  background: linear-gradient(180deg, var(--m-gold-top), var(--m-gold-bottom)) !important;
+  color: var(--m-on-gold) !important; border: 0 !important; border-radius: var(--m-radius-sm) !important;
+  font-weight: 700 !important; box-shadow: 0 6px 20px rgba(var(--m-gold-rgb), .28) !important;
+}
+body.m-look .btn-primary:hover, body.m-look .bv-btn:hover, body.m-look .mh-compose .bv-btn:hover {
+  box-shadow: 0 6px 26px rgba(var(--m-gold-rgb), .45) !important; color: var(--m-on-gold) !important;
+}
+body.m-look :focus-visible { outline: 0; box-shadow: var(--m-focus) !important; }
+
+/* ---------------------------------------------------------------- inputs */
+body.m-look .form-input, body.m-look select {
+  background: rgba(var(--m-ink-rgb), .55) !important; border: 1px solid var(--m-line-strong) !important;
+  border-radius: var(--m-radius-sm) !important; color: var(--m-text) !important; font-family: var(--m-font) !important;
+}
+body.m-look .form-input:focus, body.m-look select:focus { border-color: rgba(var(--m-gold-rgb), .7) !important; }
+body.m-look ::placeholder { color: var(--m-muted) !important; }
+
+/* ---------------------------------------------------------------- sign-in */
+body.m-look #login-view {
+  background:
+    linear-gradient(90deg, rgba(var(--m-ink-rgb), .82) 0%, rgba(var(--m-ink-rgb), .45) 55%, rgba(var(--m-ink-rgb), .2) 100%),
+    url("assets/scene/connect-scene.jpg") center 30% / cover no-repeat !important;
+}
+body.m-look .login-logo img { border-radius: 50%; box-shadow: 0 0 34px rgba(var(--m-gold-rgb), .35); }
+body.m-look .login-title strong { color: var(--m-gold-light) !important; }
+
+/* ---------------------------------------------------------------- Messages */
+body.m-look .mh-main { background: rgba(var(--m-ink-rgb), .55) !important; }
+body.m-look .mh-side, body.m-look .mh-files { background: rgba(var(--m-night-rgb), .82) !important; border-color: var(--m-line) !important; }
+body.m-look .mh-item.on {
+  background: linear-gradient(90deg, rgba(var(--m-gold-rgb), .2), rgba(var(--m-gold-rgb), .04)) !important;
+  box-shadow: inset 2px 0 var(--m-gold) !important; color: var(--m-gold-light) !important;
+}
+
+/* ---------------------------------------------------------------- scrollbars */
+body.m-look ::-webkit-scrollbar { width: 10px; height: 10px; }
+body.m-look ::-webkit-scrollbar-thumb { background: rgba(150, 170, 210, .22); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+body.m-look ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------- one gold button per view */
+body.m-look .bv-btn.ghost {
+  background: var(--m-raised) !important; color: var(--m-text) !important;
+  border: 1px solid var(--m-line-strong) !important; box-shadow: none !important; font-weight: 600 !important;
+}
+body.m-look .bv-btn.ghost:hover { border-color: rgba(var(--m-gold-rgb), .55) !important; color: #fff !important; box-shadow: none !important; }
+body.m-look .mv-call {   /* voice call: a secondary action */
+  background: var(--m-raised) !important; color: var(--m-text) !important; border: 1px solid var(--m-line-strong) !important;
+  border-radius: var(--m-radius-sm) !important;
+}
+body.m-look .mv-call:hover { border-color: rgba(var(--m-gold-rgb), .55) !important; }
+
+/* ---------------------------------------------------------------- the scene shows through every page */
+body.m-look #msgs { background: transparent !important; }
+body.m-look .bv-hero {
+  background: linear-gradient(90deg, rgba(var(--m-ink-rgb), .55) 0%, rgba(var(--m-ink-rgb), .15) 60%, transparent 100%) !important;
+  border-bottom-color: var(--m-line) !important; box-shadow: none !important;
+}
+body.m-look .bv-band { background: rgba(var(--m-ink-rgb), .30); }
+body.m-look .bv-ovchat, body.m-look .workspace-main > #mx-dock {
+  background: rgba(var(--m-night-rgb), .78) !important; border-left: 1px solid var(--m-line) !important;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+body.m-look .bv-hero h2 { font-size: clamp(34px, 3.4vw, 46px) !important; line-height: 1.1 !important; }
