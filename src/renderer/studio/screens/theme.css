@@ -148,6 +148,16 @@
 }
 #studioCenter .studio-state p { margin: var(--studio-space-0); }
 #studioCenter .studio-state.is-failed { border-color: var(--studio-danger); }
+#studioCenter :is(input:not([type="color"]), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border: var(--studio-border) solid var(--studio-line);
+  border-radius: var(--studio-radius);
+  background: var(--studio-night);
+  color: var(--studio-text);
+  font: inherit;
+}
+#studioCenter :is(input, textarea)::placeholder { color: var(--studio-muted); opacity: 1; }
 #studioCenter :is(.studio-home, .studio-space, .studio-work) { min-width: 0; }
 #studioCenter :is(.studio-home, .studio-space, .studio-work) > * { min-width: 0; }
 @media (max-width: 56.25rem) {
