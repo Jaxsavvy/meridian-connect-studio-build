@@ -766,7 +766,44 @@ if (!gotTheLock) {
       if (pick.canceled || !pick.filePaths.length) return { success: true, canceled: true };
       return await api.uploadChatMedia(convo, pick.filePaths[0], caption);
     });
-    ipcMain.handle('ws:download-chat-media', async (e, { mediaId, name }) => {
+    // A file dropped onto the chat. The page sends the file's bytes, never a path, so it can only share
+    // what the person actually dropped. Home base checks the conversation and size again.
+    const DROP_MAX_BYTES = 100 * 1024 * 1024;
+    ipcMain.handle('ws:upload-dropped-chat-file', async (e, { convo, name, bytes, caption }) => {
+      if (typeof convo !== 'string' || !/^[cd]:/.test(convo) || convo.length > 200
+        || typeof name !== 'string' || !name.trim() || name.length > 200
+        || !(bytes instanceof Uint8Array) || !bytes.length
+        || (caption != null && (typeof caption !== 'string' || caption.length > 2000))) {
+        return { success: false, error: 'Could not read the dropped file.' };
+      }
+      if (bytes.length > DROP_MAX_BYTES) return { success: false, error: 'That file is over 100 MB.' };
+      return await api.uploadChatBytes(convo, Buffer.from(bytes), name, caption || '');
+    });
+    ipcMain.handle('ws:create-project-pdf', async (e, { projectId, title, content }) => {
+      if (typeof projectId !== 'string' || !/^[0-9a-f]{32}$/.test(projectId)
+        || typeof title !== 'string' || !title.trim() || title.length > 100
+        || typeof content !== 'string' || content.length > 50000) {
+        return { success: false, error: 'Use a project, title, and content under 50,000 characters.' };
+      }
+      const safe = title.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\.+$/, '').slice(0, 80);
+      if (!safe) return { success: false, error: 'Use a normal document title.' };
+      const escapeHtml = (s) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+        body{font:12pt/1.55 Arial,sans-serif;color:#152235;margin:0;padding:28mm 22mm}
+        h1{font:normal 24pt Georgia,serif;margin:0 0 10mm}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}
+        </style></head><body><h1>${escapeHtml(safe)}</h1><pre>${escapeHtml(content)}</pre></body></html>`;
+      const win = new BrowserWindow({ show: false, width: 1000, height: 1200,
+        webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false } });
+      try {
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+        return await api.uploadProjectBytes(projectId, pdf, safe + '.pdf', 'Docs');
+      } catch (_) {
+        return { success: false, error: 'Could not create the PDF. Try again.' };
+      } finally {
+        if (!win.isDestroyed()) win.destroy();
+      }
+    });    ipcMain.handle('ws:download-chat-media', async (e, { mediaId, name }) => {
       const r = await api.downloadChatMedia(mediaId);
       if (!r.success) return r;
       const save = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Save file', defaultPath: name });
