@@ -26,7 +26,7 @@
     const brand = document.querySelector('.nav-brand');
     if (brand) {
       const img = brand.querySelector('img');
-      if (img) { img.src = 'assets/meridian-256.png'; img.alt = ''; }
+      if (img) { img.src = 'orb/orb-256.webp'; img.alt = ''; }
       const w = brand.querySelector('.brand-words'); if (w) w.textContent = 'Meridian';
       const t = brand.querySelector('.brand-tagline'); if (t) t.textContent = 'Connect';
     }
@@ -188,7 +188,7 @@
     const t = document.getElementById('bv-thread'); if (!t) return;
     t.innerHTML = CHAT.turns.length ? CHAT.turns.map((x) => x.role === 'user'
         ? `<div class="bv-bubble me">${esc(x.text)}</div>`
-        : `<div class="bv-airow"><img class="bv-av" src="assets/meridian-256.png" alt=""><div class="bv-bubble ai ${x.err ? 'bv-err' : ''}">${x.pending ? '<span class="bv-typing" aria-label="Meridian is thinking"><i></i><i></i><i></i></span>' : x.err ? esc(x.text) : fmt(x.text)}</div></div>`).join('')
+        : `<div class="bv-airow"><img class="bv-av" src="orb/orb-256.webp" alt=""><div class="bv-bubble ai ${x.err ? 'bv-err' : ''}">${x.pending ? '<span class="bv-typing" aria-label="Meridian is thinking"><i></i><i></i><i></i></span>' : x.err ? esc(x.text) : fmt(x.text)}</div></div>`).join('')
       : `<div class="bv-chat-empty"><p>Ask anything about your projects and tasks. Try:</p>${(suggestions || []).map((q) => `<button type="button" class="bv-chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
     t.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => chatSend(b.dataset.q, suggestions)));
     t.scrollTop = t.scrollHeight;
@@ -307,6 +307,8 @@
     try { if (activeView === 'projects' && window.meridianWorkspace && window.meridianWorkspace.current) return window.meridianWorkspace.current() || null; } catch (e) {}
     return null;
   }
+  // The orb shows what Meridian is doing: speaking while a reply is read aloud, thinking while one is on its way.
+  if (window.meridianOrb) window.meridianOrb.useState(() => (SPEAK.playing ? 'speaking' : CHAT.busy ? 'thinking' : 'idle'));
   function renderDock() {
     const el = dockEl(); if (!el) return;
     const signedIn = typeof currentMe !== 'undefined' && currentMe;
@@ -319,13 +321,13 @@
     document.body.classList.toggle('mx-dock-small', small);
     if (small) {
       el.innerHTML = `<button type="button" class="mx-open" title="${hide ? 'The storyboard has its own Meridian panel' : 'Open Meridian'}" aria-label="Open Meridian">
-        <img src="assets/meridian-256.png" alt=""><span>Meridian</span></button>`;
+        <img src="orb/orb-256.webp" alt=""><span>Meridian</span></button>`;
       el.querySelector('.mx-open').onclick = () => { DOCK.collapsed = false; if (hide) DOCK.overBoard = true; else save(); renderDock(); };
       return;
     }
     const projs = DOCK.projects.length ? DOCK.projects : (typeof projects !== 'undefined' ? projects : []);
     const name = (projs.find((x) => x.id === CHAT.project) || {}).name;
-    el.innerHTML = `<div class="bv-chat-h"><div><div class="bv-label">Meridian AI</div><h3>${name ? esc(name) : 'Ask about your work'}</h3></div>
+    el.innerHTML = `<div class="bv-chat-h"><span class="mx-orb-slot"></span><div><div class="bv-label">Meridian AI</div><h3>${name ? esc(name) : 'Ask about your work'}</h3></div>
         <div class="bv-chat-tools"><span class="bv-speaking" id="bv-speaking" role="status" ${SPEAK.playing ? '' : 'hidden'}><span class="bv-eq" aria-hidden="true"><i></i><i></i><i></i></span>Speaking<button type="button" id="bv-speak-stop" title="Stop speaking (Esc)" aria-label="Stop speaking">${spkSvg('stop')}</button></span>
         <button type="button" class="mx-collapse bv-speak" id="bv-speak" aria-label="Speak replies" aria-pressed="${SPEAK.on ? 'true' : 'false'}">${spkSvg(SPEAK.on ? 'on' : 'off')}</button>
         ${activeView === 'chat' ? '' : '<button type="button" class="mx-collapse" title="Hide Meridian" aria-label="Hide Meridian">⟩</button>'}</div></div>
@@ -334,6 +336,7 @@
       <div class="bv-thread" id="bv-thread" role="log" aria-live="polite"></div>
       <form id="bv-ask" class="bv-composer"><textarea id="bv-ask-q" rows="2" placeholder="Message Meridian, or say “take me to…”" aria-label="Message Meridian">${esc(DOCK.draft || '')}</textarea><button class="bv-btn" id="bv-ask-go" aria-label="Send" ${CHAT.busy ? 'disabled' : ''}>Send</button></form>
       <div class="bv-chat-foot">Meridian sees your projects, tasks, notes and links. Not Jax's private files.</div>`;
+    if (window.meridianOrb) window.meridianOrb.place(el);   // the live orb moves into the new header
     const askQ = el.querySelector('#bv-ask-q'), sel = el.querySelector('#bv-ask-proj');
     const sugg = name ? ['What is left before ' + name + ' is done?', 'Summarize where ' + name + ' stands', 'Draft a client update for ' + name] : DOCK.suggestions;
     drawThread(sugg);
