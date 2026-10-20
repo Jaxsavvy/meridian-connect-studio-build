@@ -1,0 +1,80 @@
+'use strict';
+// Core: sample data for workflows, jobs, Review and versions (Wave 2 prep).
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
+
+function service() {
+  const s = createSampleService();
+  s.setProjects([{ id: 'client-a', name: 'Client A' }, { id: 'client-b', name: 'Client B' }]);
+  return s;
+}
+
+test('website workflow: tiers and stages; Motion only in Cinematic; unknown workflow is null', async () => {
+  const s = service();
+  const wf = await s.getWorkflow('website');
+  assert.deepEqual(wf.tiers.map(t => t.id), ['standard', 'cinematic']);
+  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'plan', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
+  assert.equal(await s.getWorkflow('seo'), null);
+  const std = await s.startJob('client-a', 'website', 'standard');
+  const cin = await s.startJob('client-a', 'website', 'cinematic');
+  assert.ok(!std.stages.some(st => st.id === 'motion'));
+  assert.ok(cin.stages.some(st => st.id === 'motion'));
+  assert.equal(std.name, 'Website v1'); assert.equal(cin.name, 'Website v2');
+  await assert.rejects(s.startJob('client-a', 'website', 'deluxe'), /Standard or Cinematic/);
+  await assert.rejects(s.startJob('client-a', 'seo', 'standard'), /coming soon/);
+});
+
+test('stages Jax approves wait on him; team stages advance; Space home shows progress', async () => {
+  const s = service();
+  const job = await s.startJob('client-a', 'website', 'standard');
+  assert.equal(job.stageId, 'brief');
+  let next = await s.completeStage('client-a', job.id);          // Brief is approved by Jax
+  assert.equal(next.stageId, 'brief'); assert.equal(next.waitingOnJax, true);
+  assert.equal(next.stages[0].status, 'waiting-on-jax');
+  next = await s.approveStage('client-a', job.id);
+  assert.equal(next.stageId, 'plan'); assert.equal(next.stages[0].status, 'done');
+  next = await s.completeStage('client-a', job.id);              // Plan is a team stage
+  assert.equal(next.stageId, 'storyboard');
+  const space = await s.getSpace('client-a');
+  assert.equal(space.jobs[0].stage, 'Storyboard');
+  assert.ok(space.jobs[0].progress > 0);
+  await assert.rejects(s.approveStage('client-a', job.id), /not waiting on Jax/);
+});
+
+test('jobs never cross Spaces', async () => {
+  const s = service();
+  const job = await s.startJob('client-a', 'website', 'standard');
+  await assert.rejects(s.getJob('client-b', job.id), /not found/);
+  await assert.rejects(s.completeStage('client-b', job.id), /not found/);
+  const b = await s.getSpace('client-b');
+  assert.equal(b.jobs[0].name, 'Website v1'); assert.equal(b.jobs[0].stage, 'Not started'); // placeholder only
+});
+
+test('Send to Review: waits on Jax, no double send, approval locks it', async () => {
+  const s = service();
+  const out = await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Stage', count: 1 });
+  const id = out.results[0].assetId;
+  const sent = await s.sendToReview('client-a', id, 'Hero option');
+  assert.equal(sent.review.status, 'waiting'); assert.equal(sent.kept, true);
+  await assert.rejects(s.sendToReview('client-a', id), /Already waiting/);
+  assert.equal((await s.listReview('client-a')).length, 1);
+  assert.equal((await s.listReview('client-b')).length, 0);
+  const approved = await s.approveAsset('client-a', id);
+  assert.equal(approved.approved, true);
+  await assert.rejects(s.trashAsset('client-a', id), /only be removed by Jax/);
+});
+
+test('versions: originals never change; history is per family and per Space', async () => {
+  const s = service();
+  const out = await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Stage', count: 1 });
+  const v1 = out.results[0].assetId;
+  const v2 = await s.saveVersion('client-a', v1, { url: 'data:image/png;base64,AA' });
+  const v3 = await s.saveVersion('client-a', v2.id);
+  assert.equal(v2.version, 2); assert.equal(v2.parentId, v1); assert.match(v2.name, /__v2$/);
+  assert.equal(v3.version, 3); assert.equal(v3.parentId, v2.id);
+  const history = await s.listVersions('client-a', v3.id);
+  assert.deepEqual(history.map(a => a.version), [1, 2, 3]);
+  assert.notEqual(history[0].url, 'data:image/png;base64,AA');   // original untouched
+  await assert.rejects(s.listVersions('client-b', v1), /not found/);
+});
