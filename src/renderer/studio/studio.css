@@ -16,3 +16,36 @@
   color: rgba(232, 238, 247, 0.8);
   background: rgba(11, 31, 58, 0.45);
 }
+
+/* App-shell rules that lived in the old studio-ui.css (removed in the restart).
+ * Without them the skip link becomes a grid cell and pushes the whole Connect layout out of place. */
+.studio-skip {
+  position: fixed;
+  z-index: 1000;
+  left: 14px;
+  top: 10px;
+  transform: translateY(-160%);
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #fff;
+  background: #1f6fd6;
+  font: 600 14px var(--bv-sans, "Inter", sans-serif);
+}
+.studio-skip:focus { transform: translateY(0); }
+
+#studioCenter {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: #07101d;
+}
+#studioCenter[hidden] { display: none !important; }
+
+/* Studio has its own Meridian Studio chat on the right, so the general Meridian AI dock hides here. */
+body.view-studio .workspace-main { background: #07101d; }
+body.view-studio #chatDock,
+body.view-studio .workspace-main > #mx-dock { display: none !important; }
+
+#nav-studio-link[disabled] { cursor: not-allowed; opacity: .78; }
+#nav-studio-link[disabled] .nav-badge-pill { color: #c8d3e1 !important; background: #263344 !important; }
