@@ -16,6 +16,7 @@
   function createSpace({ service, spaceId, navigate, report }) {
     let disposed = false, revision = 0, tools = [];
     async function load() {
+      if (disposed) return;
       const request = ++revision;
       tools = [];
       report({ state: 'loading' });
@@ -62,15 +63,17 @@
       const item = node('section', '', 'studio-card'); item.setAttribute('aria-label', title);
       item.appendChild(node('h2', title)); root.appendChild(item); return item;
     }
+    const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
+    const focus = states.focus(root);
     const model = createSpace({ service: studio.service, spaceId, navigate: studio.navigate,
       report(view) {
+        const restoreFocus = focus();
         root.replaceChildren(button('Back to Studio', () => model.back()), node('h1', view.space?.name || 'Space'));
         root.setAttribute('aria-busy', String(view.state === 'loading'));
         if (view.state !== 'ready') {
-          const message = node('p', view.state === 'loading' ? 'Loading Space…' : view.message, 'studio-state');
-          message.setAttribute('role', view.state === 'failed' ? 'alert' : 'status'); root.appendChild(message);
-          if (view.state === 'failed') root.appendChild(button('Try again', () => void model.load()));
-          return;
+          root.appendChild(states.panel(doc, view.state, view.state === 'loading' ? 'Loading Space…' : view.message,
+            () => void model.load()));
+          restoreFocus(); return;
         }
         const { space, assets, groups } = view;
         const dnaCard = section('Project DNA');
@@ -94,7 +97,7 @@
           dnaCard.appendChild(colors);
         }
         const jobs = section('Active Jobs');
-        if (!space.jobs?.length) jobs.appendChild(node('p', 'No active Jobs in this Space.'));
+        if (!space.jobs?.length) jobs.appendChild(states.panel(doc, 'empty', 'No active Jobs in this Space.'));
         for (const job of space.jobs || []) {
           const item = node('article'); item.append(node('h3', job.name), node('p', job.stage));
           const bar = node('progress'); bar.max = 100; bar.value = progress(job.progress);
@@ -102,7 +105,7 @@
           item.append(bar, node('span', `${bar.value}%`)); jobs.appendChild(item);
         }
         const recent = section('Recent assets');
-        if (!assets.length) recent.appendChild(node('p', 'No assets in this Space yet.'));
+        if (!assets.length) recent.appendChild(states.panel(doc, 'empty', 'No assets in this Space yet.'));
         const list = node('div', '', 'studio-space-assets');
         for (const asset of assets) {
           const figure = node('figure');
@@ -116,7 +119,7 @@
         recent.appendChild(list);
         for (const group of groups) {
           const row = section(group.kind === 'workflow' ? 'Start a workflow' : 'Open a tool');
-          if (!group.tools.length) row.appendChild(node('p', 'Nothing available yet.'));
+          if (!group.tools.length) row.appendChild(states.panel(doc, 'empty', 'Nothing available yet.'));
           const tiles = node('div', '', 'studio-space-tiles');
           for (const tool of group.tools) {
             const tile = button('', () => model.open(tool.id), `studio-tile${tool.disabled ? ' is-coming-soon' : ''}`);
@@ -126,6 +129,7 @@
           }
           row.appendChild(tiles);
         }
+        restoreFocus();
       } });
     void model.load();
     return () => { model.dispose(); root.remove(); };

@@ -34,9 +34,10 @@
     const doc = el.ownerDocument;
     const root = doc.createElement('section'); root.className = 'studio-work';
     root.setAttribute('aria-label', 'Studio Work view'); el.replaceChildren(root);
-    let backButton, retryButton;
+    const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
+    const focus = states.focus(root);
+    let backButton;
     const back = () => model.back();
-    const retry = () => void model.load();
     function node(tag, text, className) {
       const item = doc.createElement(tag);
       if (text) item.textContent = text;
@@ -52,10 +53,10 @@
     }
     function removeListeners() {
       backButton?.removeEventListener('click', back);
-      retryButton?.removeEventListener('click', retry);
     }
     const model = createWork({ service: studio.service, spaceId, toolId, navigate: studio.navigate,
       report(view) {
+        const restoreFocus = focus();
         removeListeners(); root.replaceChildren();
         const header = node('header', '', 'studio-work-header');
         backButton = node('button', 'Back to Space', 'studio-button is-secondary'); backButton.type = 'button';
@@ -63,13 +64,9 @@
         header.append(backButton, node('h1', view.space ? `${view.space.name} — ${view.tool?.name || 'Work'}` : 'Work'));
         root.appendChild(header); root.setAttribute('aria-busy', String(view.state === 'loading'));
         if (view.state !== 'ready') {
-          const message = node('p', view.state === 'loading' ? 'Loading Work view…' : view.message, 'studio-state');
-          message.setAttribute('role', view.state === 'failed' ? 'alert' : 'status'); root.appendChild(message);
-          if (view.state === 'failed') {
-            retryButton = node('button', 'Try again', 'studio-button is-secondary'); retryButton.type = 'button';
-            retryButton.addEventListener('click', retry); root.appendChild(retryButton);
-          }
-          return;
+          root.appendChild(states.panel(doc, view.state, view.state === 'loading' ? 'Loading Work view…' : view.message,
+            () => void model.load()));
+          restoreFocus(); return;
         }
         const stage = node('section', '', 'studio-work-stage-bar'); stage.hidden = true;
         stage.setAttribute('aria-label', 'Workflow stage'); root.appendChild(stage);
@@ -79,7 +76,7 @@
         studio.mountInto(canvas.slot, 'tool', toolId, { spaceId });
         studio.mountInto(conversation.slot, 'part', 'conversation', { spaceId, toolId });
         studio.mountInto(assets.slot, 'part', 'assets-strip', { spaceId, toolId });
-        canvas.heading.focus();
+        restoreFocus(canvas.heading);
       } });
     void model.load();
     return () => { model.dispose(); removeListeners(); root.remove(); };
