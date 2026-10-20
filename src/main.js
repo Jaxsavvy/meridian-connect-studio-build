@@ -622,6 +622,10 @@ async function runAutomationTests() {
   app.quit();
 }
 
+// Developer copy (npm run dev) keeps its own settings and sign-in folder, so it runs
+// alongside the installed Meridian Connect instead of closing itself to give way to it.
+if (isDev && !app.isPackaged) app.setPath('userData', `${app.getPath('userData')} (dev)`);
+
 // Single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
