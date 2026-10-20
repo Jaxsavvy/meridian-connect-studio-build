@@ -2,8 +2,48 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root) root.MeridianStudio.registerScreen('home', { render: api.render });
+  if (root) {
+    root.MeridianStudioScreenStates = api.screenStates;
+    root.MeridianStudio.registerScreen('home', { render: api.render });
+  }
 })(typeof window === 'undefined' ? null : window, function () {
+  // Shared by the three screens; no shell or panel state is changed here.
+  const screenStates = {
+    failure(error, subject) {
+      if (error?.status === 403 || error?.code === 'NO_ACCESS') return `You no longer have access to ${subject}.`;
+      return `Unable to load ${subject}. Check your connection and access, then try again.`;
+    },
+    panel(doc, state, message, retry) {
+      const box = doc.createElement('div'); box.className = `studio-state is-${state}`;
+      const text = doc.createElement('p'); text.textContent = message;
+      text.setAttribute('role', state === 'failed' ? 'alert' : 'status'); box.appendChild(text);
+      if (state === 'failed' && retry) {
+        const button = doc.createElement('button'); button.type = 'button';
+        button.className = 'studio-button is-secondary'; button.textContent = 'Try again';
+        button.addEventListener('click', retry); box.appendChild(button);
+      }
+      return box;
+    },
+    focus(root) {
+      let first = true, label = null;
+      return () => {
+        const doc = root.ownerDocument, active = doc.activeElement;
+        const owned = root.contains?.(active);
+        const shouldFocus = first || owned || !active;
+        if (owned && active.tagName === 'BUTTON') label = active.textContent;
+        else if (!owned) label = null;
+        first = false;
+        // Keep a selected button across service refreshes when it still exists.
+        return (preferred) => {
+          if (!shouldFocus) return;
+          const buttons = Array.from(root.querySelectorAll?.('button') || []);
+          const target = buttons.find(button => label && button.textContent === label && !button.disabled)
+            || preferred || root.querySelector?.('h1');
+          if (target) { target.tabIndex = target.tagName === 'BUTTON' ? 0 : -1; target.focus?.(); }
+        };
+      };
+    },
+  };
   const LAST_SPACE = 'meridian.studio.lastSpace';
   function orderSpaces(spaces) {
     const rank = { 'sandbox-personal': 0, 'sandbox-team': 1, client: 2 };
@@ -12,6 +52,8 @@
   function createHome({ service, storage, navigate, report }) {
     let disposed = false, revision = 0, spaces = [];
     async function load() {
+      if (disposed) return;
+      spaces = [];
       const request = ++revision;
       report({ state: 'loading' });
       try {
@@ -25,8 +67,7 @@
       } catch (error) {
         if (!disposed && request === revision) {
           spaces = [];
-          report({ state: 'failed', message: error.status === 403 || error.code === 'NO_ACCESS'
-            ? 'You no longer have access to these Spaces.' : 'Unable to load Spaces. Check your connection and try again.' });
+          report({ state: 'failed', message: screenStates.failure(error, 'Spaces') });
         }
       }
     }
@@ -61,20 +102,17 @@
       item.type = 'button'; item.addEventListener('click', action);
       return item;
     }
+    const focus = screenStates.focus(root);
     const model = createHome({ service: studio.service, storage, navigate: studio.navigate,
       report(view) {
+        const restoreFocus = focus();
         root.replaceChildren(node('h1', 'Meridian Studio'));
-        const state = node('p', view.state === 'loading' ? 'Loading Spaces…' : '', 'studio-state');
-        state.setAttribute('role', view.state === 'failed' ? 'alert' : 'status');
-        root.appendChild(state);
         root.setAttribute('aria-busy', String(view.state === 'loading'));
-        if (view.state === 'failed') {
-          state.textContent = view.message;
-          root.appendChild(button('Try again', 'studio-button is-secondary', () => void model.load()));
-          return;
+        if (view.state !== 'ready') {
+          root.appendChild(screenStates.panel(doc, view.state, view.state === 'loading' ? 'Loading Spaces…'
+            : view.state === 'empty' ? 'No Spaces are assigned to you yet.' : view.message, () => void model.load()));
+          restoreFocus(); return;
         }
-        if (view.state === 'empty') { state.textContent = 'No Spaces are assigned to you yet.'; return; }
-        if (view.state !== 'ready') return;
         if (view.previous) {
           const card = node('section', '', 'studio-card studio-home-continue');
           card.append(node('h2', 'Continue where you left off'),
@@ -84,10 +122,10 @@
         root.appendChild(node('h2', 'Choose a Space'));
         const grid = node('div', '', 'studio-home-spaces');
         for (const space of view.spaces) grid.appendChild(button(space.name, 'studio-tile studio-space-card', () => model.open(space.id)));
-        root.appendChild(grid);
+        root.appendChild(grid); restoreFocus();
       } });
     void model.load();
     return () => { model.dispose(); root.remove(); };
   }
-  return { orderSpaces, createHome, render };
+  return { orderSpaces, createHome, render, screenStates };
 });
