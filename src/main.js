@@ -841,7 +841,11 @@ if (!gotTheLock) {
     ipcMain.handle('api:get-tasks', (e, user) => api.getTasks(user));
     ipcMain.handle('api:mark-task-done', (e, { taskId, completed }) => api.markTaskDone(taskId, completed));
     ipcMain.handle('api:send-chat-message', (e, { projectId, message }) => api.sendChatMessage(projectId, message));
-    ipcMain.handle('api:stream-chat', (e, { projectId, message }) => api.streamChat(projectId, message));
+    ipcMain.handle('api:stream-chat', (e, { projectId, message, streamId }) => {
+      const id = typeof streamId === 'string' && /^[0-9a-z-]{1,40}$/.test(streamId) ? streamId : null;
+      return api.streamChat(projectId, message,
+        (text) => { if (id && !e.sender.isDestroyed()) e.sender.send('api:stream-chat-chunk', { streamId: id, text }); });
+    });
     ipcMain.handle('api:get-chat-history', (e, id) => api.getChatHistory(id));
     ipcMain.handle('api:get-messages', () => api.getMessages());
     ipcMain.handle('api:send-team-message', (e, { text, senderName }) => api.sendTeamMessage(text, senderName));
