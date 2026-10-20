@@ -24,3 +24,6 @@
 @media (max-width: 56.25rem) {
   #studioCenter .studio-work { grid-template-columns: minmax(0, 1fr); }
 }
+
+#studioCenter .studio-work-header h1 { flex: 1 1 14rem; }
+#studioCenter .studio-work-slot > * { min-width: 0; max-width: 100%; }
