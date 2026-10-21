@@ -72,7 +72,11 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
-  function createSampleService() {
+  /** options.simulateJaxMs: in the app's sample mode only, "Jax" approves waiting stages and Review items
+   *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off. */
+  function createSampleService(options = {}) {
+    const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
+    const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
     let counter = 0;
     const assets = new Map();
@@ -155,7 +159,11 @@
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
         const stage = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
-        if (stage.approver === 'jax') { job.waitingOnJax = true; emit('jobs-changed', { spaceId }); return clone(jobView(job)); }
+        if (stage.approver === 'jax') {
+          job.waitingOnJax = true; emit('jobs-changed', { spaceId });
+          later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
+          return clone(jobView(job));
+        }
         advance(job);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
@@ -189,6 +197,7 @@
           if (a.trashed) throw new Error('Restore this asset before sending it to Review.');
           if (a.review && a.review.status === 'waiting') throw new Error('Already waiting on Jax.');
           a.kept = true; a.review = { status: 'waiting', note: String(note).slice(0, 500) };
+          later(() => { if (a.review && a.review.status === 'waiting') { a.review = { ...a.review, status: 'approved' }; a.approved = true; emit('assets-changed', { spaceId }); } });
         });
       },
       async listReview(spaceId) {
