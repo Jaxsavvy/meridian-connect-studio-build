@@ -127,3 +127,69 @@ test('references must be active images returned by this Space and chat wins over
   c.receive(packet()); resolve({ requestId: 'old-canvas', results: own.results, settingsUsed: {} }); await pending;
   assert.equal(c.snapshot().results[0].assetId, 'chat-image'); assert.equal(c.snapshot().dirty, true); c.dispose();
 });
+
+test('mounted references follow this Space live and removed references invalidate confirmation without losing a draft', async () => {
+  const base = createSampleService(), tick = () => new Promise(setImmediate);
+  const own = await base.generateImage({ spaceId: 'sandbox-me', description: 'Reference', count: 1 });
+  const doc = { createElement: tag => new Element(tag, doc), activeElement: null }, host = new Element('div', doc);
+  let reads = 0;
+  const cleanup = mountCanvas(host, { spaceId: 'sandbox-me', studio: {
+    service: { ...base, listAssets: id => { reads += 1; return base.listAssets(id); } }, setDirty() {}, on: () => () => {},
+  } }); await tick();
+  const description = host.all().find(n => n.tag === 'textarea'), reference = host.all().filter(n => n.tag === 'select')[1];
+  description.value = 'Unsaved paper boat'; description.events.input(); reference.value = own.results[0].assetId; reference.events.change();
+  host.all().find(n => n.textContent === 'Sharpen my description').events.click();
+  const confirm = host.all().find(n => n.type === 'checkbox'); confirm.checked = true; confirm.events.change();
+  const before = reads; await base.generateImage({ spaceId: 'sandbox-team', description: 'Foreign', count: 1 }); await tick();
+  assert.equal(reads, before); assert.equal(confirm.checked, true);
+  const added = await base.generateImage({ spaceId: 'sandbox-me', description: 'Added', count: 1 }); await tick();
+  assert.ok(reference.children.some(n => n.value === added.results[0].assetId));
+  await base.trashAsset('sandbox-me', own.results[0].assetId); await tick();
+  assert.equal(reference.value, ''); assert.equal(confirm.checked, false); assert.equal(description.value, 'Unsaved paper boat');
+  assert.equal(host.all().find(n => n.textContent === 'Generate').disabled, true);
+  assert.ok(host.all().some(n => /reference is no longer available/.test(n.textContent || '')));
+  cleanup(); const stopped = reads; await base.restoreAsset('sandbox-me', own.results[0].assetId); await tick(); assert.equal(reads, stopped);
+});
+
+test('generation revalidates a reference removed after confirmation before calling the service', async () => {
+  const base = createSampleService(), own = await base.generateImage({ spaceId: 'sandbox-me', description: 'Reference', count: 1 });
+  let calls = 0;
+  const c = await prepare({ ...base, generateImage: request => { calls += 1; return base.generateImage(request); } });
+  await c.addReference(own.results[0].assetId); c.sharpen(); c.confirm(true);
+  await base.trashAsset('sandbox-me', own.results[0].assetId);
+  assert.equal(await c.generate(), false); assert.equal(calls, 0); assert.deepEqual(c.snapshot().references, []);
+  assert.equal(c.snapshot().confirmed, false); assert.equal(c.snapshot().dirty, true);
+  assert.equal(c.snapshot().description, 'A crew in a workshop'); assert.match(c.snapshot().error, /reference is no longer available/);
+  c.dispose();
+});
+
+test('live changes preserve a failed Keep retry and unavailable results cannot become variation references', async () => {
+  const base = createSampleService(); let fail = true, calls = 0;
+  const c = await prepare({ ...base, keepAsset: async (...args) => {
+    calls += 1; if (fail) throw Object.assign(new Error(), { code: 'OFFLINE' }); return base.keepAsset(...args);
+  } }); c.confirm(true); await c.generate(); const id = c.snapshot().results[0].assetId;
+  await c.keep(id); await c.assetsChanged(); assert.equal(c.snapshot().phase, 'failed'); assert.equal(c.snapshot().dirty, true);
+  fail = false; await c.retry(); assert.equal(calls, 2); assert.equal(c.snapshot().phase, 'ready'); assert.equal(c.snapshot().dirty, false);
+  await base.trashAsset('sandbox-me', id); await c.assetsChanged(); assert.equal(c.variations(id), false); c.dispose();
+});
+
+test('asset refreshes queue during writes, reject stale reads, and clear inaccessible data before access retry', async () => {
+  const base = createSampleService(), c = await prepare(base); c.confirm(true); await c.generate();
+  const id = c.snapshot().results[0].assetId; let resolveKeep;
+  const pendingService = { ...base, keepAsset: async (...args) => { await new Promise(resolve => { resolveKeep = resolve; }); return base.keepAsset(...args); } };
+  const queued = await prepare(pendingService); queued.receive(packet({ results: c.snapshot().results }));
+  const keep = queued.keep(id); await new Promise(setImmediate);
+  const added = await base.generateImage({ spaceId: 'sandbox-me', description: 'While saving', count: 1 });
+  await queued.assetsChanged(); assert.equal(queued.snapshot().phase, 'saving'); resolveKeep(); await keep;
+  assert.ok(queued.snapshot().assets.some(a => a.id === added.results[0].assetId)); queued.dispose(); c.dispose();
+  const pending = []; let defer = false, denied = false;
+  const fresh = await prepare({ ...base, listAssets: id => {
+    if (denied) throw Object.assign(new Error('private diagnostic'), { status: 403 });
+    return defer ? new Promise(resolve => pending.push(resolve)) : base.listAssets(id);
+  } });
+  const assets = await base.listAssets('sandbox-me'); defer = true;
+  const old = fresh.assetsChanged(), current = fresh.assetsChanged(); pending[1]([]); await current; pending[0](assets); await old;
+  assert.deepEqual(fresh.snapshot().assets, []); defer = false; denied = true; await fresh.assetsChanged();
+  assert.equal(fresh.snapshot().ready, false); assert.deepEqual(fresh.snapshot().results, []); assert.doesNotMatch(fresh.snapshot().error, /private diagnostic/);
+  denied = false; await fresh.retry(); assert.equal(fresh.snapshot().ready, true); fresh.dispose();
+});
