@@ -46,7 +46,7 @@
       },
       openJob(jobId) {
         if (disposed || !jobs.some(job => job.id === jobId && job.workflowId)) return false;
-        navigate('work', { spaceId, jobId }); return true;
+        navigate('job', { spaceId, jobId }); return true;
       },
       dispose() { disposed = true; revision++; tools = []; jobs = []; off(); },
     };

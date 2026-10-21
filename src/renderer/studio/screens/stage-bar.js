@@ -75,6 +75,8 @@
         button.type = 'button'; button.className = 'studio-button is-secondary';
         button.disabled = !!(view.busy || job.finished || job.waitingOnJax);
         button.addEventListener('click', () => void model.complete()); root.appendChild(button);
+        const jobPage = node('button', 'Job page'); jobPage.type = 'button'; jobPage.className = 'studio-button is-secondary';
+        jobPage.addEventListener('click', () => studio.navigate('job', { spaceId, jobId })); root.appendChild(jobPage);
         if (job.finished || job.waitingOnJax) {
           const status = node('p', job.finished ? 'Job finished' : 'Waiting on Jax'); status.setAttribute('role', 'status'); root.appendChild(status);
         }
