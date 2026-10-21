@@ -53,10 +53,10 @@ Shared files change only through the Core lane. If your issue needs a shared-fil
 
 ## How Studio code plugs in (don't edit these files; use them)
 - Get data only from `MeridianStudio.service` (`src/renderer/studio/studio-service.js`). It runs on sample data now and will switch to the server later without your code changing. Never call `fetch` or `window.meridian` from Studio files.
-- Screens: `MeridianStudio.registerScreen('home' | 'space' | 'work' | 'workflow', { render(el, params, studio) })`.
+- Screens: `MeridianStudio.registerScreen('home' | 'space' | 'work' | 'workflow' | 'job', { render(el, params, studio) })`.
 - Tools: `MeridianStudio.registerTool('<tool-id>', { mountCanvas(el, ctx) })`.
 - Panels: `MeridianStudio.registerPart('assets-strip' | 'conversation' | 'stage-bar' | 'version-history', { mount(el, ctx) })`.
-- Workflows, Jobs, Review and versions come from the service too: `getWorkflow`, `startJob`, `getJob`, `completeStage`, `sendToReview`, `listReview`, `saveVersion`, `listVersions`. In sample mode `approveStage` and `approveAsset` stand in for Jax so you can test the whole path; never show those buttons to employees.
+- Workflows, Jobs, Review and versions come from the service too: `getWorkflow`, `startJob`, `getJob`, `listJobs`, `listJobAssets`, `completeStage`, `sendToReview`, `listReview`, `saveVersion`, `listVersions`. In sample mode `approveStage` and `approveAsset` stand in for Jax so you can test the whole path; never show those buttons to employees.
 - Fill a slot with `studio.mountInto(el, 'tool' | 'part', id, ctx)`; move with `studio.navigate(name, params)`; mark unsaved work with `studio.setDirty(true)`.
 - `render`/`mount`/`mountCanvas` may return a cleanup function (remove listeners there).
 - Each issue's files are already listed in `LANE_FILES` in `studio-app.js`, so they load automatically. Don't edit `index.html`.

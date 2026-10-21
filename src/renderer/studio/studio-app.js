@@ -35,6 +35,7 @@
     'studio/screens/work.js', 'studio/screens/work.css',
     'studio/screens/workflow.js', 'studio/screens/workflow.css',
     'studio/screens/stage-bar.js', 'studio/screens/stage-bar.css',
+    'studio/screens/job.js', 'studio/screens/job.css',
     'studio/assets/asset-model.js',
     'studio/assets/assets-strip.js', 'studio/assets/assets-strip.css',
     'studio/assets/version-history.js', 'studio/assets/version-history.css',
