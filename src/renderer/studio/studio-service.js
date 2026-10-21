@@ -227,6 +227,24 @@
         emit('assets-changed', { spaceId });
         return clone(asset);
       },
+      /** Move to client: copies a sandbox asset into another Space as a new original (v1). The sandbox copy
+       *  stays. Never from a client Space: one client's work is never used in another client's Space. */
+      async copyToSpace(fromSpaceId, assetId, toSpaceId) {
+        const from = requireSpace(fromSpaceId);
+        const to = requireSpace(toSpaceId);
+        if (from.type === 'client') throw new Error('Only sandbox work can be moved to a client.');
+        if (from.id === to.id) throw new Error('Pick a different Space.');
+        const source = spaceAssets(from.id).find(a => a.id === assetId && !a.trashed);
+        if (!source) throw new Error('Asset not found in this space.');
+        const base = String(source.name).replace(/__v\d+$/, '');
+        const asset = { ...source, id: nextId('asset'), spaceId: to.id, name: `${base}__v1`, version: 1, parentId: null,
+          rootId: undefined, kept: true, approved: false, review: null, trashed: false, jobId: undefined, stageId: undefined,
+          copiedFrom: { spaceId: from.id, assetId: source.id } };
+        delete asset.rootId; delete asset.jobId; delete asset.stageId;
+        spaceAssets(to.id).push(asset);
+        emit('assets-changed', { spaceId: to.id });
+        return clone(asset);
+      },
       /** Every version of an asset's family, oldest first. */
       async listVersions(spaceId, assetId) {
         requireSpace(spaceId);

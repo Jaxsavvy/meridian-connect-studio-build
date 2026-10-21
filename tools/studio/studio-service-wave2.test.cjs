@@ -111,3 +111,16 @@ test('sample-mode stand-in Jax approves waiting stages and Review items after a 
   await wait(40);
   assert.equal((await s.listAssets('client-a'))[0].approved, true);
 });
+
+test('Move to client: sandbox work copies into a client as a new original; never client to client', async () => {
+  const s = service();
+  const out = await s.generateImage({ spaceId: 'sandbox-me', presetId: 'website-hero', description: 'Idea', count: 1 });
+  const id = out.results[0].assetId;
+  const copy = await s.copyToSpace('sandbox-me', id, 'client-a');
+  assert.equal(copy.spaceId, 'client-a'); assert.equal(copy.version, 1); assert.equal(copy.parentId, null);
+  assert.equal(copy.kept, true); assert.deepEqual(copy.copiedFrom, { spaceId: 'sandbox-me', assetId: id });
+  assert.equal((await s.listAssets('sandbox-me')).length, 1);                 // sandbox copy stays
+  await assert.rejects(s.copyToSpace('client-a', copy.id, 'client-b'), /Only sandbox work/);
+  await assert.rejects(s.copyToSpace('sandbox-me', id, 'sandbox-me'), /different Space/);
+  await assert.rejects(s.copyToSpace('sandbox-me', id, 'nope'), /not found/);
+});
