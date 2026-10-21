@@ -17,7 +17,7 @@
     ['storyboard', 'Storyboard', 'tool', 'coming-soon'],
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'coming-soon'],
-    ['website', 'Website', 'workflow', 'coming-soon'], // Core flips to 'available' when Tyler's workflow screen merges
+    ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],

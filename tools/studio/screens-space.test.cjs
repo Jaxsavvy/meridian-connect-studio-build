@@ -15,7 +15,7 @@ test('workflow row precedes tools; only available entries can open Work', async 
   const s = setup(); await s.model.load();
   const groups = groupTools(await s.service.listTools());
   assert.deepEqual(groups.map(g => g.kind), ['workflow', 'tool']);
-  assert.ok(groups[0].tools.every(t => t.disabled));
+  assert.deepEqual(groups[0].tools.filter(t => !t.disabled).map(t => t.id), ['website']); // Core switched Website on after #77
   assert.equal(s.model.open('video'), false); assert.equal(s.model.open('unknown'), false);
   assert.equal(s.model.open('image-gen'), true); assert.equal(s.model.open('asset-library'), true);
   s.model.back();
