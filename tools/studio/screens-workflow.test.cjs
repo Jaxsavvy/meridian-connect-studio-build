@@ -78,7 +78,7 @@ test('available workflows and real Jobs navigate; placeholder Job stays plain te
   assert.deepEqual(routes[0], ['workflow', { spaceId: 'sample-client', workflowId: 'website' }]);
   const job = await service.startJob('sample-client', 'website', 'standard'); await tick();
   walk(el).find(n => n.tag === 'button' && text(n) === 'Website v1').click();
-  assert.deepEqual(routes[1], ['work', { spaceId: 'sample-client', jobId: job.id }]); cleanup();
+  assert.deepEqual(routes[1], ['job', { spaceId: 'sample-client', jobId: job.id }]); cleanup();
 });
 test('rendered failed workflow retries and coming-soon state keeps Back available', async () => {
   let fail = true; const service = { ...createSampleService(), getWorkflow: async () => { if (fail) throw Error('offline'); return null; } };
