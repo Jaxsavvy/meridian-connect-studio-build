@@ -78,3 +78,17 @@ test('versions: originals never change; history is per family and per Space', as
   assert.notEqual(history[0].url, 'data:image/png;base64,AA');   // original untouched
   await assert.rejects(s.listVersions('client-b', v1), /not found/);
 });
+
+test('images made inside a Job are tagged and listed per stage; other Jobs and Spaces never mix', async () => {
+  const s = service();
+  const job = await s.startJob('client-a', 'website', 'standard');
+  const other = await s.startJob('client-a', 'website', 'cinematic');
+  await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Stage', count: 2, jobId: job.id, stageId: 'look' });
+  await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Loose', count: 1 });
+  const byStage = await s.listJobAssets('client-a', job.id);
+  assert.equal(byStage.look.length, 2); assert.equal(byStage.brief.length, 0);
+  assert.equal(Object.values(await s.listJobAssets('client-a', other.id)).flat().length, 0);
+  await assert.rejects(s.generateImage({ spaceId: 'client-b', presetId: 'website-hero', description: 'x', jobId: job.id }), /not found/);
+  assert.equal((await s.listJobs('client-a')).length, 2);
+  assert.equal((await s.listJobs('client-b')).length, 0);
+});

@@ -139,6 +139,17 @@
         return clone(jobView(job));
       },
       async getJob(spaceId, jobId) { requireSpace(spaceId); return clone(jobView(requireJob(spaceId, jobId))); },
+      /** Started Jobs in this Space (not the placeholder shown on a fresh client). */
+      async listJobs(spaceId) { requireSpace(spaceId); return clone(spaceJobs(spaceId).map(jobSummary)); },
+      /** Assets made inside a Job (kept or not, never trashed), grouped by stage id. */
+      async listJobAssets(spaceId, jobId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        const byStage = {};
+        for (const id of job.stageIds) byStage[id] = [];
+        for (const a of spaceAssets(spaceId)) if (a.jobId === job.id && !a.trashed && byStage[a.stageId]) byStage[a.stageId].push(a);
+        return clone(byStage);
+      },
       /** Marks the current stage done and moves on. Stages Jax approves wait on him instead. */
       async completeStage(spaceId, jobId) {
         requireSpace(spaceId);
@@ -216,7 +227,8 @@
         const root = asset.rootId || asset.id;
         return clone(list.filter(a => (a.rootId || a.id) === root).sort((a, b) => a.version - b.version));
       },
-      /** request: { spaceId, presetId, description, count (1|2|4), references: [assetId] } */
+      /** request: { spaceId, presetId, description, count (1|2|4), references: [assetId], jobId?, stageId? }
+       *  jobId/stageId (from the Work view inside a Job) tag the results so the Job page can list them. */
       async generateImage(request) {
         const space = requireSpace(request && request.spaceId);
         const preset = PRESETS.find(p => p.id === request.presetId) || PRESETS[0];
@@ -225,11 +237,16 @@
         const count = [1, 2, 4].includes(request.count) ? request.count : 4;
         const refinedDescription = `${description} — ${preset.name.toLowerCase()} composition, on-brand colors, natural light`;
         const settingsUsed = { preset: preset.name, size: preset.size, count, model: 'sample', useBrandDna: space.type === 'client' };
+        let tag = {};
+        if (request.jobId) {
+          const job = requireJob(space.id, request.jobId);
+          tag = { jobId: job.id, stageId: job.stageIds.includes(request.stageId) ? request.stageId : job.stageId };
+        }
         const results = [];
         for (let i = 0; i < count; i += 1) {
           const asset = { id: nextId('asset'), spaceId: space.id, name: `${preset.id}-sample-${i + 1}__v1`, kind: 'image',
             url: sampleImage(`${preset.name} ${i + 1}`, 200 + i * 25), version: 1, parentId: null,
-            kept: false, approved: false, trashed: false, createdBy: 'image-gen', settingsUsed };
+            kept: false, approved: false, trashed: false, createdBy: 'image-gen', settingsUsed, ...tag };
           spaceAssets(space.id).push(asset);
           results.push({ assetId: asset.id, url: asset.url, note: i === 0 ? 'Best fit for the brief' : '' });
         }
