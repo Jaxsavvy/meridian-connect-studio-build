@@ -1,0 +1,9 @@
+.studio-stage-bar { display: grid; gap: .75rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-stage-list { display: flex; flex-wrap: wrap; gap: .75rem 2rem; padding-inline-start: 1.5rem; }
+.studio-stage-list [aria-current="step"] { font-weight: bold; text-decoration: underline; }
+.studio-stage-bar fieldset { min-width: 0; display: grid; gap: .5rem; }
+.studio-stage-bar label { display: flex; align-items: baseline; gap: .5rem; }
+.studio-stage-bar input { flex-shrink: 0; accent-color: var(--studio-accent); }
+.studio-stage-bar input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-stage-bar button { justify-self: start; }
+.studio-work-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-block-end: .75rem; }
