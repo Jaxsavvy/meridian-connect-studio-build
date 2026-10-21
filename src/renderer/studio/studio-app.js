@@ -24,7 +24,9 @@
   let view = { name: 'home', params: {} };
   let cleanups = [];
 
-  const service = window.MeridianStudioService.createSampleService();
+  // Sample mode: a stand-in "Jax" approves after 5 seconds so the whole Job can be clicked through.
+  // The real server (Core #48) replaces this; approvals then only come from Jax's Command queue.
+  const service = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000 });
 
   // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
   // edits index.html or another lane's file. Files that don't exist yet are skipped.

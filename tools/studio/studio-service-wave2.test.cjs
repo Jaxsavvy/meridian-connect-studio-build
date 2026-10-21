@@ -92,3 +92,22 @@ test('images made inside a Job are tagged and listed per stage; other Jobs and S
   assert.equal((await s.listJobs('client-a')).length, 2);
   assert.equal((await s.listJobs('client-b')).length, 0);
 });
+
+test('sample-mode stand-in Jax approves waiting stages and Review items after a delay; off by default', async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const off = service();
+  const j0 = await off.startJob('client-a', 'website', 'standard');
+  await off.completeStage('client-a', j0.id); await wait(30);
+  assert.equal((await off.getJob('client-a', j0.id)).waitingOnJax, true);          // tests: never auto-approved
+
+  const s = createSampleService({ simulateJaxMs: 10 });
+  s.setProjects([{ id: 'client-a', name: 'Client A' }]);
+  const job = await s.startJob('client-a', 'website', 'standard');
+  assert.equal((await s.completeStage('client-a', job.id)).waitingOnJax, true);
+  await wait(40);
+  assert.equal((await s.getJob('client-a', job.id)).stageId, 'plan');
+  const out = await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'x', count: 1 });
+  await s.sendToReview('client-a', out.results[0].assetId);
+  await wait(40);
+  assert.equal((await s.listAssets('client-a'))[0].approved, true);
+});
