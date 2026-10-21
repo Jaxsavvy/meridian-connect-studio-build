@@ -56,7 +56,7 @@ Shared files change only through the Core lane. If your issue needs a shared-fil
 - Screens: `MeridianStudio.registerScreen('home' | 'space' | 'work' | 'workflow' | 'job', { render(el, params, studio) })`.
 - Tools: `MeridianStudio.registerTool('<tool-id>', { mountCanvas(el, ctx) })`.
 - Panels: `MeridianStudio.registerPart('assets-strip' | 'conversation' | 'stage-bar' | 'version-history', { mount(el, ctx) })`.
-- Workflows, Jobs, Review and versions come from the service too: `getWorkflow`, `startJob`, `getJob`, `listJobs`, `listJobAssets`, `completeStage`, `sendToReview`, `listReview`, `saveVersion`, `listVersions`. In sample mode `approveStage` and `approveAsset` stand in for Jax so you can test the whole path; never show those buttons to employees.
+- Workflows, Jobs, Review and versions come from the service too: `getWorkflow`, `startJob`, `getJob`, `listJobs`, `listJobAssets`, `completeStage`, `sendToReview`, `listReview`, `saveVersion`, `listVersions`, `copyToSpace`. In sample mode `approveStage` and `approveAsset` stand in for Jax so you can test the whole path; never show those buttons to employees.
 - Fill a slot with `studio.mountInto(el, 'tool' | 'part', id, ctx)`; move with `studio.navigate(name, params)`; mark unsaved work with `studio.setDirty(true)`.
 - `render`/`mount`/`mountCanvas` may return a cleanup function (remove listeners there).
 - Each issue's files are already listed in `LANE_FILES` in `studio-app.js`, so they load automatically. Don't edit `index.html`.
