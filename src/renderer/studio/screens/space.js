@@ -71,9 +71,12 @@
     }
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const focus = states.focus(root);
+    let panelController = null;
+    function closeMove() { panelController?.abort(); panelController = null; }
     const model = createSpace({ service: studio.service, spaceId, navigate: studio.navigate,
       report(view) {
         const restoreFocus = focus();
+        closeMove();
         root.replaceChildren(button('Back to Studio', () => model.back()), node('h1', view.space?.name || 'Space'));
         root.setAttribute('aria-busy', String(view.state === 'loading'));
         if (view.state !== 'ready') {
@@ -123,7 +126,17 @@
             image.addEventListener('error', () => { image.replaceWith(node('p', 'Preview unavailable')); }, { once: true });
             figure.appendChild(image);
           }
-          figure.appendChild(node('figcaption', asset.name)); list.appendChild(figure);
+          figure.appendChild(node('figcaption', asset.name));
+          if (space.type.startsWith('sandbox')) {
+            const panel = node('div');
+            const move = button('Move to client', () => {
+              closeMove(); panelController = new AbortController();
+              studio.mountInto(panel, 'part', 'move-to-client', { spaceId, assetId: asset.id, signal: panelController.signal,
+                onDone() { closeMove(); move.focus?.(); } });
+            });
+            figure.append(move, panel);
+          }
+          list.appendChild(figure);
         }
         recent.appendChild(list);
         for (const group of groups) {
@@ -141,7 +154,7 @@
         restoreFocus();
       } });
     void model.load();
-    return () => { model.dispose(); root.remove(); };
+    return () => { closeMove(); model.dispose(); root.remove(); };
   }
   return { groupTools, recentAssets, progress, createSpace, render };
 });

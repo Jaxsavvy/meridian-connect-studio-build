@@ -1,0 +1,2 @@
+#studioCenter .studio-move-to-client { display: grid; gap: var(--studio-space-3); margin-block: var(--studio-space-3); }
+#studioCenter .studio-move-to-client > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
