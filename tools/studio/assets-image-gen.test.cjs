@@ -193,3 +193,47 @@ test('asset refreshes queue during writes, reject stale reads, and clear inacces
   assert.equal(fresh.snapshot().ready, false); assert.deepEqual(fresh.snapshot().results, []); assert.doesNotMatch(fresh.snapshot().error, /private diagnostic/);
   denied = false; await fresh.retry(); assert.equal(fresh.snapshot().ready, true); fresh.dispose();
 });
+
+test('mounted canvas tags first generation and Variations with the Job Look stage; standalone requests stay unchanged', async () => {
+  for (const inJob of [true, false]) {
+    const base = createSampleService(), job = await base.startJob('sandbox-me', 'website', 'standard'), requests = [];
+    const service = { ...base, generateImage: req => { requests.push(req); return base.generateImage(req); } };
+    const doc = { createElement: tag => new Element(tag, doc), activeElement: null }, host = new Element('div', doc);
+    const cleanup = mountCanvas(host, { spaceId: 'sandbox-me', ...(inJob ? { jobId: job.id, stageId: 'look' } : { stageId: 'look' }),
+      studio: { service, setDirty() {}, on: () => () => {} } });
+    const tick = () => new Promise(setImmediate); await tick();
+    const click = async label => { const b = host.all().find(n => n.tag === 'button' && n.textContent === label && !n.hidden); assert.ok(b); assert.equal(b.disabled, false); await b.events.click(); await tick(); };
+    const approve = () => { const c = host.all().find(n => n.type === 'checkbox'); c.checked = true; c.events.change(); };
+    const input = host.all().find(n => n.tag === 'textarea'); input.value = 'Synthetic stage image'; input.events.input();
+    await click('Sharpen my description'); approve(); await click('Generate'); await click('Variations'); approve(); await click('Generate');
+    assert.equal(requests.length, 2);
+    const assets = await base.listAssets('sandbox-me'), grouped = await base.listJobAssets('sandbox-me', job.id);
+    if (inJob) {
+      assert.equal(grouped.look.length, 8);
+      assert.ok(requests.every(r => r.jobId === job.id && r.stageId === 'look'));
+      assert.ok(assets.every(a => a.jobId === job.id && a.stageId === 'look'));
+    } else {
+      assert.equal(grouped.look.length, 0);
+      assert.ok(assets.every(a => !Object.hasOwn(a, 'jobId') && !Object.hasOwn(a, 'stageId')));
+      for (const r of requests) assert.deepEqual(Object.keys(r).sort(), ['spaceId', 'requestId', 'presetId', 'description', 'count', 'references'].sort());
+    }
+    cleanup();
+  }
+});
+
+test('Job context stays on the same confirmed request through retry and uncertain-success reconciliation', async () => {
+  const base = createSampleService(), job = await base.startJob('sandbox-me', 'website', 'standard'), calls = [];
+  let fail = true;
+  const c = await prepare({ ...base, generateImage: req => { calls.push(req); if (fail) throw new Error('Offline'); return base.generateImage(req); } },
+    { jobId: job.id, stageId: 'look' });
+  c.confirm(true); await c.generate(); fail = false; await c.retry();
+  assert.equal(calls.length, 2); assert.equal(calls[0], calls[1]);
+  assert.equal(calls[1].jobId, job.id); assert.equal(calls[1].stageId, 'look');
+  assert.equal((await base.listJobAssets('sandbox-me', job.id)).look.length, 1); c.dispose();
+  let writes = 0;
+  const recovered = await prepare({ ...base, generateImage: async req => { writes++; await base.generateImage(req); throw new Error('Disconnected after save'); } },
+    { jobId: job.id, stageId: 'look' });
+  recovered.confirm(true); await recovered.generate(); assert.equal(writes, 1);
+  assert.equal(recovered.snapshot().results.length, 1);
+  assert.equal((await base.listJobAssets('sandbox-me', job.id)).look.length, 2); recovered.dispose();
+});
