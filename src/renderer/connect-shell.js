@@ -402,6 +402,10 @@
   }
   async function hbCheck() {
     if (!window.meridian || !window.meridian.api || !window.meridian.api.ping) return;
+    // Developer sample sign-in has no home base by design: never show the offline banner there.
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.sample) {
+      hbOffline = false; hbBanner(false); setTimeout(hbCheck, 15000); return;
+    }
     let ok = false;
     try { const r = await window.meridian.api.ping(); ok = !!(r && r.success); } catch (_) { ok = false; }
     if (!ok && !hbOffline) { hbOffline = true; hbBanner(true); }
