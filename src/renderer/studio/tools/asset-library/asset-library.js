@@ -38,8 +38,8 @@
     return {
       snapshot, load: () => core.load(), retry: () => core.retry(), discard: () => core.discard(),
       filter(query, mode) {
-        if (closed || core.snapshot().dirty || !['all', 'kept', 'trash'].includes(mode)) return Promise.resolve(false);
-        filter = mode; return core.filter(query, mode === 'trash');
+        if (closed || core.snapshot().dirty || !['all', 'kept', 'trash', 'review'].includes(mode)) return Promise.resolve(false);
+        filter = mode; return core.filter(query, mode === 'trash', mode === 'review');
       },
       select(id) {
         const state = snapshot();
@@ -47,7 +47,7 @@
         selectedId = id; report(); return true;
       },
       close() { if (closed || core.snapshot().dirty) return false; selectedId = null; report(); return true; },
-      act(action) { return closed || !snapshot().selected ? Promise.resolve(false) : core.act(action, selectedId); },
+      act(action, note) { return closed || !snapshot().selected ? Promise.resolve(false) : core.act(action, selectedId, note); },
       actionsFor: asset => strip.actionsFor(asset),
       dispose() { closed = true; core.dispose(); selectedId = null; },
     };
@@ -60,17 +60,17 @@
     const form = node('form', undefined, 'asset-library-controls'), searchLabel = node('label', 'Search assets'), query = node('input');
     query.type = 'search'; query.dataset.focus = 'search'; searchLabel.append(query);
     const filterLabel = node('label', 'Show assets'), filter = node('select'); filter.dataset.focus = 'filter';
-    for (const [value, text] of [['all', 'All'], ['kept', 'Kept'], ['trash', 'Trash']]) { const option = node('option', text); option.value = value; filter.append(option); } filterLabel.append(filter);
+    for (const [value, text] of [['all', 'All'], ['kept', 'Kept'], ['trash', 'Trash'], ['review', 'In review']]) { const option = node('option', text); option.value = value; filter.append(option); } filterLabel.append(filter);
     const historySlot = node('div'); let historyId = null;
     const closeHistory = () => { historySlot.disposeVersionHistory?.(); historySlot.replaceChildren(); historyId = null; };
-    let controller = null, disposed = false, actionFocus = null, detailHeading = null;
+    let reviews = null, controller = null, disposed = false, actionFocus = null, detailHeading = null;
     const search = button('Search', () => controller?.filter(query.value, filter.value));
     form.addEventListener('submit', event => { event.preventDefault(); controller?.filter(query.value, filter.value); });
     query.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); controller?.filter(query.value, filter.value); } });
     filter.addEventListener('change', () => controller?.filter(query.value, filter.value)); form.append(searchLabel, filterLabel, search);
     const status = node('p'); status.setAttribute('aria-live', 'polite');
-    const retry = button('Try again', () => controller ? controller.retry() : boot());
-    const discard = button('Discard unsaved change', () => controller?.discard());
+    const retry = button('Try again', async () => { if (!controller) return boot(); if (await controller.retry()) query.focus(); });
+    const discard = button('Discard unsaved change', () => { reviews?.discard(); controller?.discard(); });
     const retention = node('p', 'Trash empties after 30 days.');
     const layout = node('div', undefined, 'asset-library-layout'), grid = node('ul', undefined, 'asset-library-grid'); grid.setAttribute('aria-label', 'Space assets');
     const details = node('section', undefined, 'asset-library-details'); details.setAttribute('aria-label', 'Asset details');
@@ -88,10 +88,10 @@
       const loading = ['loading', 'saving'].includes(state.phase);
       section.classList.toggle('is-loading', loading); section.setAttribute('aria-busy', String(loading));
       query.disabled = search.disabled = filter.disabled = state.dirty; filter.value = state.filter;
-      retry.hidden = state.phase !== 'failed'; discard.hidden = !state.dirty || state.busy; retention.hidden = state.filter !== 'trash';
+      retry.hidden = state.phase !== 'failed'; discard.hidden = (!state.dirty && !reviews.hasDrafts()) || state.busy; retention.hidden = state.filter !== 'trash';
       status.setAttribute('role', state.error ? 'alert' : 'status');
       status.textContent = state.error || (state.phase === 'loading' ? 'Loading assets…' : state.busy ? 'Saving…' : state.assets.length ? `${state.assets.length} assets` :
-        state.query ? 'No assets match your search.' : state.filter === 'trash' ? 'Trash is empty.' : state.filter === 'kept' ? 'No kept assets yet.' : 'Nothing here yet. Things you make in this Space show up here.');
+        state.query ? 'No assets match your search.' : state.filter === 'trash' ? 'Trash is empty.' : state.filter === 'review' ? 'Nothing is waiting on Jax.' : state.filter === 'kept' ? 'No kept assets yet.' : 'Nothing here yet. Things you make in this Space show up here.');
       grid.replaceChildren(); details.replaceChildren(); details.hidden = !state.selected;
       for (const asset of state.assets) {
         const row = node('li', undefined, 'asset-thumb'); row.classList.toggle('is-kept', Boolean(asset.kept)); row.classList.toggle('is-trashed', Boolean(asset.trashed));
@@ -99,7 +99,8 @@
         const pick = button(asset.name, () => { if (controller.select(asset.id)) detailHeading?.focus(); }); pick.className = 'asset-library-select';
         pick.dataset.focus = `${asset.id}:select`; pick.setAttribute('aria-pressed', String(asset.id === state.selected?.id)); pick.disabled = state.dirty;
         preview(asset, row, 'asset-library-thumbnail'); row.append(pick);
-        if (asset.kept) row.append(node('span', 'Kept', 'asset-kept-badge')); grid.append(row);
+        if (asset.kept) row.append(node('span', 'Kept', 'asset-kept-badge'));
+        const reviewStatus = getStrip().reviewStatus(asset); if (reviewStatus) row.append(node('span', reviewStatus, 'studio-chip asset-review-status')); grid.append(row);
       }
       const asset = state.selected;
       if (historyId && historyId !== asset?.id) closeHistory();
@@ -130,6 +131,7 @@
           b.dataset.focus = `${asset.id}:${action}`; b.disabled = state.dirty; details.append(b);
         }
         if (asset.kept) details.append(node('span', 'Kept', 'asset-kept-badge'));
+        reviews.append(details, asset, state.dirty, note => controller.act('review', note));
       }
       if (actionFocus && !loading) {
         const controls = Array.from(section.querySelectorAll('[data-focus]')).filter(n => !n.disabled);
@@ -139,8 +141,10 @@
     function boot() {
       if (disposed) return;
       try {
+        if (!getStrip()?.createReviewUI) throw new Error('Asset helpers are still loading.');
+        reviews = getStrip().createReviewUI(value => { studio.setDirty(value); discard.hidden = !value || controller?.snapshot().busy; });
         controller = createLibrary({ spaceId, service: studio.service, selectedId: studio.current?.()?.params?.assetId,
-          onChange: render, onDirty: value => studio.setDirty(value) });
+          onChange: render, onDirty: value => reviews.dirty(value) });
         controller.load();
       } catch {
         query.disabled = search.disabled = filter.disabled = true; discard.hidden = retention.hidden = details.hidden = true;
@@ -148,7 +152,7 @@
       }
     }
     boot();
-    return () => { disposed = true; closeHistory(); controller?.dispose(); el.replaceChildren(); };
+    return () => { disposed = true; reviews?.dispose(); closeHistory(); controller?.dispose(); el.replaceChildren(); };
   }
   return { suggestedName, settingsRows, createLibrary, mountCanvas };
 });
