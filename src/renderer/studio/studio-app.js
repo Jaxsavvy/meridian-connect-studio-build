@@ -44,6 +44,8 @@
     'studio/assets/version-history.js', 'studio/assets/version-history.css',
     'studio/tools/asset-library/asset-library.js', 'studio/tools/asset-library/asset-library.css',
     'studio/tools/image-gen/image-gen.js', 'studio/tools/image-gen/image-gen.css',
+    'studio/tools/copywriter/copywriter.js', 'studio/tools/copywriter/copywriter.css',
+    'studio/tools/storyboard/storyboard.js', 'studio/tools/storyboard/storyboard.css',
     'studio/ai/conversation.js', 'studio/ai/conversation.css',
   ];
 
