@@ -60,6 +60,16 @@ contextBridge.exposeInMainWorld('meridian', {
     changePassword: (current, next) => ipcRenderer.invoke('api:change-password', { current, next }),
     ws: (method, endpoint, body) => ipcRenderer.invoke('ws:request', { method, endpoint, body }),
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
+    wsCreateProjectPdf: (projectId, title, content) => ipcRenderer.invoke('ws:create-project-pdf', { projectId, title, content }),
+    // A file dropped onto the chat: its bytes go to the main process (no file path crosses over)
+    wsUploadDroppedChatFile: async (convo, file, caption) => {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return await ipcRenderer.invoke('ws:upload-dropped-chat-file', { convo, name: file.name, bytes, caption });
+      } catch (_) {
+        return { success: false, error: 'Could not read the dropped file.' };
+      }
+    },
     wsDownload: (projectId, name, section) => ipcRenderer.invoke('ws:download', { projectId, name, section }),
     wsUploadChatMedia: (convo, caption) => ipcRenderer.invoke('ws:upload-chat-media', { convo, caption }),
     wsDownloadChatMedia: (mediaId, name) => ipcRenderer.invoke('ws:download-chat-media', { mediaId, name }),

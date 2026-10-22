@@ -6,7 +6,8 @@
 'use strict';
 
 (function () {
-  const S = { convo: 'c:general', last: 0, side: null, timer: null, sideTimer: null, sending: false, prev: null };
+  const S = { convo: 'c:general', last: 0, side: null, timer: null, sideTimer: null, sending: false, prev: null,
+    gen: 0, loading: false, again: false, files: [], filesOpen: false, filesAvailable: false, aiEnabled: false };
   const mediaUrlCache = new Map();
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="#" data-url="$1">$1</a>').replace(/\n/g, '<br>');
@@ -81,10 +82,23 @@
             <button type="button" class="mh-attach-btn" id="mh-attach" title="Attach picture, video, or file" aria-label="Attach file">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </button>
+            <button type="button" class="mh-ask-btn" id="mh-ask" title="Invite Meridian into this project chat" aria-label="Invite Meridian">✦</button>
             <textarea id="mh-text" rows="1" placeholder="Message" aria-label="Message"></textarea>
             <button class="bv-btn" id="mh-send">Send</button>
           </form>
-        </section></div>`;
+        </section>
+        <aside class="mh-files" id="mh-files" aria-label="Project files" hidden>
+          <div class="mh-files-head"><div><b>Project files</b><small id="mh-files-project"></small></div><button type="button" id="mh-files-close" aria-label="Close project files">×</button></div>
+          <label class="mh-files-search"><span aria-hidden="true">⌕</span><input id="mh-files-search" type="search" placeholder="Search files" aria-label="Search project files"></label>
+          <div class="mh-files-actions"><button type="button" id="mh-files-upload">↑ Upload</button><button type="button" id="mh-files-create">＋ Markdown</button><button type="button" id="mh-files-pdf">＋ PDF</button></div>
+          <div class="mh-files-list" id="mh-files-list"></div>
+          <p class="mh-files-hint">Select a file to share it in this chat. Your project access is checked again when you send.</p>
+        </aside></div>
+        <dialog class="mh-new-doc" id="mh-new-doc"><form method="dialog" id="mh-new-doc-form">
+          <h3 id="mh-new-doc-heading">New Markdown note</h3><label>Title<input id="mh-new-doc-title" maxlength="100" required placeholder="Project brief"></label>
+          <label>Content<textarea id="mh-new-doc-content" rows="9" maxlength="50000" placeholder="# Project brief"></textarea></label>
+          <div><button type="button" id="mh-new-doc-cancel">Cancel</button><button type="submit">Create note</button></div>
+        </form></dialog>`;
 
       const ta = document.getElementById('mh-text');
       ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('mh-compose').requestSubmit(); } });
@@ -94,11 +108,27 @@
       document.getElementById('mh-compose').onsubmit = async (e) => {
         e.preventDefault();
         const text = ta.value.trim(); if (!text || S.sending) return;
+        const convo = S.convo;
+        if (convo.startsWith('c:p:') && /(?:@meridian\b|\bhey[ ,]+meridian\b)/i.test(text) && !S.aiEnabled) {
+          return flash('Shared Meridian is not available on the host yet.');
+        }
         S.sending = true; ta.value = ''; ta.style.height = 'auto';
-        const r = await api('POST', '/api/chat-hub/send', { c: S.convo, text });
+        const r = await api('POST', '/api/chat-hub/send', { c: convo, text });
         S.sending = false;
         if (!r.success) { ta.value = text; return flash(r.error); }
         await loadThread(false); loadSide();
+        if (convo.startsWith('c:p:') && /(?:@meridian\b|\bhey[ ,]+meridian\b)/i.test(text)) {
+          const reply = await api('POST', '/api/chat-hub/ask-project', { c: convo, message_id: r.message_id });
+          if (convo === S.convo) {
+            if (!reply || !reply.success) flash(reply ? reply.error : 'Meridian is unavailable.');
+            else loadThread(false);
+          }
+        }
+      };
+      document.getElementById('mh-ask').onclick = () => {
+        if (!projectIdForConvo()) return flash('Open a project chat to invite Meridian.');
+        ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + '@Meridian ';
+        ta.focus(); ta.dispatchEvent(new Event('input'));
       };
 
       // Attach file button
@@ -106,6 +136,7 @@
       if (attachBtn) {
         attachBtn.onclick = async () => {
           if (S.sending) return;
+          if (S.convo.startsWith('d:')) return flash('Choose a project chat to add files while private-message project placement is being set up.');
           const caption = ta.value.trim();
           attachBtn.disabled = true;
           const r = await window.meridian.api.wsUploadChatMedia(S.convo, caption);
@@ -117,7 +148,7 @@
           ta.value = '';
           ta.style.height = 'auto';
           await loadThread(false);
-          loadSide();
+          loadSide(); loadFiles();
         };
       }
 
@@ -140,18 +171,22 @@
           e.stopPropagation();
           mainEl.classList.remove('drag-over');
           const files = e.dataTransfer.files;
+          const shared = e.dataTransfer.getData('application/x-meridian-project-file');
+          if (shared) {
+            try { await shareFile(JSON.parse(shared)); } catch (_) { flash('Could not attach that project file.'); }
+            return;
+          }
           if (!files || !files.length) return;
-          const filePath = files[0].path;
-          if (!filePath) return;
+          if (S.convo.startsWith('d:')) return flash('Choose a project chat to add files while private-message project placement is being set up.');
           const caption = ta.value.trim();
-          const r = await window.meridian.api.wsUploadChatFile(S.convo, filePath, caption);
+          const r = await window.meridian.api.wsUploadDroppedChatFile(S.convo, files[0], caption);
           if (!r || !r.success) {
             return flash(r ? r.error : 'Upload failed');
           }
           ta.value = '';
           ta.style.height = 'auto';
           await loadThread(false);
-          loadSide();
+          loadSide(); loadFiles();
         });
       }
 
@@ -160,6 +195,45 @@
         if (d) { e.preventDefault(); return deleteMessage(d.dataset.del); }
         const a = e.target.closest('a[data-url]');
         if (a) { e.preventDefault(); window.meridian.openExternal(a.dataset.url); }
+      });
+      document.getElementById('mh-head').addEventListener('click', (e) => {
+        if (e.target.closest('#mh-files-toggle')) { S.filesOpen = !S.filesOpen; renderFiles(); header(); }
+      });
+      document.getElementById('mh-files-close').onclick = () => { S.filesOpen = false; renderFiles(); header(); };
+      document.getElementById('mh-files-search').oninput = renderFiles;
+      document.getElementById('mh-files-upload').onclick = async () => {
+        const projectId = projectIdForConvo();
+        if (!projectId) return;
+        const r = await window.meridian.api.wsUpload(projectId, 'Files');
+        if (!r || !r.success) return flash(r ? r.error : 'Upload failed');
+        await loadFiles();
+      };
+      const newDoc = document.getElementById('mh-new-doc');
+      let documentKind = 'md';
+      document.getElementById('mh-files-create').onclick = () => {
+        documentKind = 'md'; document.getElementById('mh-new-doc-heading').textContent = 'New Markdown note'; newDoc.showModal();
+      };
+      document.getElementById('mh-files-pdf').onclick = () => {
+        documentKind = 'pdf'; document.getElementById('mh-new-doc-heading').textContent = 'New PDF'; newDoc.showModal();
+      };
+      document.getElementById('mh-new-doc-cancel').onclick = () => newDoc.close();
+      document.getElementById('mh-new-doc-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('mh-new-doc-title').value.trim();
+        const content = document.getElementById('mh-new-doc-content').value;
+        const r = documentKind === 'pdf'
+          ? await window.meridian.api.wsCreateProjectPdf(projectIdForConvo(), title, content)
+          : await api('POST', '/api/chat-hub/create-markdown', { c: S.convo, title, content });
+        if (!r || !r.success) return flash(r ? r.error : 'Could not create note.');
+        newDoc.close(); e.target.reset(); await loadFiles();
+      };
+      document.getElementById('mh-files-list').addEventListener('click', (e) => {
+        const row = e.target.closest('[data-file-index]');
+        if (row) shareFile(S.files[Number(row.dataset.fileIndex)]);
+      });
+      document.getElementById('mh-files-list').addEventListener('dragstart', (e) => {
+        const row = e.target.closest('[data-file-index]');
+        if (row) e.dataTransfer.setData('application/x-meridian-project-file', JSON.stringify(S.files[Number(row.dataset.fileIndex)]));
       });
     }
     return document.getElementById('mh');
@@ -176,6 +250,71 @@
     }
   }
 
+  const projectIdForConvo = () => S.convo.startsWith('c:p:') ? S.convo.slice(4) : null;
+
+  async function loadCapabilities() {
+    let r = null;
+    try { r = await api('GET', '/api/chat-hub/capabilities'); } catch (_) { /* unavailable */ }
+    S.aiEnabled = !!(r && r.success && r.shared_ai_invite_enabled);
+    const firstAvailability = !S.filesAvailable && !!(r && r.success && r.project_files_enabled);
+    S.filesAvailable = !!(r && r.success && r.project_files_enabled);
+    if (firstAvailability) S.filesOpen = !!projectIdForConvo() && window.innerWidth > 1200;
+    if (!S.filesAvailable) S.filesOpen = false;
+    header();
+    renderFiles();
+    if (S.filesAvailable) loadFiles();
+  }
+
+  async function loadFiles() {
+    const convo = S.convo;
+    if (!S.filesAvailable || !projectIdForConvo()) { S.files = []; renderFiles(); return; }
+    const r = await api('GET', `/api/chat-hub/project-files?c=${encodeURIComponent(convo)}`);
+    if (convo !== S.convo) return;
+    if (!r || !r.success) { S.files = []; renderFiles(); return flash(r ? r.error : 'Project files unavailable.'); }
+    S.files = r.files || [];
+    renderFiles();
+  }
+
+  function renderFiles() {
+    const drawer = document.getElementById('mh-files');
+    const list = document.getElementById('mh-files-list');
+    if (!drawer || !list) return;
+    const show = S.filesAvailable && !!projectIdForConvo() && S.filesOpen;
+    drawer.hidden = !show;
+    document.getElementById('mh').classList.toggle('files-open', show);
+    if (!show) return;
+    const project = S.side?.channels.find((x) => 'c:' + x.id === S.convo);
+    document.getElementById('mh-files-project').textContent = `${project?.topic || 'Project'} · ${S.files.length} files`;
+    const q = document.getElementById('mh-files-search').value.trim().toLowerCase();
+    const groups = [['Pictures', 'image'], ['Documents', 'document'], ['Videos', 'video'], ['Audio', 'audio']];
+    list.innerHTML = groups.map(([label, type]) => {
+      const rows = S.files.map((f, index) => ({ f, index })).filter(({ f }) => f.type === type && (!q || f.name.toLowerCase().includes(q)));
+      if (!rows.length) return '';
+      return `<section class="mh-files-group"><h4>${label} <span>${rows.length}</span></h4>${rows.map(({ f, index }) =>
+        `<button type="button" class="mh-file" data-file-index="${index}" draggable="true" title="Share ${esc(f.name)} in this chat">
+          <span class="mh-file-icon">${type === 'image' ? '▧' : type === 'video' ? '▷' : type === 'audio' ? '♫' : '▤'}</span>
+          <span><b>${esc(f.name)}</b><small>${esc(f.section)} · ${esc(f.size_formatted || '')}</small></span><i aria-hidden="true">↗</i></button>`).join('')}</section>`;
+    }).join('') || `<p class="mh-empty">${q ? 'No matching files.' : 'No project files yet. Upload one or create a note.'}</p>`;
+  }
+
+  async function shareFile(file) {
+    if (!file || !projectIdForConvo() || S.sending) return;
+    const ta = document.getElementById('mh-text');
+    const convo = S.convo;
+    const caption = ta.value.trim();
+    S.sending = true;
+    const body = { c: convo, source: file.source, section: file.section, name: file.name,
+      media_id: file.media_id, caption };
+    const r = await api('POST', '/api/chat-hub/attach-existing', body);
+    S.sending = false;
+    if (!r || !r.success) return flash(r ? r.error : 'Could not share file.');
+    if (convo === S.convo) {
+      ta.value = ''; ta.style.height = 'auto';
+      await loadThread(false);
+    }
+    loadSide();
+  }
+
   async function loadSide() {
     const r = await api('GET', '/api/chat-hub/sidebar');
     if (!r || !r.success) return;
@@ -185,36 +324,54 @@
     if (navText) {
       let b = navText.querySelector('.mh-badge');
       if (!b) { b = document.createElement('span'); b.className = 'nav-badge-pill mh-badge'; navText.appendChild(b); }
-      b.textContent = total; b.style.display = total ? '' : 'none';
+      if (b.textContent !== String(total)) { b.textContent = total; b.style.display = total ? '' : 'none'; }
     }
     const list = document.getElementById('mh-list'); if (!list) return;
-    list.innerHTML = `<div class="mh-sec">Channels</div>${r.channels.map((c) => `<button type="button" class="mh-item ${S.convo === 'c:' + c.id ? 'on' : ''} ${c.unread ? 'unread' : ''}" data-c="c:${esc(c.id)}">
+    // 2026-10-19: this runs every 8 s on every page; only touch the page when something actually changed.
+    const html = `<div class="mh-sec">Channels</div>${r.channels.map((c) => `<button type="button" class="mh-item ${S.convo === 'c:' + c.id ? 'on' : ''} ${c.unread ? 'unread' : ''}" data-c="c:${esc(c.id)}">
           <span class="mh-hash">#</span><span class="mh-name">${esc(c.name)}</span>${c.unread ? `<span class="mh-pill">${c.unread}</span>` : ''}</button>`).join('')}
       <div class="mh-sec">Direct messages</div>${r.people.map((p) => `<button type="button" class="mh-item mh-dm ${S.convo === 'd:' + p.id ? 'on' : ''} ${p.unread ? 'unread' : ''}" data-c="d:${esc(p.id)}">
           <span class="mh-av h${hue(p.id)}">${esc(p.initials)}<i class="${p.online ? 'on' : ''}"></i></span>
           <span class="mh-grow"><span class="mh-name">${esc(p.name)}</span><small>${esc(p.last || p.role)}</small></span>${p.unread ? `<span class="mh-pill">${p.unread}</span>` : ''}</button>`).join('') || '<div class="mh-empty">No teammates yet.</div>'}`;
-    list.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => open(b.dataset.c)));
+    if (list._html !== html) {
+      list.innerHTML = html; list._html = html;
+      list.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => open(b.dataset.c)));
+    }
     header();
   }
 
   function header() {
     const h = document.getElementById('mh-head'); if (!h || !S.side) return;
     const ta = document.getElementById('mh-text');
+    let html, placeholder;
     if (S.convo.startsWith('c:')) {
       const c = S.side.channels.find((x) => 'c:' + x.id === S.convo) || { name: 'general', topic: '' };
-      h.innerHTML = `<span class="mh-hash big">#</span><b>${esc(c.name)}</b><span class="mh-topic">${esc(c.topic)}</span>`;
-      if (ta) ta.placeholder = `Message #${c.name}`;
+      html = `<span class="mh-hash big">#</span><b>${esc(c.name)}</b><span class="mh-topic">${esc(c.topic)}</span>${projectIdForConvo() && S.filesAvailable ? `<button type="button" id="mh-files-toggle" aria-expanded="${S.filesOpen}">▤ Files</button>` : ''}`;
+      placeholder = `Message #${c.name}`;
     } else {
       const p = S.side.people.find((x) => 'd:' + x.id === S.convo) || { name: '?', online: false, id: '' };
-      h.innerHTML = `<span class="mh-av h${hue(p.id)}">${esc(p.initials || '?')}<i class="${p.online ? 'on' : ''}"></i></span><b>${esc(p.name)}</b><span class="mh-topic">${p.online ? 'Online' : 'Offline'} · ${esc(p.role || '')}</span>`;
-      if (ta) ta.placeholder = `Message ${p.name}`;
+      html = `<span class="mh-av h${hue(p.id)}">${esc(p.initials || '?')}<i class="${p.online ? 'on' : ''}"></i></span><b>${esc(p.name)}</b><span class="mh-topic">${p.online ? 'Online' : 'Offline'} · ${esc(p.role || '')}</span>`;
+      placeholder = `Message ${p.name}`;
     }
+    if (h._html !== html) { h.innerHTML = html; h._html = html; }   // unchanged: leave it (and any error note) alone
+    if (ta) ta.placeholder = placeholder;
+    const invite = document.getElementById('mh-ask');
+    if (invite) invite.hidden = !projectIdForConvo() || !S.aiEnabled;
   }
 
   async function loadThread(fresh) {
     const t = document.getElementById('mh-thread'); if (!t) return;
+    // 2026-10-19: one request at a time. On a slow connection a poll could overlap the next one (both appended the
+    // same messages), and a poll still out when you switched conversations dropped its messages into the new one.
+    if (!fresh && S.loading) { S.again = true; return; }
+    const gen = ++S.gen;
+    S.loading = true;
     if (fresh) { S.last = 0; t.innerHTML = ''; S.prev = null; }
-    const r = await api('GET', `/api/chat-hub/thread?c=${encodeURIComponent(S.convo)}&after=${S.last}`);
+    let r = null;
+    try { r = await api('GET', `/api/chat-hub/thread?c=${encodeURIComponent(S.convo)}&after=${S.last}`); } catch (_) { /* offline */ }
+    if (gen !== S.gen) return;   // a newer load replaced this one (it owns S.loading now)
+    S.loading = false;
+    if (S.again) { S.again = false; setTimeout(() => loadThread(false), 0); }
     if (!r || !r.success) return;
     const atEnd = t.scrollHeight - t.scrollTop - t.clientHeight < 60;
     if (fresh && !r.messages.length) {
@@ -248,26 +405,40 @@
 
   async function open(convo) {
     S.convo = convo;
+    S.filesOpen = S.filesAvailable && !!projectIdForConvo() && window.innerWidth > 1200;
     document.querySelectorAll('#mh-list .mh-item').forEach((b) => b.classList.toggle('on', b.dataset.c === convo));
     header();
-    await loadThread(true);
+    await Promise.all([loadThread(true), loadFiles()]);
     loadSide();
     const ta = document.getElementById('mh-text'); if (ta) ta.focus();
   }
 
+  // 2026-10-19: while Connect is minimized or covered, check every 15 s (thread) / 30 s (badge) instead of 3 s / 8 s,
+  // and catch up the moment it is visible again.
+  const onMessages = () => typeof activeView !== 'undefined' && activeView === 'messages';
+  const signedIn = () => typeof currentMe !== 'undefined' && !!currentMe;
+  const due = (key, ms) => { const now = Date.now(); if (now - (S[key] || 0) < ms) return false; S[key] = now; return true; };
+
   function start() {
     if (!mount()) return;
-    loadSide(); loadThread(true);
-    clearInterval(S.timer); S.timer = setInterval(() => { if (typeof activeView !== 'undefined' && activeView === 'messages') loadThread(false); }, 3000);
+    document.body.classList.add('view-messages');
+    loadCapabilities(); loadSide(); loadThread(true); loadFiles();
+    clearInterval(S.timer);
+    S.timer = setInterval(() => { if (onMessages() && (!document.hidden || due('hiddenThreadAt', 15000))) loadThread(false); }, 3000);
   }
 
   // Badge stays fresh on every page; full refresh while the Messages page is open
   clearInterval(S.sideTimer);
-  S.sideTimer = setInterval(() => { if (typeof currentMe !== 'undefined' && currentMe) loadSide(); }, 8000);
+  S.sideTimer = setInterval(() => { if (signedIn() && (!document.hidden || due('hiddenSideAt', 30000))) loadSide(); }, 8000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !signedIn()) return;
+    loadSide();
+    if (onMessages() && document.getElementById('mh-thread')) loadThread(false);
+  });
   if (typeof switchView === 'function') {
     const base = switchView;
     // eslint-disable-next-line no-global-assign
-    switchView = function (v) { base(v); if (v === 'messages') start(); };
+    switchView = function (v) { base(v); document.body.classList.toggle('view-messages', v === 'messages'); if (v === 'messages') start(); };
   }
   window.meridianMessages = { open, start };
 })();

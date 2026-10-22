@@ -274,10 +274,17 @@ const api = {
   },
 
   async uploadProjectFile(projectId, filePath, section) {
+    try {
+      return await this.uploadProjectBytes(projectId, fs.readFileSync(filePath), path.basename(filePath), section);
+    } catch (err) {
+      return { success: false, error: `Upload failed (${err.message})` };
+    }
+  },
+
+  async uploadProjectBytes(projectId, bytes, filename, section) {
     const baseUrl = getServerUrl();
     try {
-      const bytes = fs.readFileSync(filePath);
-      const name = encodeURIComponent(path.basename(filePath));
+      const name = encodeURIComponent(path.basename(String(filename)));
       const sec = encodeURIComponent(section || 'Files');
       const resp = await fetch(`${baseUrl}/api/projects/${projectId}/files/upload?name=${name}&section=${sec}`, {
         method: 'POST',
@@ -306,11 +313,19 @@ const api = {
 
   /** Chat media (2026-10-08): upload pictures, videos, and files to chat and vault */
   async uploadChatMedia(convo, filePath, caption = '') {
-    const baseUrl = getServerUrl();
     try {
       if (!fs.existsSync(filePath)) return { success: false, error: 'File does not exist' };
-      const bytes = fs.readFileSync(filePath);
-      const name = encodeURIComponent(path.basename(filePath));
+      return await this.uploadChatBytes(convo, fs.readFileSync(filePath), path.basename(filePath), caption);
+    } catch (err) {
+      return { success: false, error: `Upload failed (${err.message})` };
+    }
+  },
+
+  /** Chat upload from bytes the page already holds (a file dropped onto the chat). */
+  async uploadChatBytes(convo, bytes, filename, caption = '') {
+    const baseUrl = getServerUrl();
+    try {
+      const name = encodeURIComponent(path.basename(String(filename)));
       const c = encodeURIComponent(convo);
       const cap = encodeURIComponent(caption || '');
       const resp = await fetch(`${baseUrl}/api/chat-hub/upload?c=${c}&name=${name}&caption=${cap}`, {
