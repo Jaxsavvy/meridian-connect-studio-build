@@ -11,6 +11,10 @@
 const fs = require('fs');
 const path = require('path');
 
+// 2026-10-19: moving or resizing a window fires dozens of events a second, and each one used to rewrite this file
+// synchronously on the main thread. Changes are now saved once, WRITE_DELAY_MS after the last one, and flush() on quit.
+const WRITE_DELAY_MS = 400;
+
 const DEFAULT_MAIN_BOUNDS = {
   width: 1400,
   height: 900
@@ -44,6 +48,14 @@ class LayoutStore {
   }
 
   _write() {
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.flush(), WRITE_DELAY_MS);
+  }
+
+  flush() {
+    if (!this._timer) return;
+    clearTimeout(this._timer);
+    this._timer = null;
     try {
       fs.writeFileSync(this.layoutFile, JSON.stringify(this.data, null, 2));
     } catch (e) {
