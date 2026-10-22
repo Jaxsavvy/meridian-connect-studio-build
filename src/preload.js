@@ -77,7 +77,14 @@ contextBridge.exposeInMainWorld('meridian', {
     getTasks: (username) => ipcRenderer.invoke('api:get-tasks', username),
     markTaskDone: (taskId, completed) => ipcRenderer.invoke('api:mark-task-done', { taskId, completed }),
     sendChatMessage: (projectId, message) => ipcRenderer.invoke('api:send-chat-message', { projectId, message }),
-    streamChat: (projectId, message) => ipcRenderer.invoke('api:stream-chat', { projectId, message }),
+    // onChunk(text) gets each piece of the reply as it arrives; the promise still resolves with the whole reply
+    streamChat: (projectId, message, onChunk) => {
+      const streamId = typeof onChunk === 'function' ? Date.now() + '-' + Math.random().toString(36).slice(2) : null;
+      const handler = (event, d) => { if (d && d.streamId === streamId) onChunk(d.text); };
+      if (streamId) ipcRenderer.on('api:stream-chat-chunk', handler);
+      return ipcRenderer.invoke('api:stream-chat', { projectId, message, streamId })
+        .finally(() => { if (streamId) ipcRenderer.removeListener('api:stream-chat-chunk', handler); });
+    },
     getChatHistory: (projectId) => ipcRenderer.invoke('api:get-chat-history', projectId),
     getMessages: () => ipcRenderer.invoke('api:get-messages'),
     sendTeamMessage: (text, senderName) => ipcRenderer.invoke('api:send-team-message', { text, senderName }),
