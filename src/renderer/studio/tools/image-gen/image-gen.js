@@ -1,9 +1,9 @@
 'use strict';
 (function (root, factory) {
-  const api = factory();
+  const api = factory(() => root ? root.MeridianAssetsStrip : require('../../assets/assets-strip.js'));
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) { root.MeridianImageGen = api; root.MeridianStudio.registerTool('image-gen', { mountCanvas: api.mountCanvas }); }
-})(typeof window === 'undefined' ? null : window, function () {
+})(typeof window === 'undefined' ? null : window, function (getStrip) {
   let counter = 0;
   const matchesResults = (p, spaceId) => Boolean(p && p.spaceId === spaceId && p.toolId === 'image-gen' && typeof p.requestId === 'string' && p.requestId && Array.isArray(p.results));
   function settingsRows(settings = {}) {
@@ -31,7 +31,7 @@
     const notify = () => { if (!closed) onChange(snapshot()); };
     const busy = () => ['loading', 'generating', 'saving'].includes(state.phase);
     const dirty = value => { if (value !== state.dirty) { state.dirty = value; onDirty(value); } };
-    function failed(error, again) { state.phase = 'failed'; state.error = failureText(error); retry = again; notify(); return false; }
+    function failed(error, again, message = failureText(error)) { state.phase = 'failed'; state.error = message; retry = again; notify(); return false; }
     function present(payload) {
       if (closed || !matchesResults(payload, spaceId)) return false;
       state.results = payload.results.filter(r => r && typeof r.assetId === 'string' && typeof r.url === 'string')
@@ -147,16 +147,19 @@
       if (state.phase === 'generating') { state.confirmed = false; request = null; }
       epoch += 1; present(payload); return true; // A chat result never clears the person's draft.
     }
-    async function keep(id, restoreDirty = state.dirty) {
+    async function keep(id, restoreDirty = state.dirty, reviewNote) {
       if (closed || busy() || !state.results.some(r => r.assetId === id)) return false;
+      const reviewing = reviewNote !== undefined;
+      const asset = state.assets.find(a => a.id === id && a.spaceId === spaceId);
+      if (reviewing && (!getStrip().canReview(asset) || typeof reviewNote !== 'string' || reviewNote.length > 500)) return false;
       const turn = ++epoch; state.phase = 'saving'; dirty(true); notify();
       try {
-        const asset = await service.keepAsset(spaceId, id); if (closed || turn !== epoch) return false;
+        const asset = await (reviewing ? service.sendToReview(spaceId, id, reviewNote) : service.keepAsset(spaceId, id)); if (closed || turn !== epoch) return false;
         if (asset?.spaceId !== spaceId || asset.id !== id) throw new Error('Invalid asset.');
         state.assets = [...state.assets.filter(a => a.id !== id), asset]; state.phase = 'ready'; state.error = ''; dirty(restoreDirty); notify();
         if (queued) { const payload = queued; queued = null; receive(payload); }
         if (assetsPending) await refreshAssets(); return true;
-      } catch (error) { return !closed && turn === epoch ? failed(error, () => keep(id, restoreDirty)) : false; }
+      } catch (error) { return !closed && turn === epoch ? failed(error, () => keep(id, restoreDirty, reviewNote), reviewing ? error?.message || 'Could not send to Review.' : undefined) : false; }
     }
     function variations(id) {
       if (closed || busy() || state.dirty || !state.results.some(r => r.assetId === id) || !state.assets.some(a => a.id === id && a.kind === 'image')) return false;
@@ -165,7 +168,7 @@
       update({ description, presetId: state.presets.find(p => p.name === used)?.id || state.presetId });
       state.references = [id]; sharpen(); state.proposal = request.description = description; notify(); return true;
     }
-    return { snapshot, start, update, sharpen, generate, receive, keep, variations, assetsChanged, retry: () => retry(),
+    return { snapshot, start, update, sharpen, generate, receive, keep, review: (id, note = '') => keep(id, state.dirty, note), variations, assetsChanged, retry: () => retry(),
       confirm(value) { if (!busy() && request) { state.confirmed = Boolean(value); notify(); } },
       async addReference(id) { if (busy()) return false; if (!await refreshAssets()) return false; if (!state.assets.some(a => a.id === id && a.kind === 'image')) return failed(new Error(), () => refreshAssets()); return update({ references: [id] }); },
       send(id) { if (!closed && state.results.some(r => r.assetId === id)) onSend({ spaceId, toolId: 'asset-library', assetId: id }); },
@@ -173,7 +176,15 @@
       dispose() { closed = true; epoch += 1; queued = null; dirty(false); },
     };
   }
-  function mountCanvas(el, { spaceId, jobId, stageId, studio }) {
+  function mountCanvas(el, ctx) {
+    const { spaceId, jobId, stageId, studio } = ctx;
+    if (!getStrip()?.createReviewUI) {
+      const doc = el.ownerDocument, message = doc.createElement('p'), retry = doc.createElement('button'); let cleanup;
+      message.textContent = 'Review controls are still loading. Try again.'; retry.type = 'button'; retry.textContent = 'Try again';
+      retry.addEventListener('click', () => { cleanup = mountCanvas(el, ctx); }); el.replaceChildren(message, retry);
+      return () => { cleanup?.(); el.replaceChildren(); };
+    }
+    const reviews = getStrip().createReviewUI(value => { studio.setDirty(value); discard.disabled = !value || ['loading', 'generating', 'saving'].includes(controller.snapshot().phase); });
     const doc = el.ownerDocument;
     const node = (tag, text, cls = '') => { const n = doc.createElement(tag); n.className = cls; if (text !== undefined) n.textContent = text; return n; };
     const button = (label, action) => { const b = node('button', label); b.type = 'button'; b.addEventListener('click', action); return b; };
@@ -185,8 +196,8 @@
     const referenceLabel = node('label', 'Reference image (or drag an asset here)'), reference = node('select'); referenceLabel.append(reference);
     const sharpen = button('Sharpen my description', () => { controller.sharpen(); confirm.focus(); });
     const proposal = node('blockquote', undefined, 'image-gen-proposal'), approve = node('label', 'I approve this description'), confirm = node('input'); confirm.type = 'checkbox'; approve.append(confirm);
-    const generate = button('Generate', () => controller.generate()), discard = button('Discard description', () => controller.discard());
-    const status = node('p'); status.setAttribute('aria-live', 'polite'); const retry = button('Try again', () => controller.retry());
+    const generate = button('Generate', () => controller.generate()), discard = button('Discard description', () => { reviews.discard(); controller.discard(); });
+    const status = node('p'); status.setAttribute('aria-live', 'polite'); const retry = button('Try again', async () => { if (await controller.retry()) description.focus(); });
     const refined = node('p'), drawer = node('details', undefined, 'image-gen-settings'), settings = node('dl'); drawer.append(node('summary', 'Settings used'), settings);
     const results = node('div', undefined, 'image-gen-results'); results.setAttribute('aria-label', 'Generated images');
     section.append(node('h2', 'Image gen'), chips, hints, label, countLabel, referenceLabel, sharpen, proposal, approve, generate, discard, status, retry, refined, drawer, results); el.replaceChildren(section);
@@ -207,7 +218,7 @@
       description.disabled = count.disabled = reference.disabled = locked; count.value = String(s.count);
       reference.replaceChildren(node('option', 'No reference')); reference.children[0].value = '';
       for (const a of s.assets.filter(a => a.kind === 'image')) { const option = node('option', a.name); option.value = a.id; reference.append(option); } reference.value = s.references[0] || '';
-      sharpen.disabled = locked || !s.description.trim() || !s.presetId; generate.disabled = locked || !s.confirmed; discard.disabled = locked || !s.dirty;
+      sharpen.disabled = locked || !s.description.trim() || !s.presetId; generate.disabled = locked || !s.confirmed; discard.disabled = locked || (!s.dirty && !reviews.hasDrafts());
       proposal.hidden = approve.hidden = !s.proposal; proposal.textContent = s.proposal; confirm.checked = s.confirmed; confirm.disabled = locked;
       status.setAttribute('role', s.error ? 'alert' : 'status'); retry.hidden = s.phase !== 'failed';
       status.textContent = s.error || (s.phase === 'generating' ? 'Generating images…' : s.phase === 'loading' ? 'Loading Image gen…' : s.phase === 'saving' ? 'Saving…' : s.results.length ? `${s.results.length} images` : 'No images yet. Describe an image, review the sharper description, then confirm.');
@@ -221,18 +232,19 @@
         if (a?.kept) card.append(node('span', 'Kept', 'asset-kept-badge'));
         else { const keep = button('Keep', () => controller.keep(r.assetId)); keep.dataset.focus = `${r.assetId}:keep`; keep.disabled = locked; card.append(keep); }
         const vary = button('Variations', () => { controller.variations(r.assetId); confirm.focus(); }); vary.dataset.focus = `${r.assetId}:vary`; vary.disabled = locked || s.dirty || !a || a.kind !== 'image' || !(s.refinedDescription || s.description).trim();
-        const send = node('details'); send.append(node('summary', 'Send to'), button('Asset Library', () => controller.send(r.assetId)), node('p', 'Review — Coming soon'));
+        const send = node('details'); send.append(node('summary', 'Send to'), button('Asset Library', () => controller.send(r.assetId)));
+        if (a) reviews.append(card, a, locked || (s.phase === 'failed' && s.dirty), note => controller.review(r.assetId, note), send);
         card.append(vary, node('span', 'Edit part — Coming soon', 'image-gen-coming-soon'), send); results.append(card);
       }
       if (actionFocus && !locked) { const available = Array.from(section.querySelectorAll('[data-focus]')).filter(n => !n.disabled); (available.find(n => n.dataset.focus === actionFocus) || available.find(n => n.dataset.focus.startsWith(actionFocus.split(':')[0] + ':')) || description).focus(); actionFocus = null; }
     }
-    const controller = createCanvas({ spaceId, jobId, stageId, service: studio.service, onChange: render, onDirty: value => studio.setDirty(value), onSend: params => studio.navigate('work', params) });
+    const controller = createCanvas({ spaceId, jobId, stageId, service: studio.service, onChange: render, onDirty: value => reviews.dirty(value), onSend: params => studio.navigate('work', params) });
     const off = studio.on((event, payload) => { if (event === 'image-results') controller.receive(payload); });
     const offService = studio.service.on((event, payload) => {
       if (event === 'spaces-changed') controller.start();
       else if (event === 'assets-changed' && payload?.spaceId === spaceId) controller.assetsChanged();
     }); controller.start();
-    return () => { off(); offService(); controller.dispose(); el.replaceChildren(); };
+    return () => { reviews.dispose(); off(); offService(); controller.dispose(); el.replaceChildren(); };
   }
   return { matchesResults, settingsRows, createCanvas, mountCanvas };
 });

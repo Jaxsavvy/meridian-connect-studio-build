@@ -14,3 +14,6 @@
 .asset-thumb.is-trashed { border-style: dashed; }
 .assets-strip.is-loading { cursor: progress; }
 .assets-strip [hidden] { display: none; }
+.asset-review-status { display: inline-block; margin-block: .25rem; }
+.assets-strip textarea { width: 100%; max-width: 100%; min-width: 0; font: inherit; }
+.assets-strip details label { display: grid; }
