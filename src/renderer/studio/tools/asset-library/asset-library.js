@@ -61,6 +61,8 @@
     query.type = 'search'; query.dataset.focus = 'search'; searchLabel.append(query);
     const filterLabel = node('label', 'Show assets'), filter = node('select'); filter.dataset.focus = 'filter';
     for (const [value, text] of [['all', 'All'], ['kept', 'Kept'], ['trash', 'Trash']]) { const option = node('option', text); option.value = value; filter.append(option); } filterLabel.append(filter);
+    const historySlot = node('div'); let historyId = null;
+    const closeHistory = () => { historySlot.disposeVersionHistory?.(); historySlot.replaceChildren(); historyId = null; };
     let controller = null, disposed = false, actionFocus = null, detailHeading = null;
     const search = button('Search', () => controller?.filter(query.value, filter.value));
     form.addEventListener('submit', event => { event.preventDefault(); controller?.filter(query.value, filter.value); });
@@ -72,7 +74,7 @@
     const retention = node('p', 'Trash empties after 30 days.');
     const layout = node('div', undefined, 'asset-library-layout'), grid = node('ul', undefined, 'asset-library-grid'); grid.setAttribute('aria-label', 'Space assets');
     const details = node('section', undefined, 'asset-library-details'); details.setAttribute('aria-label', 'Asset details');
-    layout.append(grid, details); section.append(node('h2', 'Asset Library'), form, status, retry, discard, retention, layout); el.replaceChildren(section);
+    layout.append(grid, details); section.append(node('h2', 'Asset Library'), form, status, retry, discard, retention, layout); section.append(historySlot); el.replaceChildren(section);
     const preview = (asset, target, className) => {
       if (asset.kind !== 'image' || typeof asset.url !== 'string' || !/^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i.test(asset.url)) return;
       const image = node('img', undefined, className); image.src = asset.url; image.alt = asset.name;
@@ -100,6 +102,7 @@
         if (asset.kept) row.append(node('span', 'Kept', 'asset-kept-badge')); grid.append(row);
       }
       const asset = state.selected;
+      if (historyId && historyId !== asset?.id) closeHistory();
       if (asset) {
         detailHeading = node('h3', asset.name); detailHeading.tabIndex = -1; details.append(detailHeading);
         const close = button('Close details', () => {
@@ -110,6 +113,11 @@
         for (const [key, value] of [['Version', asset.version], ['Parent', asset.parentId === null ? 'None (original)' : asset.parentId], ['Made by', asset.createdBy]]) {
           metadata.append(node('dt', key), node('dd', value === undefined ? 'Not provided' : String(value)));
         }
+        const history = button('Version history', () => {
+          if (historyId === asset.id) return;
+          closeHistory(); historyId = asset.id;
+          studio.mountInto(historySlot, 'part', 'version-history', { spaceId, assetId: asset.id });
+        }); history.disabled = state.dirty; history.dataset.focus = asset.id + ':history'; details.append(history);
         details.append(metadata, node('h4', 'Suggested clean name'));
         try { details.append(node('p', suggestedName(asset), 'asset-library-suggested-name')); }
         catch { details.append(node('p', 'This name is too long or invalid. No shortened suggestion was made.')); }
@@ -140,7 +148,7 @@
       }
     }
     boot();
-    return () => { disposed = true; controller?.dispose(); el.replaceChildren(); };
+    return () => { disposed = true; closeHistory(); controller?.dispose(); el.replaceChildren(); };
   }
   return { suggestedName, settingsRows, createLibrary, mountCanvas };
 });

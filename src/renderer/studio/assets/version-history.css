@@ -1,0 +1,6 @@
+#studioCenter .version-history { min-width: 0; overflow-wrap: anywhere; }
+#studioCenter .version-history ol { padding-inline-start: var(--studio-space-6); }
+#studioCenter .version-history li { margin-block: var(--studio-space-3); }
+#studioCenter .version-history img { display: block; max-width: 100%; max-height: 18rem; object-fit: contain; }
+#studioCenter .version-history-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--studio-space-3); }
+@media (max-width: 40rem) { #studioCenter .version-history-compare { grid-template-columns: 1fr; } }
