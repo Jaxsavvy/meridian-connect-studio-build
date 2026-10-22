@@ -78,3 +78,49 @@ test('versions: originals never change; history is per family and per Space', as
   assert.notEqual(history[0].url, 'data:image/png;base64,AA');   // original untouched
   await assert.rejects(s.listVersions('client-b', v1), /not found/);
 });
+
+test('images made inside a Job are tagged and listed per stage; other Jobs and Spaces never mix', async () => {
+  const s = service();
+  const job = await s.startJob('client-a', 'website', 'standard');
+  const other = await s.startJob('client-a', 'website', 'cinematic');
+  await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Stage', count: 2, jobId: job.id, stageId: 'look' });
+  await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'Loose', count: 1 });
+  const byStage = await s.listJobAssets('client-a', job.id);
+  assert.equal(byStage.look.length, 2); assert.equal(byStage.brief.length, 0);
+  assert.equal(Object.values(await s.listJobAssets('client-a', other.id)).flat().length, 0);
+  await assert.rejects(s.generateImage({ spaceId: 'client-b', presetId: 'website-hero', description: 'x', jobId: job.id }), /not found/);
+  assert.equal((await s.listJobs('client-a')).length, 2);
+  assert.equal((await s.listJobs('client-b')).length, 0);
+});
+
+test('sample-mode stand-in Jax approves waiting stages and Review items after a delay; off by default', async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const off = service();
+  const j0 = await off.startJob('client-a', 'website', 'standard');
+  await off.completeStage('client-a', j0.id); await wait(30);
+  assert.equal((await off.getJob('client-a', j0.id)).waitingOnJax, true);          // tests: never auto-approved
+
+  const s = createSampleService({ simulateJaxMs: 10 });
+  s.setProjects([{ id: 'client-a', name: 'Client A' }]);
+  const job = await s.startJob('client-a', 'website', 'standard');
+  assert.equal((await s.completeStage('client-a', job.id)).waitingOnJax, true);
+  await wait(40);
+  assert.equal((await s.getJob('client-a', job.id)).stageId, 'plan');
+  const out = await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'x', count: 1 });
+  await s.sendToReview('client-a', out.results[0].assetId);
+  await wait(40);
+  assert.equal((await s.listAssets('client-a'))[0].approved, true);
+});
+
+test('Move to client: sandbox work copies into a client as a new original; never client to client', async () => {
+  const s = service();
+  const out = await s.generateImage({ spaceId: 'sandbox-me', presetId: 'website-hero', description: 'Idea', count: 1 });
+  const id = out.results[0].assetId;
+  const copy = await s.copyToSpace('sandbox-me', id, 'client-a');
+  assert.equal(copy.spaceId, 'client-a'); assert.equal(copy.version, 1); assert.equal(copy.parentId, null);
+  assert.equal(copy.kept, true); assert.deepEqual(copy.copiedFrom, { spaceId: 'sandbox-me', assetId: id });
+  assert.equal((await s.listAssets('sandbox-me')).length, 1);                 // sandbox copy stays
+  await assert.rejects(s.copyToSpace('client-a', copy.id, 'client-b'), /Only sandbox work/);
+  await assert.rejects(s.copyToSpace('sandbox-me', id, 'sandbox-me'), /different Space/);
+  await assert.rejects(s.copyToSpace('sandbox-me', id, 'nope'), /not found/);
+});

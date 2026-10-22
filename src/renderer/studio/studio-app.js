@@ -24,7 +24,9 @@
   let view = { name: 'home', params: {} };
   let cleanups = [];
 
-  const service = window.MeridianStudioService.createSampleService();
+  // Sample mode: a stand-in "Jax" approves after 5 seconds so the whole Job can be clicked through.
+  // The real server (Core #48) replaces this; approvals then only come from Jax's Command queue.
+  const service = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000 });
 
   // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
   // edits index.html or another lane's file. Files that don't exist yet are skipped.
@@ -35,6 +37,8 @@
     'studio/screens/work.js', 'studio/screens/work.css',
     'studio/screens/workflow.js', 'studio/screens/workflow.css',
     'studio/screens/stage-bar.js', 'studio/screens/stage-bar.css',
+    'studio/screens/job.js', 'studio/screens/job.css',
+    'studio/screens/move-to-client.js', 'studio/screens/move-to-client.css',
     'studio/assets/asset-model.js',
     'studio/assets/assets-strip.js', 'studio/assets/assets-strip.css',
     'studio/assets/version-history.js', 'studio/assets/version-history.css',

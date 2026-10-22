@@ -212,7 +212,6 @@ function createTray() {
 
 // SPLASH (2026-10-08): the same small loading window Meridian Command uses, shown while Connect's main window loads.
 let splashWindow = null;
-let splashShownAt = 0;
 function createSplashWindow() {
   const { screen } = require('electron');
   const area = screen.getPrimaryDisplay().workArea;
@@ -240,17 +239,19 @@ function createSplashWindow() {
     <div class="sub">Meridian Connect</div><div class="status-row"><div class="pulse-dot"></div><span>Starting Meridian Connect...</span></div>
     <div class="shimmer-bar"></div></div></body></html>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-  splashWindow.once('ready-to-show', () => { if (splashWindow) { splashWindow.show(); splashShownAt = Date.now(); } });
+  splashWindow.once('ready-to-show', () => { if (splashWindow) splashWindow.show(); });
   splashWindow.on('closed', () => { splashWindow = null; });
 }
+// The splash only appears when the main window is slow (not ready after SPLASH_DELAY_MS), and closes the moment the
+// main window shows. It used to stay up for at least 1.2 s, which added about a second to every normal launch.
+const SPLASH_DELAY_MS = 400;
+let splashTimer = null;
 function closeSplashThen(done) {
-  if (!splashWindow || splashWindow.isDestroyed()) return done();
-  const wait = Math.max(0, 1200 - (Date.now() - (splashShownAt || Date.now())));   // no flash: show it at least ~1.2 s
-  setTimeout(() => {
-    done();
-    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
-    splashWindow = null;
-  }, wait);
+  clearTimeout(splashTimer);
+  splashTimer = null;
+  done();
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  splashWindow = null;
 }
 
 function createMainWindow() {
@@ -765,7 +766,44 @@ if (!gotTheLock) {
       if (pick.canceled || !pick.filePaths.length) return { success: true, canceled: true };
       return await api.uploadChatMedia(convo, pick.filePaths[0], caption);
     });
-    ipcMain.handle('ws:download-chat-media', async (e, { mediaId, name }) => {
+    // A file dropped onto the chat. The page sends the file's bytes, never a path, so it can only share
+    // what the person actually dropped. Home base checks the conversation and size again.
+    const DROP_MAX_BYTES = 100 * 1024 * 1024;
+    ipcMain.handle('ws:upload-dropped-chat-file', async (e, { convo, name, bytes, caption }) => {
+      if (typeof convo !== 'string' || !/^[cd]:/.test(convo) || convo.length > 200
+        || typeof name !== 'string' || !name.trim() || name.length > 200
+        || !(bytes instanceof Uint8Array) || !bytes.length
+        || (caption != null && (typeof caption !== 'string' || caption.length > 2000))) {
+        return { success: false, error: 'Could not read the dropped file.' };
+      }
+      if (bytes.length > DROP_MAX_BYTES) return { success: false, error: 'That file is over 100 MB.' };
+      return await api.uploadChatBytes(convo, Buffer.from(bytes), name, caption || '');
+    });
+    ipcMain.handle('ws:create-project-pdf', async (e, { projectId, title, content }) => {
+      if (typeof projectId !== 'string' || !/^[0-9a-f]{32}$/.test(projectId)
+        || typeof title !== 'string' || !title.trim() || title.length > 100
+        || typeof content !== 'string' || content.length > 50000) {
+        return { success: false, error: 'Use a project, title, and content under 50,000 characters.' };
+      }
+      const safe = title.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\.+$/, '').slice(0, 80);
+      if (!safe) return { success: false, error: 'Use a normal document title.' };
+      const escapeHtml = (s) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+        body{font:12pt/1.55 Arial,sans-serif;color:#152235;margin:0;padding:28mm 22mm}
+        h1{font:normal 24pt Georgia,serif;margin:0 0 10mm}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}
+        </style></head><body><h1>${escapeHtml(safe)}</h1><pre>${escapeHtml(content)}</pre></body></html>`;
+      const win = new BrowserWindow({ show: false, width: 1000, height: 1200,
+        webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false } });
+      try {
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+        return await api.uploadProjectBytes(projectId, pdf, safe + '.pdf', 'Docs');
+      } catch (_) {
+        return { success: false, error: 'Could not create the PDF. Try again.' };
+      } finally {
+        if (!win.isDestroyed()) win.destroy();
+      }
+    });    ipcMain.handle('ws:download-chat-media', async (e, { mediaId, name }) => {
       const r = await api.downloadChatMedia(mediaId);
       if (!r.success) return r;
       const save = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Save file', defaultPath: name });
@@ -840,7 +878,11 @@ if (!gotTheLock) {
     ipcMain.handle('api:get-tasks', (e, user) => api.getTasks(user));
     ipcMain.handle('api:mark-task-done', (e, { taskId, completed }) => api.markTaskDone(taskId, completed));
     ipcMain.handle('api:send-chat-message', (e, { projectId, message }) => api.sendChatMessage(projectId, message));
-    ipcMain.handle('api:stream-chat', (e, { projectId, message }) => api.streamChat(projectId, message));
+    ipcMain.handle('api:stream-chat', (e, { projectId, message, streamId }) => {
+      const id = typeof streamId === 'string' && /^[0-9a-z-]{1,40}$/.test(streamId) ? streamId : null;
+      return api.streamChat(projectId, message,
+        (text) => { if (id && !e.sender.isDestroyed()) e.sender.send('api:stream-chat-chunk', { streamId: id, text }); });
+    });
     ipcMain.handle('api:get-chat-history', (e, id) => api.getChatHistory(id));
     ipcMain.handle('api:get-messages', () => api.getMessages());
     ipcMain.handle('api:send-team-message', (e, { text, senderName }) => api.sendTeamMessage(text, senderName));
@@ -852,7 +894,7 @@ if (!gotTheLock) {
 
 
     createTray();
-    if (!isTestMode) createSplashWindow();
+    if (!isTestMode) splashTimer = setTimeout(createSplashWindow, SPLASH_DELAY_MS);
     createMainWindow();
     setupAutoUpdate();
 
@@ -868,4 +910,5 @@ if (!gotTheLock) {
       app.quit();
     }
   });
+  app.on('will-quit', () => { if (layoutStore) layoutStore.flush(); });   // save the last window position (writes are batched)
 }

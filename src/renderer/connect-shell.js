@@ -73,11 +73,32 @@
     out.innerHTML = `<div class="bv-q">${esc(q)}</div><div class="bv-a bv-thinking">Meridian is thinking…</div>`;
     if (btn) btn.disabled = true;
     try {
-      const r = await window.meridian.api.streamChat(projectId, q);
+      const onChunk = streamInto(() => out.querySelector('.bv-a'));
+      const r = await window.meridian.api.streamChat(projectId, q, onChunk);
+      onChunk.done();
       out.innerHTML = r && r.success
         ? `<div class="bv-q">${esc(q)}</div><div class="bv-a">${fmt(r.text)}</div>`
         : `<div class="bv-q">${esc(q)}</div><div class="bv-a bv-err">${esc((r && r.error) || 'Meridian could not answer. Try again.')}</div>`;
     } finally { if (btn) btn.disabled = false; }
+  }
+  // 2026-10-19: show the reply as Meridian writes it. Returns the onChunk for streamChat; target() gives the element to
+  // fill. Redraws at most once a frame; call .done() before drawing the final reply so a late frame can't overwrite it.
+  function streamInto(target, after) {
+    let text = '', queued = false, over = false;
+    const onChunk = (piece) => {
+      text += piece;
+      if (queued || over) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        const el = !over && target(); if (!el) return;
+        el.classList.remove('bv-thinking');
+        el.innerHTML = fmt(text);
+        if (after) after(el);
+      });
+    };
+    onChunk.done = () => { over = true; };
+    return onChunk;
   }
   function fmt(t) {   // light formatting: paragraphs, bullet lists, bold
     const bullet = /^\s*([-*•]|\d+[.)])\s+/;
@@ -198,7 +219,10 @@
     CHAT.turns.push({ role: 'user', text: q }, { role: 'ai', pending: true });
     drawThread(suggestions);
     let r;
-    try { r = await window.meridian.api.streamChat(CHAT.project || null, q); } catch (e) { r = { success: false, error: e.message }; }
+    const lastBubble = () => { const b = document.querySelectorAll('#bv-thread .bv-bubble.ai'); return b.length ? b[b.length - 1] : null; };
+    const onChunk = streamInto(lastBubble, () => { const t = document.getElementById('bv-thread'); if (t) t.scrollTop = t.scrollHeight; });
+    try { r = await window.meridian.api.streamChat(CHAT.project || null, q, onChunk); } catch (e) { r = { success: false, error: e.message }; }
+    onChunk.done();
     CHAT.turns[CHAT.turns.length - 1] = r && r.success ? { role: 'ai', text: r.text } : { role: 'ai', err: true, text: (r && r.error) || 'Meridian could not answer. Try again.' };
     CHAT.busy = false;
     const go2 = document.getElementById('bv-ask-go'); if (go2) go2.disabled = false;
@@ -374,7 +398,9 @@
   if (typeof enterApp === 'function') {
     const baseEnter = enterApp;
     // eslint-disable-next-line no-global-assign
-    enterApp = async function (u) { const r = await baseEnter(u); tidyChrome(); renderOverview(); renderDock(); return r; };
+    // (enterApp already opens the Overview through switchView, which draws it; drawing it again here fetched tasks,
+    // projects and messages a second time at every sign-in.)
+    enterApp = async function (u) { const r = await baseEnter(u); tidyChrome(); renderDock(); return r; };
   }
   document.addEventListener('DOMContentLoaded', tidyChrome);
   if (window.meridian && window.meridian.onDataSync) window.meridian.onDataSync(() => { if (activeView === 'overview') renderOverview(); });
@@ -398,6 +424,10 @@
   }
   async function hbCheck() {
     if (!window.meridian || !window.meridian.api || !window.meridian.api.ping) return;
+    // Developer sample sign-in has no home base by design: never show the offline banner there.
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.sample) {
+      hbOffline = false; hbBanner(false); setTimeout(hbCheck, 15000); return;
+    }
     let ok = false;
     try { const r = await window.meridian.api.ping(); ok = !!(r && r.success); } catch (_) { ok = false; }
     if (!ok && !hbOffline) { hbOffline = true; hbBanner(true); }

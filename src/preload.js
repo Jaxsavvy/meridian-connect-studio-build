@@ -60,6 +60,16 @@ contextBridge.exposeInMainWorld('meridian', {
     changePassword: (current, next) => ipcRenderer.invoke('api:change-password', { current, next }),
     ws: (method, endpoint, body) => ipcRenderer.invoke('ws:request', { method, endpoint, body }),
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
+    wsCreateProjectPdf: (projectId, title, content) => ipcRenderer.invoke('ws:create-project-pdf', { projectId, title, content }),
+    // A file dropped onto the chat: its bytes go to the main process (no file path crosses over)
+    wsUploadDroppedChatFile: async (convo, file, caption) => {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return await ipcRenderer.invoke('ws:upload-dropped-chat-file', { convo, name: file.name, bytes, caption });
+      } catch (_) {
+        return { success: false, error: 'Could not read the dropped file.' };
+      }
+    },
     wsDownload: (projectId, name, section) => ipcRenderer.invoke('ws:download', { projectId, name, section }),
     wsUploadChatMedia: (convo, caption) => ipcRenderer.invoke('ws:upload-chat-media', { convo, caption }),
     wsDownloadChatMedia: (mediaId, name) => ipcRenderer.invoke('ws:download-chat-media', { mediaId, name }),
@@ -77,7 +87,14 @@ contextBridge.exposeInMainWorld('meridian', {
     getTasks: (username) => ipcRenderer.invoke('api:get-tasks', username),
     markTaskDone: (taskId, completed) => ipcRenderer.invoke('api:mark-task-done', { taskId, completed }),
     sendChatMessage: (projectId, message) => ipcRenderer.invoke('api:send-chat-message', { projectId, message }),
-    streamChat: (projectId, message) => ipcRenderer.invoke('api:stream-chat', { projectId, message }),
+    // onChunk(text) gets each piece of the reply as it arrives; the promise still resolves with the whole reply
+    streamChat: (projectId, message, onChunk) => {
+      const streamId = typeof onChunk === 'function' ? Date.now() + '-' + Math.random().toString(36).slice(2) : null;
+      const handler = (event, d) => { if (d && d.streamId === streamId) onChunk(d.text); };
+      if (streamId) ipcRenderer.on('api:stream-chat-chunk', handler);
+      return ipcRenderer.invoke('api:stream-chat', { projectId, message, streamId })
+        .finally(() => { if (streamId) ipcRenderer.removeListener('api:stream-chat-chunk', handler); });
+    },
     getChatHistory: (projectId) => ipcRenderer.invoke('api:get-chat-history', projectId),
     getMessages: () => ipcRenderer.invoke('api:get-messages'),
     sendTeamMessage: (text, senderName) => ipcRenderer.invoke('api:send-team-message', { text, senderName }),

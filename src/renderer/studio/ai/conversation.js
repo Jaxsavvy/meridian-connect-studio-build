@@ -83,7 +83,7 @@
   let requestCounter = 0;
 
   /** The conversation itself, without any screen code, so it can be tested in Node. */
-  function createConversation({ service, emit, spaceId, toolId, report = () => {} }) {
+  function createConversation({ service, emit, spaceId, toolId, jobId, stageId, report = () => {} }) {
     const messages = [];
     let presets = [];
     let space = null;
@@ -192,7 +192,7 @@
         let out;
         try {
           out = await service.generateImage({ spaceId, requestId: request.requestId, presetId: request.preset && request.preset.id,
-            description: request.sharpened, count: 4 });
+            description: request.sharpened, count: 4, ...(jobId ? { jobId, stageId } : {}) });
         } catch (error) {
           report(error);
           // Uncertain outcome: check whether the images were made before offering a retry.
@@ -242,8 +242,8 @@
   }
 
   /** Screen code: only runs in the app. */
-  function mountConversation(el, { spaceId, toolId, studio }) {
-    const convo = createConversation({ service: studio.service, emit: studio.emit, spaceId, toolId,
+  function mountConversation(el, { spaceId, toolId, jobId, stageId, studio }) {
+    const convo = createConversation({ service: studio.service, emit: studio.emit, spaceId, toolId, jobId, stageId,
       report: (error) => console.error('[Meridian Studio]', error) });   // details go to the developer console only
     el.innerHTML = '';
     const panel = document.createElement('section');

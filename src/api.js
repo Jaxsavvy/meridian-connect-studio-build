@@ -180,7 +180,8 @@ const api = {
       method: method === 'POST' ? 'POST' : 'GET',
       body: method === 'POST' ? JSON.stringify(body || {}) : undefined,
       // storyboard frames and AI shot lists can take a couple of minutes on home base
-      timeoutMs: /\/storyboards\/[0-9a-f]{32}\/assist$/.test(endpoint) ? 330000
+      timeoutMs: endpoint === '/api/chat-hub/ask-project' ? 130000
+        : /\/storyboards\/[0-9a-f]{32}\/assist$/.test(endpoint) ? 330000
         : /\/storyboards\/[0-9a-f]{32}\/(draft|panels\/[0-9a-f]{32}\/generate)$/.test(endpoint) ? 260000 : 20000
     });
   },
@@ -273,10 +274,17 @@ const api = {
   },
 
   async uploadProjectFile(projectId, filePath, section) {
+    try {
+      return await this.uploadProjectBytes(projectId, fs.readFileSync(filePath), path.basename(filePath), section);
+    } catch (err) {
+      return { success: false, error: `Upload failed (${err.message})` };
+    }
+  },
+
+  async uploadProjectBytes(projectId, bytes, filename, section) {
     const baseUrl = getServerUrl();
     try {
-      const bytes = fs.readFileSync(filePath);
-      const name = encodeURIComponent(path.basename(filePath));
+      const name = encodeURIComponent(path.basename(String(filename)));
       const sec = encodeURIComponent(section || 'Files');
       const resp = await fetch(`${baseUrl}/api/projects/${projectId}/files/upload?name=${name}&section=${sec}`, {
         method: 'POST',
@@ -305,11 +313,19 @@ const api = {
 
   /** Chat media (2026-10-08): upload pictures, videos, and files to chat and vault */
   async uploadChatMedia(convo, filePath, caption = '') {
-    const baseUrl = getServerUrl();
     try {
       if (!fs.existsSync(filePath)) return { success: false, error: 'File does not exist' };
-      const bytes = fs.readFileSync(filePath);
-      const name = encodeURIComponent(path.basename(filePath));
+      return await this.uploadChatBytes(convo, fs.readFileSync(filePath), path.basename(filePath), caption);
+    } catch (err) {
+      return { success: false, error: `Upload failed (${err.message})` };
+    }
+  },
+
+  /** Chat upload from bytes the page already holds (a file dropped onto the chat). */
+  async uploadChatBytes(convo, bytes, filename, caption = '') {
+    const baseUrl = getServerUrl();
+    try {
+      const name = encodeURIComponent(path.basename(String(filename)));
       const c = encodeURIComponent(convo);
       const cap = encodeURIComponent(caption || '');
       const resp = await fetch(`${baseUrl}/api/chat-hub/upload?c=${c}&name=${name}&caption=${cap}`, {
@@ -468,9 +484,19 @@ const api = {
     const baseUrl = getServerUrl();
     const url = `${baseUrl}/api/chat/send`;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 150000);   // Meridian can take a minute on hard questions
+    // 2026-10-19: home base now sends the reply as it is written. Allow 150 s for the first words (Meridian can take a
+    // minute on hard questions), then give up only if nothing new arrives for 60 s.
+    let timer = setTimeout(() => controller.abort(), 150000);
     const key = projectId || 'general';
-    const history = (localChatHistory[key] || []).slice(-8);
+    // 2026-10-19: Meridian reads earlier turns as {user, assistant} pairs (Command's core_answer.select_history). The
+    // {role, content} entries sent before were all dropped there, so every question was answered with no memory.
+    const history = [];
+    const past = localChatHistory[key] || [];
+    for (let i = 0; i + 1 < past.length; i++) {
+      if (past[i].role === 'user' && past[i + 1].role === 'assistant') { history.push({ user: past[i].content, assistant: past[i + 1].content }); i++; }
+    }
+    history.splice(0, Math.max(0, history.length - 8));
+    let fullText = '';
 
     try {
       const resp = await fetch(url, {
@@ -482,9 +508,9 @@ const api = {
         body: JSON.stringify({ project_id: projectId, message: message, history }),
         signal: controller.signal
       });
-      clearTimeout(timer);
 
       if (!resp.ok) {
+        clearTimeout(timer);
         const errData = await resp.json().catch(() => ({}));
         return { success: false, status: resp.status, error: errData.error || `HTTP ${resp.status}` };
       }
@@ -493,11 +519,14 @@ const api = {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
+      let finished = false;
+      let failure = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+        clearTimeout(timer);
+        timer = setTimeout(() => controller.abort(), 60000);
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop(); // Keep incomplete tail
@@ -512,17 +541,32 @@ const api = {
                 if (typeof onChunk === 'function') {
                   onChunk(chunk.text);
                 }
+              } else if (chunk.type === 'done') {
+                finished = true;
+                if (chunk.text) fullText = chunk.text;   // the complete reply, as Meridian saved it
+              } else if (chunk.type === 'error') {
+                failure = chunk.error || 'Meridian could not finish this reply. Try again.';
               }
             } catch (e) {}
           }
         }
       }
+      clearTimeout(timer);
 
+      if (failure && !fullText) return { success: false, error: failure };
+      if (!fullText) return { success: false, error: 'Meridian could not answer. Try again.' };
+      if (failure || !finished) fullText += '\n\n(The reply was cut off. Ask again to get the rest.)';
       if (!localChatHistory[key]) localChatHistory[key] = [];
       localChatHistory[key].push({ role: 'user', content: message }, { role: 'assistant', content: fullText });
       return { success: true, text: fullText };
     } catch (err) {
       clearTimeout(timer);
+      if (fullText) {   // the connection dropped part-way: keep what already arrived
+        fullText += '\n\n(The reply was cut off. Ask again to get the rest.)';
+        if (!localChatHistory[key]) localChatHistory[key] = [];
+        localChatHistory[key].push({ role: 'user', content: message }, { role: 'assistant', content: fullText });
+        return { success: true, text: fullText };
+      }
       return {
         success: false,
         offline: true,

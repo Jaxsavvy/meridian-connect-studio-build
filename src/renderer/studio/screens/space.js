@@ -14,11 +14,11 @@
   }
   function progress(value) { return Math.min(100, Math.max(0, Number(value) || 0)); }
   function createSpace({ service, spaceId, navigate, report }) {
-    let disposed = false, revision = 0, tools = [];
+    let disposed = false, revision = 0, tools = [], jobs = [];
     async function load() {
       if (disposed) return;
       const request = ++revision;
-      tools = [];
+      tools = []; jobs = [];
       report({ state: 'loading' });
       try {
         const [space, catalog, assets] = await Promise.all([
@@ -26,7 +26,7 @@
         ]);
         if (disposed || revision !== request) return;
         if (!space || space.id !== spaceId) throw Error('Space unavailable');
-        tools = catalog;
+        tools = catalog; jobs = space.jobs || [];
         report({ state: 'ready', space, groups: groupTools(tools), assets: recentAssets(assets, spaceId) });
       } catch (_) {
         if (!disposed && revision === request) report({ state: 'failed',
@@ -34,15 +34,21 @@
       }
     }
     const off = service.on((event, detail) => {
-      if (event === 'spaces-changed' || (event === 'assets-changed' && detail?.spaceId === spaceId)) void load();
+      if (event === 'spaces-changed' || (['assets-changed', 'jobs-changed'].includes(event) && detail?.spaceId === spaceId)) void load();
     });
     return { load,
       back() { if (!disposed) navigate('home'); },
       open(toolId) {
-        if (disposed || !tools.some(t => t.id === toolId && t.state === 'available')) return false;
-        navigate('work', { spaceId, toolId }); return true;
+        const tool = tools.find(t => t.id === toolId && t.state === 'available');
+        if (disposed || !tool) return false;
+        navigate(tool.kind === 'workflow' ? 'workflow' : 'work',
+          tool.kind === 'workflow' ? { spaceId, workflowId: toolId } : { spaceId, toolId }); return true;
       },
-      dispose() { disposed = true; revision++; tools = []; off(); },
+      openJob(jobId) {
+        if (disposed || !jobs.some(job => job.id === jobId && job.workflowId)) return false;
+        navigate('job', { spaceId, jobId }); return true;
+      },
+      dispose() { disposed = true; revision++; tools = []; jobs = []; off(); },
     };
   }
   function render(el, { spaceId }, studio) {
@@ -65,9 +71,12 @@
     }
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const focus = states.focus(root);
+    let panelController = null;
+    function closeMove() { panelController?.abort(); panelController = null; }
     const model = createSpace({ service: studio.service, spaceId, navigate: studio.navigate,
       report(view) {
         const restoreFocus = focus();
+        closeMove();
         root.replaceChildren(button('Back to Studio', () => model.back()), node('h1', view.space?.name || 'Space'));
         root.setAttribute('aria-busy', String(view.state === 'loading'));
         if (view.state !== 'ready') {
@@ -99,7 +108,10 @@
         const jobs = section('Active Jobs');
         if (!space.jobs?.length) jobs.appendChild(states.panel(doc, 'empty', 'No active Jobs in this Space.'));
         for (const job of space.jobs || []) {
-          const item = node('article'); item.append(node('h3', job.name), node('p', job.stage));
+          const item = node('article'), heading = node('h3');
+          if (job.id && job.workflowId) heading.appendChild(button(job.name, () => model.openJob(job.id)));
+          else heading.textContent = job.name;
+          item.append(heading, node('p', job.stage));
           const bar = node('progress'); bar.max = 100; bar.value = progress(job.progress);
           bar.setAttribute('aria-label', `${job.name} progress`); bar.textContent = `${bar.value}%`;
           item.append(bar, node('span', `${bar.value}%`)); jobs.appendChild(item);
@@ -114,7 +126,17 @@
             image.addEventListener('error', () => { image.replaceWith(node('p', 'Preview unavailable')); }, { once: true });
             figure.appendChild(image);
           }
-          figure.appendChild(node('figcaption', asset.name)); list.appendChild(figure);
+          figure.appendChild(node('figcaption', asset.name));
+          if (space.type.startsWith('sandbox')) {
+            const panel = node('div');
+            const move = button('Move to client', () => {
+              closeMove(); panelController = new AbortController();
+              studio.mountInto(panel, 'part', 'move-to-client', { spaceId, assetId: asset.id, signal: panelController.signal,
+                onDone() { closeMove(); move.focus?.(); } });
+            });
+            figure.append(move, panel);
+          }
+          list.appendChild(figure);
         }
         recent.appendChild(list);
         for (const group of groups) {
@@ -132,7 +154,7 @@
         restoreFocus();
       } });
     void model.load();
-    return () => { model.dispose(); root.remove(); };
+    return () => { closeMove(); model.dispose(); root.remove(); };
   }
   return { groupTools, recentAssets, progress, createSpace, render };
 });

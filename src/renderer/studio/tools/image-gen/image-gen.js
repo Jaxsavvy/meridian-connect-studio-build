@@ -23,10 +23,10 @@
   };
   const failureText = error => error?.code === 'OFFLINE' ? 'You are offline. Try again when connected.' :
     [401, 403, 404].includes(error?.status) ? 'This Space is unavailable or access has changed. Try again or choose another Space.' : 'Image gen could not finish this action. Try again.';
-  function createCanvas({ spaceId, service, onChange = () => {}, onDirty = () => {}, onSend = () => {} }) {
+  function createCanvas({ spaceId, jobId, stageId, service, onChange = () => {}, onDirty = () => {}, onSend = () => {} }) {
     const state = { phase: 'loading', ready: false, presets: [], assets: [], presetId: '', description: '', count: 4,
       references: [], proposal: '', confirmed: false, results: [], settings: [], refinedDescription: '', dirty: false, error: '' };
-    let closed = false, epoch = 0, request = null, retry = () => start(), space = null, queued = null;
+    let closed = false, epoch = 0, assetRead = 0, assetsPending = false, request = null, retry = () => start(), space = null, queued = null;
     const snapshot = () => ({ ...state, results: [...state.results], assets: [...state.assets], references: [...state.references] });
     const notify = () => { if (!closed) onChange(snapshot()); };
     const busy = () => ['loading', 'generating', 'saving'].includes(state.phase);
@@ -40,10 +40,34 @@
       state.refinedDescription = typeof payload.refinedDescription === 'string' ? payload.refinedDescription : '';
       state.phase = 'ready'; state.error = ''; notify(); return true;
     }
+    function setAssets(assets) {
+      state.assets = assets;
+      const references = state.references.filter(id => assets.some(a => a.id === id && a.kind === 'image'));
+      if (references.length === state.references.length) return false;
+      state.references = references; request = null; state.proposal = ''; state.confirmed = false;
+      state.error = 'A reference is no longer available. Choose an active image and confirm again.';
+      return true;
+    }
     async function refreshAssets() {
-      const turn = epoch;
-      try { const assets = scoped(await service.listAssets(spaceId), spaceId); if (closed || turn !== epoch) return false; state.assets = assets; state.phase = 'ready'; state.error = ''; notify(); return true; }
-      catch (error) { return !closed && turn === epoch ? failed(error, refreshAssets) : false; }
+      const turn = epoch, read = ++assetRead; assetsPending = false;
+      try {
+        const assets = scoped(await service.listAssets(spaceId), spaceId);
+        if (closed || turn !== epoch || read !== assetRead) return false;
+        const removed = setAssets(assets); state.phase = 'ready'; if (!removed) state.error = ''; notify(); return true;
+      } catch (error) {
+        if (closed || turn !== epoch || read !== assetRead) return false;
+        if ([401, 403, 404].includes(error?.status)) {
+          state.ready = false; state.assets = []; state.references = []; state.results = []; state.settings = [];
+          state.refinedDescription = ''; state.proposal = ''; state.confirmed = false; request = null;
+          return failed(error, start);
+        }
+        return failed(error, refreshAssets);
+      }
+    }
+    function assetsChanged() {
+      if (closed) return Promise.resolve(false);
+      if (busy() || state.phase === 'failed') { assetsPending = true; return Promise.resolve(false); }
+      return refreshAssets();
     }
     async function start() {
       if (closed) return false;
@@ -54,7 +78,8 @@
         if (info?.id !== spaceId || !Array.isArray(presets)) throw new Error('Invalid Space.');
         space = info; state.presets = presets.filter(p => p?.toolId === 'image-gen'); state.assets = scoped(assets, spaceId);
         state.presetId = state.presets[0]?.id || ''; state.ready = true; state.phase = 'ready'; notify();
-        if (queued) { const payload = queued; queued = null; receive(payload); } return true;
+        if (queued) { const payload = queued; queued = null; receive(payload); }
+        if (assetsPending) await refreshAssets(); return true;
       } catch (error) { return !closed && turn === epoch ? failed(error, start) : false; }
     }
     function update(changes) {
@@ -73,7 +98,7 @@
       const preset = state.presets.find(p => p.id === state.presetId); if (!preset) return false;
       state.proposal = [state.description.trim(), `${preset.name} composition, ${preset.size} frame`,
         ...(space?.dna?.voice ? [`mood: ${space.dna.voice}`] : []), ...(space?.dna?.colors?.length ? [`brand colors ${space.dna.colors.join(' and ')}`] : [])].join('; ');
-      request = { spaceId, requestId: `${spaceId}:${Date.now().toString(36)}:${++counter}`, presetId: state.presetId, description: state.proposal, count: state.count, references: [...state.references] };
+      request = { spaceId, requestId: `${spaceId}:${Date.now().toString(36)}:${++counter}`, presetId: state.presetId, description: state.proposal, count: state.count, references: [...state.references], ...(jobId ? { jobId, stageId } : {}) };
       state.confirmed = false; dirty(true); notify(); return true;
     }
     function finish(payload) { if (!matchesResults(payload, spaceId)) return false; state.confirmed = false; request = null; dirty(false); return present(payload); }
@@ -93,8 +118,10 @@
       const original = request, turn = ++epoch; let before = null, out;
       state.phase = 'generating'; state.error = ''; notify();
       try {
-        before = new Set(scoped(await service.listAssets(spaceId), spaceId).map(a => a.id));
+        const assets = scoped(await service.listAssets(spaceId), spaceId);
         if (closed || turn !== epoch) return false;
+        if (setAssets(assets)) { state.phase = 'ready'; notify(); return false; }
+        before = new Set(assets.map(a => a.id));
         out = await service.generateImage(original);
       } catch (error) {
         if (closed || turn !== epoch) return false;
@@ -127,17 +154,18 @@
         const asset = await service.keepAsset(spaceId, id); if (closed || turn !== epoch) return false;
         if (asset?.spaceId !== spaceId || asset.id !== id) throw new Error('Invalid asset.');
         state.assets = [...state.assets.filter(a => a.id !== id), asset]; state.phase = 'ready'; state.error = ''; dirty(restoreDirty); notify();
-        if (queued) { const payload = queued; queued = null; receive(payload); } return true;
+        if (queued) { const payload = queued; queued = null; receive(payload); }
+        if (assetsPending) await refreshAssets(); return true;
       } catch (error) { return !closed && turn === epoch ? failed(error, () => keep(id, restoreDirty)) : false; }
     }
     function variations(id) {
-      if (closed || busy() || state.dirty || !state.results.some(r => r.assetId === id)) return false;
+      if (closed || busy() || state.dirty || !state.results.some(r => r.assetId === id) || !state.assets.some(a => a.id === id && a.kind === 'image')) return false;
       const used = state.settings.find(([key]) => key === 'Preset')?.[1];
       const description = state.refinedDescription || state.description; if (!description.trim()) return false;
       update({ description, presetId: state.presets.find(p => p.name === used)?.id || state.presetId });
       state.references = [id]; sharpen(); state.proposal = request.description = description; notify(); return true;
     }
-    return { snapshot, start, update, sharpen, generate, receive, keep, variations, retry: () => retry(),
+    return { snapshot, start, update, sharpen, generate, receive, keep, variations, assetsChanged, retry: () => retry(),
       confirm(value) { if (!busy() && request) { state.confirmed = Boolean(value); notify(); } },
       async addReference(id) { if (busy()) return false; if (!await refreshAssets()) return false; if (!state.assets.some(a => a.id === id && a.kind === 'image')) return failed(new Error(), () => refreshAssets()); return update({ references: [id] }); },
       send(id) { if (!closed && state.results.some(r => r.assetId === id)) onSend({ spaceId, toolId: 'asset-library', assetId: id }); },
@@ -145,7 +173,7 @@
       dispose() { closed = true; epoch += 1; queued = null; dirty(false); },
     };
   }
-  function mountCanvas(el, { spaceId, studio }) {
+  function mountCanvas(el, { spaceId, jobId, stageId, studio }) {
     const doc = el.ownerDocument;
     const node = (tag, text, cls = '') => { const n = doc.createElement(tag); n.className = cls; if (text !== undefined) n.textContent = text; return n; };
     const button = (label, action) => { const b = node('button', label); b.type = 'button'; b.addEventListener('click', action); return b; };
@@ -192,15 +220,18 @@
         if (r.note) card.append(node('p', r.note));
         if (a?.kept) card.append(node('span', 'Kept', 'asset-kept-badge'));
         else { const keep = button('Keep', () => controller.keep(r.assetId)); keep.dataset.focus = `${r.assetId}:keep`; keep.disabled = locked; card.append(keep); }
-        const vary = button('Variations', () => { controller.variations(r.assetId); confirm.focus(); }); vary.dataset.focus = `${r.assetId}:vary`; vary.disabled = locked || s.dirty || !(s.refinedDescription || s.description).trim();
+        const vary = button('Variations', () => { controller.variations(r.assetId); confirm.focus(); }); vary.dataset.focus = `${r.assetId}:vary`; vary.disabled = locked || s.dirty || !a || a.kind !== 'image' || !(s.refinedDescription || s.description).trim();
         const send = node('details'); send.append(node('summary', 'Send to'), button('Asset Library', () => controller.send(r.assetId)), node('p', 'Review — Coming soon'));
         card.append(vary, node('span', 'Edit part — Coming soon', 'image-gen-coming-soon'), send); results.append(card);
       }
       if (actionFocus && !locked) { const available = Array.from(section.querySelectorAll('[data-focus]')).filter(n => !n.disabled); (available.find(n => n.dataset.focus === actionFocus) || available.find(n => n.dataset.focus.startsWith(actionFocus.split(':')[0] + ':')) || description).focus(); actionFocus = null; }
     }
-    const controller = createCanvas({ spaceId, service: studio.service, onChange: render, onDirty: value => studio.setDirty(value), onSend: params => studio.navigate('work', params) });
+    const controller = createCanvas({ spaceId, jobId, stageId, service: studio.service, onChange: render, onDirty: value => studio.setDirty(value), onSend: params => studio.navigate('work', params) });
     const off = studio.on((event, payload) => { if (event === 'image-results') controller.receive(payload); });
-    const offService = studio.service.on(event => { if (event === 'spaces-changed') controller.start(); }); controller.start();
+    const offService = studio.service.on((event, payload) => {
+      if (event === 'spaces-changed') controller.start();
+      else if (event === 'assets-changed' && payload?.spaceId === spaceId) controller.assetsChanged();
+    }); controller.start();
     return () => { off(); offService(); controller.dispose(); el.replaceChildren(); };
   }
   return { matchesResults, settingsRows, createCanvas, mountCanvas };

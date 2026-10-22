@@ -17,7 +17,7 @@
     ['storyboard', 'Storyboard', 'tool', 'coming-soon'],
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'coming-soon'],
-    ['website', 'Website', 'workflow', 'coming-soon'], // Core flips to 'available' when Tyler's workflow screen merges
+    ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],
@@ -72,7 +72,11 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
-  function createSampleService() {
+  /** options.simulateJaxMs: in the app's sample mode only, "Jax" approves waiting stages and Review items
+   *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off. */
+  function createSampleService(options = {}) {
+    const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
+    const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
     let counter = 0;
     const assets = new Map();
@@ -139,12 +143,27 @@
         return clone(jobView(job));
       },
       async getJob(spaceId, jobId) { requireSpace(spaceId); return clone(jobView(requireJob(spaceId, jobId))); },
+      /** Started Jobs in this Space (not the placeholder shown on a fresh client). */
+      async listJobs(spaceId) { requireSpace(spaceId); return clone(spaceJobs(spaceId).map(jobSummary)); },
+      /** Assets made inside a Job (kept or not, never trashed), grouped by stage id. */
+      async listJobAssets(spaceId, jobId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        const byStage = {};
+        for (const id of job.stageIds) byStage[id] = [];
+        for (const a of spaceAssets(spaceId)) if (a.jobId === job.id && !a.trashed && byStage[a.stageId]) byStage[a.stageId].push(a);
+        return clone(byStage);
+      },
       /** Marks the current stage done and moves on. Stages Jax approves wait on him instead. */
       async completeStage(spaceId, jobId) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
         const stage = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
-        if (stage.approver === 'jax') { job.waitingOnJax = true; emit('jobs-changed', { spaceId }); return clone(jobView(job)); }
+        if (stage.approver === 'jax') {
+          job.waitingOnJax = true; emit('jobs-changed', { spaceId });
+          later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
+          return clone(jobView(job));
+        }
         advance(job);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
@@ -178,6 +197,7 @@
           if (a.trashed) throw new Error('Restore this asset before sending it to Review.');
           if (a.review && a.review.status === 'waiting') throw new Error('Already waiting on Jax.');
           a.kept = true; a.review = { status: 'waiting', note: String(note).slice(0, 500) };
+          later(() => { if (a.review && a.review.status === 'waiting') { a.review = { ...a.review, status: 'approved' }; a.approved = true; emit('assets-changed', { spaceId }); } });
         });
       },
       async listReview(spaceId) {
@@ -207,6 +227,24 @@
         emit('assets-changed', { spaceId });
         return clone(asset);
       },
+      /** Move to client: copies a sandbox asset into another Space as a new original (v1). The sandbox copy
+       *  stays. Never from a client Space: one client's work is never used in another client's Space. */
+      async copyToSpace(fromSpaceId, assetId, toSpaceId) {
+        const from = requireSpace(fromSpaceId);
+        const to = requireSpace(toSpaceId);
+        if (from.type === 'client') throw new Error('Only sandbox work can be moved to a client.');
+        if (from.id === to.id) throw new Error('Pick a different Space.');
+        const source = spaceAssets(from.id).find(a => a.id === assetId && !a.trashed);
+        if (!source) throw new Error('Asset not found in this space.');
+        const base = String(source.name).replace(/__v\d+$/, '');
+        const asset = { ...source, id: nextId('asset'), spaceId: to.id, name: `${base}__v1`, version: 1, parentId: null,
+          rootId: undefined, kept: true, approved: false, review: null, trashed: false, jobId: undefined, stageId: undefined,
+          copiedFrom: { spaceId: from.id, assetId: source.id } };
+        delete asset.rootId; delete asset.jobId; delete asset.stageId;
+        spaceAssets(to.id).push(asset);
+        emit('assets-changed', { spaceId: to.id });
+        return clone(asset);
+      },
       /** Every version of an asset's family, oldest first. */
       async listVersions(spaceId, assetId) {
         requireSpace(spaceId);
@@ -216,7 +254,8 @@
         const root = asset.rootId || asset.id;
         return clone(list.filter(a => (a.rootId || a.id) === root).sort((a, b) => a.version - b.version));
       },
-      /** request: { spaceId, presetId, description, count (1|2|4), references: [assetId] } */
+      /** request: { spaceId, presetId, description, count (1|2|4), references: [assetId], jobId?, stageId? }
+       *  jobId/stageId (from the Work view inside a Job) tag the results so the Job page can list them. */
       async generateImage(request) {
         const space = requireSpace(request && request.spaceId);
         const preset = PRESETS.find(p => p.id === request.presetId) || PRESETS[0];
@@ -225,11 +264,16 @@
         const count = [1, 2, 4].includes(request.count) ? request.count : 4;
         const refinedDescription = `${description} — ${preset.name.toLowerCase()} composition, on-brand colors, natural light`;
         const settingsUsed = { preset: preset.name, size: preset.size, count, model: 'sample', useBrandDna: space.type === 'client' };
+        let tag = {};
+        if (request.jobId) {
+          const job = requireJob(space.id, request.jobId);
+          tag = { jobId: job.id, stageId: job.stageIds.includes(request.stageId) ? request.stageId : job.stageId };
+        }
         const results = [];
         for (let i = 0; i < count; i += 1) {
           const asset = { id: nextId('asset'), spaceId: space.id, name: `${preset.id}-sample-${i + 1}__v1`, kind: 'image',
             url: sampleImage(`${preset.name} ${i + 1}`, 200 + i * 25), version: 1, parentId: null,
-            kept: false, approved: false, trashed: false, createdBy: 'image-gen', settingsUsed };
+            kept: false, approved: false, trashed: false, createdBy: 'image-gen', settingsUsed, ...tag };
           spaceAssets(space.id).push(asset);
           results.push({ assetId: asset.id, url: asset.url, note: i === 0 ? 'Best fit for the brief' : '' });
         }
