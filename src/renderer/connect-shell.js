@@ -42,10 +42,6 @@
     const label = document.querySelector('.nav-label'); if (label) label.textContent = 'Workspace';
     const rename = { messages: 'Messages', tasks: 'My tasks', chat: 'Meridian AI', send: 'Send to Jax' };
     Object.entries(rename).forEach(([v, txt]) => { const el = document.querySelector(`.nav-link[data-view="${v}"] .nav-text`); if (el) el.textContent = txt; });
-    const dockTitle = document.querySelector('#chatDock .dock-kicker'); if (dockTitle) dockTitle.textContent = 'Meridian AI';
-    const welcome = document.querySelector('#dockMessages .m.mer');
-    if (welcome && /SAMPLE/.test(welcome.textContent)) welcome.innerHTML = '<div>Ask anything about your work. Meridian answers from home base; your chats stay on Jax\'s PC.</div>';
-    const ta = document.getElementById('text'); if (ta) ta.placeholder = 'Ask Meridian…';
     // one profile menu instead of separate gear / sign-out buttons in the top bar
     const prof = document.getElementById('headerProfile');
     if (prof && !prof.dataset.menu) {
