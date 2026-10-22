@@ -23,7 +23,7 @@
   };
   const failureText = error => error?.code === 'OFFLINE' ? 'You are offline. Try again when connected.' :
     [401, 403, 404].includes(error?.status) ? 'This Space is unavailable or access has changed. Try again or choose another Space.' : 'Image gen could not finish this action. Try again.';
-  function createCanvas({ spaceId, service, onChange = () => {}, onDirty = () => {}, onSend = () => {} }) {
+  function createCanvas({ spaceId, jobId, stageId, service, onChange = () => {}, onDirty = () => {}, onSend = () => {} }) {
     const state = { phase: 'loading', ready: false, presets: [], assets: [], presetId: '', description: '', count: 4,
       references: [], proposal: '', confirmed: false, results: [], settings: [], refinedDescription: '', dirty: false, error: '' };
     let closed = false, epoch = 0, assetRead = 0, assetsPending = false, request = null, retry = () => start(), space = null, queued = null;
@@ -98,7 +98,7 @@
       const preset = state.presets.find(p => p.id === state.presetId); if (!preset) return false;
       state.proposal = [state.description.trim(), `${preset.name} composition, ${preset.size} frame`,
         ...(space?.dna?.voice ? [`mood: ${space.dna.voice}`] : []), ...(space?.dna?.colors?.length ? [`brand colors ${space.dna.colors.join(' and ')}`] : [])].join('; ');
-      request = { spaceId, requestId: `${spaceId}:${Date.now().toString(36)}:${++counter}`, presetId: state.presetId, description: state.proposal, count: state.count, references: [...state.references] };
+      request = { spaceId, requestId: `${spaceId}:${Date.now().toString(36)}:${++counter}`, presetId: state.presetId, description: state.proposal, count: state.count, references: [...state.references], ...(jobId ? { jobId, stageId } : {}) };
       state.confirmed = false; dirty(true); notify(); return true;
     }
     function finish(payload) { if (!matchesResults(payload, spaceId)) return false; state.confirmed = false; request = null; dirty(false); return present(payload); }
@@ -173,7 +173,7 @@
       dispose() { closed = true; epoch += 1; queued = null; dirty(false); },
     };
   }
-  function mountCanvas(el, { spaceId, studio }) {
+  function mountCanvas(el, { spaceId, jobId, stageId, studio }) {
     const doc = el.ownerDocument;
     const node = (tag, text, cls = '') => { const n = doc.createElement(tag); n.className = cls; if (text !== undefined) n.textContent = text; return n; };
     const button = (label, action) => { const b = node('button', label); b.type = 'button'; b.addEventListener('click', action); return b; };
@@ -226,7 +226,7 @@
       }
       if (actionFocus && !locked) { const available = Array.from(section.querySelectorAll('[data-focus]')).filter(n => !n.disabled); (available.find(n => n.dataset.focus === actionFocus) || available.find(n => n.dataset.focus.startsWith(actionFocus.split(':')[0] + ':')) || description).focus(); actionFocus = null; }
     }
-    const controller = createCanvas({ spaceId, service: studio.service, onChange: render, onDirty: value => studio.setDirty(value), onSend: params => studio.navigate('work', params) });
+    const controller = createCanvas({ spaceId, jobId, stageId, service: studio.service, onChange: render, onDirty: value => studio.setDirty(value), onSend: params => studio.navigate('work', params) });
     const off = studio.on((event, payload) => { if (event === 'image-results') controller.receive(payload); });
     const offService = studio.service.on((event, payload) => {
       if (event === 'spaces-changed') controller.start();
