@@ -14,9 +14,9 @@
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
     ['video', 'Video', 'tool', 'coming-soon'],
-    ['storyboard', 'Storyboard', 'tool', 'coming-soon'],
+    ['storyboard', 'Storyboard', 'tool', 'available'],
     ['logo', 'Logo', 'tool', 'coming-soon'],
-    ['copywriter', 'Copywriter', 'tool', 'coming-soon'],
+    ['copywriter', 'Copywriter', 'tool', 'available'],
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -62,6 +62,33 @@
     }),
   });
   const stagesFor = (workflow, tier) => workflow.stages.filter(st => st.tiers.includes(tier));
+
+  // Stage notes: what the Brief, Plan and Storyboard stages decided, saved per Job. Plain text only.
+  const SECTION_KINDS = Object.freeze(['hero', 'services', 'proof', 'reviews', 'about', 'faq', 'contact', 'other']);
+  const text = (value, field, max = 2000) => {
+    if (value === undefined || value === null) return '';
+    if (typeof value !== 'string') throw new Error(`${field} must be text.`);
+    if (value.length > max) throw new Error(`${field} is too long (max ${max} characters).`);
+    return value.trim();
+  };
+  const list = (value, field, max) => {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) throw new Error(`${field} must be a list.`);
+    if (value.length > max) throw new Error(`${field} can have at most ${max} items.`);
+    return value;
+  };
+  const NOTES = Object.freeze({
+    brief: n => ({ goal: text(n.goal, 'Goal'), audience: text(n.audience, 'Audience'), callToAction: text(n.callToAction, 'Main call to action', 200),
+      pages: list(n.pages, 'Pages wanted', 20).map(p => text(p, 'Page name', 80)).filter(Boolean), mustHave: text(n.mustHave, 'Must-have content') }),
+    plan: n => ({ pages: list(n.pages, 'Pages', 20).map(p => ({ name: text(p?.name, 'Page name', 80), purpose: text(p?.purpose, 'Page purpose', 300),
+      sections: list(p?.sections, 'Sections', 12).map(sec => {
+        const kind = SECTION_KINDS.includes(sec?.kind) ? sec.kind : 'other';
+        return { kind, heading: text(sec?.heading, 'Section heading', 200), copy: text(sec?.copy, 'Section copy', 4000) };
+      }) })) }),
+    storyboard: n => ({ frames: list(n.frames, 'Frames', 120).map(f => ({ page: text(f?.page, 'Frame page', 80),
+      section: Number.isInteger(f?.section) && f.section >= 0 && f.section < 12 ? f.section : 0,
+      sketch: text(f?.sketch, 'Frame sketch'), assetId: typeof f?.assetId === 'string' && f.assetId ? f.assetId : null })) }),
+  });
 
   const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -137,7 +164,7 @@
         const stages = stagesFor(workflow, tier);
         const n = spaceJobs(space.id).filter(j => j.workflowId === workflowId).length + 1;
         const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
-          stageIds: stages.map(st => st.id), done: [], stageId: stages[0].id, waitingOnJax: false };
+          stageIds: stages.map(st => st.id), done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {} };
         spaceJobs(space.id).push(job);
         emit('jobs-changed', { spaceId: space.id });
         return clone(jobView(job));
@@ -176,6 +203,55 @@
         job.waitingOnJax = false; advance(job);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
+      },
+      /** Ticks or unticks one "This stage needs" item (by index) on the Job's current stage. */
+      async setStageNeed(spaceId, jobId, index, checked) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        const stage = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
+        if (!stage || job.waitingOnJax) throw new Error('This stage can no longer be changed.');
+        if (!Number.isInteger(index) || index < 0 || index >= stage.needs.length) throw new Error('Unknown checklist item.');
+        const ticks = job.needs[stage.id] || (job.needs[stage.id] = stage.needs.map(() => false));
+        ticks[index] = !!checked;
+        emit('jobs-changed', { spaceId });
+        return clone(jobView(job));
+      },
+      /** What a stage decided: 'brief' | 'plan' | 'storyboard'. Empty notes until someone saves. */
+      async getStageNotes(spaceId, jobId, stageId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        if (!NOTES[stageId] || !job.stageIds.includes(stageId)) throw new Error('This stage has no notes.');
+        return clone(job.notes[stageId] || NOTES[stageId]({}));
+      },
+      /** Saves a stage's notes (replaces them). Storyboard frames may only point at this Space's assets. */
+      async saveStageNotes(spaceId, jobId, stageId, notes) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        if (!NOTES[stageId] || !job.stageIds.includes(stageId)) throw new Error('This stage has no notes.');
+        if (!notes || typeof notes !== 'object' || Array.isArray(notes)) throw new Error('Notes must be an object.');
+        if (job.done.includes(stageId) || (job.stageId === stageId && job.waitingOnJax)) throw new Error('This stage is finished; its notes are locked.');
+        const clean = NOTES[stageId](notes);
+        if (stageId === 'storyboard') {
+          for (const frame of clean.frames) {
+            if (frame.assetId && !spaceAssets(spaceId).some(a => a.id === frame.assetId && !a.trashed)) throw new Error('A frame points at an asset that is not in this Space.');
+          }
+        }
+        job.notes[stageId] = clean;
+        emit('stage-notes-changed', { spaceId, jobId: job.id, stageId });
+        return clone(clean);
+      },
+      /** Meridian drafts copy for the person to accept or change. Never saves anything by itself.
+       *  request: { spaceId, kind: 'section' | 'headline' | 'brief-summary', input: { heading?, kind?, notes? } } */
+      async draftCopy(request) {
+        const space = requireSpace(request && request.spaceId);
+        const kind = ['section', 'headline', 'brief-summary'].includes(request.kind) ? request.kind : 'section';
+        const input = request.input && typeof request.input === 'object' ? request.input : {};
+        const topic = text(input.heading, 'Heading', 200) || text(input.notes, 'Notes', 2000).slice(0, 80) || 'this section';
+        const voice = space.type === 'client' ? 'Confident, plain-spoken' : 'Friendly';
+        const draft = kind === 'headline' ? `${topic}: done right, the first time`
+          : kind === 'brief-summary' ? `A site that turns visitors into calls. Focus: ${topic}.`
+            : `${topic}. We show up on time, explain the work in plain words, and leave the place cleaner than we found it. Call today for a free estimate.`;
+        return clone({ draft, settingsUsed: { kind, voice, model: 'sample', useBrandDna: space.type === 'client' } });
       },
       async listPresets(toolId) { return clone(PRESETS.filter(p => p.toolId === toolId)); },
       async listAssets(spaceId, { query = '', includeTrash = false } = {}) {
@@ -308,8 +384,9 @@
       const workflow = WORKFLOWS[job.workflowId];
       return { id: job.id, spaceId: job.spaceId, workflowId: job.workflowId, tier: job.tier, name: job.name,
         stageId: job.stageId, waitingOnJax: job.waitingOnJax, finished: job.stageId === null,
-        stages: stagesFor(workflow, job.tier).map(st => ({ ...st, status: job.done.includes(st.id) ? 'done'
-          : st.id === job.stageId ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
+        stages: stagesFor(workflow, job.tier).map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
+          hasNotes: !!job.notes[st.id], status: job.done.includes(st.id) ? 'done'
+            : st.id === job.stageId ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
     }
 
     function jobSummary(job) {
