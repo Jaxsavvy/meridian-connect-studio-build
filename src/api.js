@@ -32,6 +32,12 @@ function getServerUrl() {
   return (data.serverUrl || 'http://127.0.0.1:7871/connect').replace(/\/+$/, '');
 }
 
+/** Studio lives at the root of the same server as /connect (e.g. https://home-base/connect -> https://home-base). */
+function getStudioBase() {
+  return getServerUrl().replace(/\/connect$/, '');
+}
+const STUDIO_PATH = /^\/api\/studio\/[A-Za-z0-9_\-\/]{1,300}(\?[A-Za-z0-9_=&%.\-]{0,300})?$/;
+
 function getTimeoutMs() {
   const data = readSettings();
   return data.apiTimeoutMs || 8000;
@@ -749,6 +755,47 @@ const api = {
       return { success: true, data: res.result };
     }
     return res;
+  },
+
+  /**
+   * Meridian Studio (#48): Team Hub serves Studio at /api/studio/ on the same host as /connect.
+   * Only employee routes are allowed from here: never admin routes (owner-only, and never through Team Hub).
+   * Returns { success, status, data } or { success:false, status, error, code }; never throws.
+   */
+  async studioRequest(method, endpoint, body) {
+    if (typeof endpoint !== 'string' || !STUDIO_PATH.test(endpoint) || endpoint.includes('..')
+        || /^\/api\/studio\/(admin|files)\//.test(endpoint)) {
+      return { success: false, status: 0, error: 'Not allowed' };
+    }
+    const post = method === 'POST';
+    const controller = new AbortController();
+    // Making images can take a couple of minutes; everything else is quick.
+    const timer = setTimeout(() => controller.abort(), /\/generate$/.test(endpoint) ? 200000 : 20000);
+    try {
+      const resp = await fetch(getStudioBase() + endpoint, {
+        method: post ? 'POST' : 'GET',
+        headers: Object.assign({ 'Content-Type': 'application/json' },
+          currentAuthToken ? { Authorization: `Bearer ${currentAuthToken}` } : {}),
+        body: post ? JSON.stringify(body && typeof body === 'object' ? body : {}) : undefined,
+        signal: controller.signal,
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) return { success: false, status: resp.status, error: data.error || 'Studio could not do that.', code: data.code || '' };
+      return { success: true, status: resp.status, data };
+    } catch (err) {
+      return { success: false, status: 0, offline: true, uncertain: post,
+        error: 'Studio could not reach home base. Check your connection and try again.' };
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  /** Address + headers for one Studio image (used only inside the main process, via meridian-media://studio/...). */
+  studioFileRequest(spaceId, assetId) {
+    return {
+      url: `${getStudioBase()}/api/studio/files/${encodeURIComponent(spaceId)}/${encodeURIComponent(assetId)}`,
+      headers: currentAuthToken ? { Authorization: `Bearer ${currentAuthToken}` } : {},
+    };
   }
 };
 

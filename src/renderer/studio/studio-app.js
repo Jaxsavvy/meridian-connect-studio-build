@@ -26,7 +26,10 @@
 
   // Sample mode: a stand-in "Jax" approves after 5 seconds so the whole Job can be clicked through.
   // The real server (Core #48) replaces this; approvals then only come from Jax's Command queue.
-  const service = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000 });
+  const sampleService = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000 });
+  let serverService = null;
+  let service = sampleService;   // switched by MeridianStudioUI.useServer() at sign-in (#48)
+  let syncProjects = () => {};
 
   // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
   // edits index.html or another lane's file. Files that don't exist yet are skipped.
@@ -105,7 +108,7 @@
   }
 
   const api = Object.freeze({
-    service,
+    get service() { return service; },
     get context() { return window.meridianStudioContext; },
     registerScreen: (name, entry) => register(screens, 'screen', name, entry, 'render'),
     registerTool: (id, entry) => register(tools, 'tool', id, entry, 'mountCanvas'),
@@ -147,10 +150,24 @@
     mount({ host: el, getProjects }) {
       host = el;
       loadLaneFiles();
-      const sync = () => service.setProjects(getProjects ? getProjects() : []);
-      sync();
-      if (window.meridianStudioContext) window.meridianStudioContext.subscribe(sync);
+      syncProjects = () => service.setProjects(getProjects ? getProjects() : []);
+      syncProjects();
+      if (window.meridianStudioContext) window.meridianStudioContext.subscribe(() => syncProjects());
       render();
+    },
+    /** Real sign-in: Studio uses Team Hub (real images, real cost). Sample sign-in: built-in sample data. */
+    useServer(on) {
+      const bridge = window.meridian && window.meridian.api && window.meridian.api.studio;
+      const next = on && typeof bridge === 'function'
+        ? (serverService = serverService || window.MeridianStudioService.createServerService({ request: bridge }))
+        : sampleService;
+      if (next === service) return service.mode;
+      runCleanups(); dirtyOwners.clear();
+      service = next;
+      view = { name: 'home', params: {} };
+      syncProjects();
+      render();
+      return service.mode;
     },
     setActive(value) { active = Boolean(value); render(); },
     guardLeave,

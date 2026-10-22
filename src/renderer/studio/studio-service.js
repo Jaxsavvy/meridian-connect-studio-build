@@ -406,5 +406,109 @@
     }
   }
 
-  return { createSampleService };
+  /**
+   * Real server (#48): Team Hub's /api/studio/ endpoints through Connect's main process.
+   * request(method, endpoint, body) -> { success, data } | { success:false, status, error, code, uncertain }.
+   * Spaces, presets, assets, image making, Review and version history are real. Workflows, Jobs and
+   * stage notes still run locally (the `local` sample service) until the server has them; nothing
+   * there costs money. Approvals never happen here: Jax approves from Command.
+   */
+  function createServerService({ request, local }) {
+    if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
+    local = local || createSampleService();
+    const listeners = new Set();
+    const emit = (event, detail) => { for (const fn of listeners) { try { fn(event, detail); } catch (_) { /* a listener failed */ } } };
+    const enc = encodeURIComponent;
+    const fail = res => {
+      const error = new Error(res.error || 'Studio could not do that.');
+      error.code = res.code || ''; error.status = res.status || 0; error.uncertain = Boolean(res.uncertain);
+      throw error;
+    };
+    async function call(method, endpoint, body) {
+      const res = await request(method, endpoint, body);
+      if (!res || !res.success) fail(res || {});
+      return res.data;
+    }
+    const fileUrl = a => `meridian-media://studio/${enc(a.spaceId)}/${enc(a.id)}`;
+    const asset = a => ({ ...a, url: fileUrl(a) });
+    // Same input -> same id, so a retry is recognised by the server and never paid twice.
+    const safeRequestId = id => String(id || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(-128) || `r-${Date.now().toString(36)}`;
+    const notOnServerYet = () => { throw new Error('Coming soon with the real server.'); };
+    const notHere = () => { throw new Error('Only Jax approves, from Command.'); };
+
+    async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
+      const q = new URLSearchParams();
+      if (query) q.set('q', String(query).slice(0, 100));
+      if (includeTrash) q.set('trash', '1');
+      const qs = q.toString();
+      return (await call('GET', `/api/studio/spaces/${enc(spaceId)}/assets${qs ? `?${qs}` : ''}`)).map(asset);
+    }
+    async function action(spaceId, assetId, verb, body) {
+      const out = asset(await call('POST', `/api/studio/spaces/${enc(spaceId)}/assets/${enc(assetId)}/${verb}`, body));
+      emit('assets-changed', { spaceId });
+      return out;
+    }
+
+    return Object.freeze({
+      mode: 'server',
+      setProjects(list) { local.setProjects(list); emit('spaces-changed'); },
+      async listSpaces() { return call('GET', '/api/studio/spaces'); },
+      async getSpace(spaceId) {
+        const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
+        let jobs = [];
+        try { jobs = (await local.getSpace(spaceId)).jobs || []; } catch (_) { jobs = []; }
+        return { ...space, jobs };
+      },
+      async listTools() { return local.listTools(); },
+      async listPresets(toolId) { return call('GET', `/api/studio/presets?tool=${enc(toolId)}`); },
+      listAssets,
+      async keepAsset(spaceId, assetId) { return action(spaceId, assetId, 'keep'); },
+      async trashAsset(spaceId, assetId) { return action(spaceId, assetId, 'trash'); },
+      async restoreAsset(spaceId, assetId) { return action(spaceId, assetId, 'restore'); },
+      async sendToReview(spaceId, assetId, note = '') { return action(spaceId, assetId, 'review', { note: String(note).slice(0, 500) }); },
+      async listReview(spaceId) { return (await call('GET', `/api/studio/spaces/${enc(spaceId)}/review`)).map(asset); },
+      async listVersions(spaceId, assetId) {
+        return (await call('GET', `/api/studio/spaces/${enc(spaceId)}/assets/${enc(assetId)}/versions`)).map(asset);
+      },
+      async generateImage(req) {
+        const r = req || {};
+        const out = await call('POST', `/api/studio/spaces/${enc(r.spaceId)}/generate`, {
+          requestId: safeRequestId(r.requestId), presetId: r.presetId, description: r.description,
+          count: [1, 2, 4].includes(r.count) ? r.count : 4, ...(r.jobId ? { jobId: r.jobId, stageId: r.stageId } : {}),
+        });
+        emit('assets-changed', { spaceId: r.spaceId });
+        return { ...out, requestId: r.requestId || out.requestId,
+          results: (out.results || []).map(x => ({ ...x, url: fileUrl({ spaceId: r.spaceId, id: x.assetId }) })) };
+      },
+      saveVersion: notOnServerYet,
+      copyToSpace: notOnServerYet,
+      approveAsset: notHere,
+      approveStage: notHere,
+      // Local until the server has Jobs (no cost involved).
+      getWorkflow: (...a) => local.getWorkflow(...a),
+      startJob: (...a) => local.startJob(...a),
+      getJob: (...a) => local.getJob(...a),
+      listJobs: (...a) => local.listJobs(...a),
+      completeStage: (...a) => local.completeStage(...a),
+      setStageNeed: (...a) => local.setStageNeed(...a),
+      getStageNotes: (...a) => local.getStageNotes(...a),
+      saveStageNotes: (...a) => local.saveStageNotes(...a),
+      draftCopy: (...a) => local.draftCopy(...a),
+      async listJobAssets(spaceId, jobId) {
+        const job = await local.getJob(spaceId, jobId);
+        const byStage = {};
+        for (const st of job.stages) byStage[st.id] = [];
+        for (const a of await listAssets(spaceId)) if (a.jobId === job.id && byStage[a.stageId]) byStage[a.stageId].push(a);
+        return byStage;
+      },
+      on(listener) {
+        if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');
+        listeners.add(listener);
+        const offLocal = local.on((event, detail) => { if (event !== 'assets-changed') listener(event, detail); });
+        return () => { listeners.delete(listener); offLocal(); };
+      },
+    });
+  }
+
+  return { createSampleService, createServerService };
 });

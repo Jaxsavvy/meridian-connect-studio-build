@@ -40,7 +40,18 @@ protocol.registerSchemesAsPrivileged([
 
 const MEDIA_ID = /^[A-Za-z0-9._-]{1,200}$/;
 
+const STUDIO_FILE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
 function handleMediaRequest(request) {
+  let parsed = null;
+  try { parsed = new URL(request.url); } catch (e) { parsed = null; }
+  if (parsed && parsed.host === 'studio') {   // meridian-media://studio/<spaceId>/<assetId> (Studio images, #48)
+    const parts = parsed.pathname.replace(/^\/+/, '').split('/').map(p => { try { return decodeURIComponent(p); } catch (e) { return ''; } });
+    if (parts.length !== 2 || !parts.every(p => STUDIO_FILE_ID.test(p))) return new Response('Not found', { status: 404 });
+    const { url, headers } = api.studioFileRequest(parts[0], parts[1]);
+    if (!isAllowedServerUrl(url.slice(0, url.indexOf('/api/')))) return new Response('Server address not allowed', { status: 403 });
+    return net.fetch(url, { headers });
+  }
   let mediaId = '';
   try { mediaId = decodeURIComponent(new URL(request.url).pathname.replace(/^\/+/, '')); } catch (e) { mediaId = ''; }
   if (!MEDIA_ID.test(mediaId)) return new Response('Not found', { status: 404 });
@@ -738,6 +749,7 @@ if (!gotTheLock) {
     ipcMain.handle('api:change-password', (e, { current, next }) => api.changePassword(current, next));
     // Project workspace (2026-10-06)
     ipcMain.handle('ws:request', (e, { method, endpoint, body }) => api.wsRequest(method, endpoint, body));
+    ipcMain.handle('studio:request', (e, req) => api.studioRequest(req && req.method, req && req.endpoint, req && req.body));
     ipcMain.handle('ws:upload', async (e, { projectId, section }) => {
       const pick = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Add files to project', properties: ['openFile', 'multiSelections'] });
       if (pick.canceled || !pick.filePaths.length) return { success: true, uploaded: 0 };
