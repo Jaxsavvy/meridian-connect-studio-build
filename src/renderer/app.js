@@ -146,6 +146,7 @@ async function enterApp(user) {
   document.getElementById('login-view').style.display = 'none';
 
   if (user && user.sample) {   // developer-mode sample sign-in: no server, Studio on sample data only
+    if (window.MeridianStudioUI && window.MeridianStudioUI.useServer) window.MeridianStudioUI.useServer(false);
     currentMe = Object.assign({}, user);
     const nameLabel = document.getElementById('user-name-label');
     if (nameLabel) nameLabel.textContent = user.displayName;
@@ -168,6 +169,9 @@ async function enterApp(user) {
     showChangePassword(user, meRes.data);
     return;
   }
+  // #48: a real sign-in uses the real Studio server (Team Hub /api/studio/).
+  if (window.MeridianStudioUI && window.MeridianStudioUI.useServer) window.MeridianStudioUI.useServer(true);
+
   currentMe = Object.assign({}, user, meRes.data, { displayName: meRes.data.name || user.displayName });
 
   // Update profile in sidebar & header
