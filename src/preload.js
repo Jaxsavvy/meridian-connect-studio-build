@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('meridian', {
     ping: () => ipcRenderer.invoke('api:ping'),
     changePassword: (current, next) => ipcRenderer.invoke('api:change-password', { current, next }),
     ws: (method, endpoint, body) => ipcRenderer.invoke('ws:request', { method, endpoint, body }),
+    studio: (method, endpoint, body) => ipcRenderer.invoke('studio:request', { method, endpoint, body }),
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
     wsCreateProjectPdf: (projectId, title, content) => ipcRenderer.invoke('ws:create-project-pdf', { projectId, title, content }),
     // A file dropped onto the chat: its bytes go to the main process (no file path crosses over)
