@@ -67,7 +67,7 @@ test('full flow generates only on yes and tags results with their Space', async 
   assert.equal(events.length, 1);
   assert.equal(events[0].name, 'image-results');
   assert.equal(events[0].detail.spaceId, 'proj_a');
-  assert.equal(events[0].detail.results.length, 4);
+  assert.equal(events[0].detail.results.length, 2)   // default is 2 when the person doesn't say;
   assert.deepEqual(convo.messages.at(-1).settings.map(([k]) => k), ['Preset', 'Size', 'Options', 'Brand DNA']);
   assert.equal(convo.hasDraft, false);
 });
@@ -87,7 +87,7 @@ test('a late result after leaving the Space is never shown anywhere else', async
   await pendingConfirm;
   assert.equal(a.events.length, 0, 'no event from the old panel');
   assert.equal(b.events.length, 0, 'nothing reaches Space B');
-  assert.equal((await base.listAssets('proj_a')).length, 4, 'results stay saved in Space A');
+  assert.equal((await base.listAssets('proj_a')).length, 2, 'results stay saved in Space A');
   assert.equal((await base.listAssets('proj_b')).length, 0);
 });
 
@@ -102,7 +102,7 @@ test('a display failure after generation never causes a second generation', asyn
   await convo.confirm();
   await convo.send('yes');
   assert.equal(calls.generateImage, 1);
-  assert.equal((await base.listAssets('proj_a')).length, 4);
+  assert.equal((await base.listAssets('proj_a')).length, 2);
   assert.doesNotMatch(JSON.stringify(convo.messages), /exploded|private/);
 });
 
@@ -115,7 +115,7 @@ test('an uncertain failure reconciles instead of generating again', async () => 
   await convo.confirm();
   assert.ok(convo.messages.some(m => m.text === COPY.reconciled));
   assert.equal(events.length, 1);
-  assert.equal(events[0].results.length, 4);
+  assert.equal(events[0].results.length, 2);
   assert.equal(convo.hasDraft, false);
   await convo.confirm();
   assert.equal(calls.generateImage, 1);
@@ -192,4 +192,29 @@ test('never mentions cost and is honest about other tools', async () => {
   await toProposal(img.convo);
   await img.convo.confirm();
   assert.doesNotMatch(JSON.stringify(img.convo.messages), /cost|price|\$\d/i);
+});
+
+test('image count: follows what the person asked (1, 2 or 4), defaults to 2, and can be changed at confirm', async () => {
+  const { pickCount } = require('../../src/renderer/studio/ai/conversation.js');
+  assert.equal(pickCount('A hero image for the homepage: a wide shot, no faces'), 1);
+  assert.equal(pickCount('2 images of a crew of 2 people'), 2);
+  assert.equal(pickCount('three options please'), 4);
+  assert.equal(pickCount('a crew of 4 people working'), null);           // numbers about the scene don't count
+  assert.equal(pickCount('hero images for the site'), null);
+
+  const sizes = [];
+  const base = sampleService();
+  const { wrapped } = wrap(base, { generateImage: req => { sizes.push(req.count); return base.generateImage(req); } });
+  const one = setup({ service: wrapped });
+  await toProposal(one.convo, 'one hero image of a crew on a roof at sunrise');
+  assert.match(one.convo.messages.at(-1).text, /Generate 1 image/);
+  await one.convo.send('yes');
+  assert.deepEqual(sizes, [1]);
+
+  const dflt = setup({ service: wrapped });
+  await toProposal(dflt.convo, 'homepage hero shots, crew on a roof at sunrise');
+  await dflt.convo.send('4');                                             // change it at the confirm step
+  assert.match(dflt.convo.messages.at(-1).text, /Generate 4 options/);
+  await dflt.convo.send('yes');
+  assert.deepEqual(sizes, [1, 4]);
 });

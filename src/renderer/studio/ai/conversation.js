@@ -39,6 +39,21 @@
   }
 
   /** A clearer version of the request, using the preset and (for client spaces) the Project DNA. */
+  /** How many images the person asked for: 1, 2 or 4 (the only counts the server makes), or null if they didn't say.
+   *  Only counts tied to an image word, so "2 people" or "1990s" don't count. A singular request ("a hero image") is 1. */
+  const COUNT_WORDS = { one: 1, single: 1, a: 1, an: 1, '1': 1, two: 2, couple: 2, pair: 2, '2': 2, three: 4, '3': 4, four: 4, '4': 4, few: 4, several: 4 };
+  function pickCount(text) {
+    const t = String(text || '').toLowerCase();
+    const near = t.match(/\b(one|single|1|two|2|three|3|four|4|couple|pair|few|several)\b(?:\s+of)?(?:\s+[a-z-]+){0,2}?\s+(images?|pictures?|photos?|options?|versions?|shots?|ones?)\b/);
+    if (near) return COUNT_WORDS[near[1]] || null;
+    const bare = t.match(/^\s*(?:just |only |make it )?(one|1|two|2|four|4)\s*(?:please)?\s*[.!]?\s*$/);
+    if (bare) return COUNT_WORDS[bare[1]];
+    if (/\b(just|only)\s+(one|1)\b|\b(one|1)\s+please\b|\bsingle\b/.test(t)) return 1;
+    if (/\b(images|pictures|photos|options|versions|shots)\b/.test(t)) return null;
+    if (/\b(an?|one)\s+(?:[a-z-]+\s+){0,3}(image|picture|photo|shot)\b/.test(t)) return 1;
+    return null;
+  }
+
   function sharpenDescription(description, preset, answer, dna) {
     const parts = [String(description || '').trim().replace(/[.\s]+$/, '')];
     if (answer) parts.push(String(answer).trim());
@@ -133,12 +148,15 @@
       }
       if (pending && pending.step === 'confirm') {
         if (/^(yes|y|go|generate|do it|ok|okay|sure)\b/i.test(input)) { await confirm(); return true; }
-        pending = { step: 'answer', description: `${pending.description}; ${input}`, preset: pending.preset, answer: pending.answer };
+        const asked = input.length <= 40 ? pickCount(input) : null;   // "just one", "make it 2 images"
+        if (asked) { pending.count = asked; propose(); return true; }
+        pending = { step: 'answer', description: `${pending.description}; ${input}`, preset: pending.preset, answer: pending.answer,
+          count: pickCount(input) || pending.count };
         propose();
         return true;
       }
       const preset = pickPreset(input, presets);
-      pending = { step: 'answer', description: input, preset, answer: '' };
+      pending = { step: 'answer', description: input, preset, answer: '', count: pickCount(input) || 2 };
       const question = chooseQuestion(preset, input);
       if (question) {
         say('meridian', `I'll use the "${preset.name}" preset. ${question}`);
@@ -155,7 +173,8 @@
       // One id per proposal. A retry of the same proposal reuses it, so the server can refuse to
       // generate (and charge) twice for it (docs/PLAN.md: retries never charge twice).
       pending.requestId = `${spaceId}:${Date.now().toString(36)}:${(requestCounter += 1)}`;
-      say('meridian', 'Here\'s a sharper way to describe it. Generate 4 options, or tell me what to change?', {
+      const n = pending.count || 2;
+      say('meridian', `Here's a sharper way to describe it. Generate ${n} ${n === 1 ? 'image' : 'options'}, or tell me what to change? (Say "just one" or "4" to change how many.)`, {
         proposal: pending.sharpened, actions: ['Generate', 'Change it'],
       });
     }
@@ -192,7 +211,7 @@
         let out;
         try {
           out = await service.generateImage({ spaceId, requestId: request.requestId, presetId: request.preset && request.preset.id,
-            description: request.sharpened, count: 4, ...(jobId ? { jobId, stageId } : {}) });
+            description: request.sharpened, count: [1, 2, 4].includes(request.count) ? request.count : 2, ...(jobId ? { jobId, stageId } : {}) });
         } catch (error) {
           report(error);
           // Uncertain outcome: check whether the images were made before offering a retry.
@@ -345,5 +364,5 @@
     return () => { convo.dispose(); studio.setDirty(false); };
   }
 
-  return { pickPreset, sharpenDescription, chooseQuestion, safeSettings, COPY, createConversation, mountConversation };
+  return { pickPreset, pickCount, sharpenDescription, chooseQuestion, safeSettings, COPY, createConversation, mountConversation };
 });
