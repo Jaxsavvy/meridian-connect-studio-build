@@ -23,7 +23,11 @@
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],
     ['social', 'Social content', 'workflow', 'coming-soon'],
     ['brand-kit', 'Brand kit', 'workflow', 'coming-soon'],
-    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'],
+    ['pitch-deck', 'Pitch deck', 'workflow', 'available'],
+    ['deck-builder', 'Deck builder', 'tool', 'coming-soon'],
+    ['homepage-builder', 'Home page builder', 'tool', 'coming-soon'],
+    ['research', 'Research', 'tool', 'coming-soon'],
+    ['auto-check', 'Auto check', 'tool', 'coming-soon'],
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
 
   const PRESETS = [
@@ -41,9 +45,11 @@
   // Website workflow (docs/PLAN.md). approver 'jax' means the stage waits on Jax; the team can't mark it done.
   const STAGE = (id, name, goal, tools, needs, check, approver = 'team', tiers = ['standard', 'cinematic']) =>
     Object.freeze({ id, name, goal, tools: Object.freeze(tools), needs: Object.freeze(needs), check, approver, tiers: Object.freeze(tiers) });
+  // Stages in a group are open at the same time; the stage after the group opens when all of them are done.
+  const GROUP = (group, groupName, stage) => Object.freeze({ ...stage, group, groupName });
   const WORKFLOWS = Object.freeze({
     website: Object.freeze({
-      id: 'website', name: 'Website',
+      id: 'website', name: 'Website', version: 1,
       tiers: Object.freeze([
         Object.freeze({ id: 'standard', name: 'Standard', description: 'Clean, fast site. Strong photos, clear pages, no motion pieces.' }),
         Object.freeze({ id: 'cinematic', name: 'Cinematic', description: 'Everything in Standard plus scroll motion and video moments.' }),
@@ -58,6 +64,29 @@
         STAGE('check', 'Check', 'Test speed, mobile, links and spelling.', ['seo'], ['Mobile check', 'Speed check', 'Link check'], 'All checks pass'),
         STAGE('review', 'Review', 'Jax reviews before the client sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax'),
         STAGE('launch', 'Launch', 'Publish the site.', [], ['Domain ready'], 'Live and checked', 'jax'),
+      ]),
+    }),
+    // Pitch deck (docs/PLAN.md): started inside a client project; the Job is locked (stages never change).
+    'pitch-deck': Object.freeze({
+      // version: bump when the stages change; running Jobs keep the stages they started with.
+      id: 'pitch-deck', name: 'Pitch deck', version: 1, clientOnly: true, locked: true, oneAtATime: true,
+      people: Object.freeze(['jax', 'tyler']), // Pitch deck project: Jax and Tyler only
+      tiers: Object.freeze([
+        Object.freeze({ id: 'deck', name: 'Market Opportunity', description: 'A hosted page built from the prospect\'s own numbers, plus a printed QR card.' }),
+      ]),
+      stages: Object.freeze([
+        // Research + write: the agent finds the numbers and drafts the words; the builder checks and edits.
+        STAGE('research', 'Research + write', 'Meridian finds the prospect\'s real numbers and drafts the words; the builder checks and edits.', ['research', 'deck-builder'], ['Business matched', 'Evidence gathered', 'Words drafted', 'Builder edited'], 'Deck passes the checker and the evidence guard', 'team', ['deck']),
+        // Three home-page builds shown at the bottom of the board (home page only, not full sites); built side by side.
+        GROUP('home', 'Home pages', STAGE('home-t1', 'Home page: Tier 1', 'The essentials: clear offer, services, one way to get in touch.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Uses the prospect\'s real name and services', 'team', ['deck'])),
+        GROUP('home', 'Home pages', STAGE('home-t2', 'Home page: Tier 2', 'A bolder custom concept with a stronger story and booking path.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Clearly a step up from Tier 1', 'team', ['deck'])),
+        GROUP('home', 'Home pages', STAGE('home-t3', 'Home page: Tier 3', 'The full immersive experience: motion and video moments.', ['homepage-builder', 'image-gen', 'video'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Clearly a step up from Tier 2', 'team', ['deck'])),
+        STAGE('assemble', 'Assemble board', 'Meridian builds the interactive board from the deck data and the three home pages.', ['deck-builder'], ['Board built', 'Saved to project files'], 'Board opens with no errors', 'team', ['deck']),
+        // Automatic: Meridian runs every check; a person only reviews what gets flagged.
+        Object.freeze({ ...STAGE('check', 'Auto check', 'Meridian runs every check; a person reviews only what gets flagged.', ['auto-check'], ['Deck checker', 'Evidence guard', 'Phone screenshot', 'Link check', 'Internal-words scan'], 'No open flags', 'team', ['deck']), automatic: true }),
+        STAGE('review', 'Review', 'Jax reviews before the prospect sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax', ['deck']),
+        STAGE('publish', 'Publish', 'Put the page live and make the QR code.', [], ['Live link', 'QR code'], 'Link opens on a phone', 'jax', ['deck']),
+        STAGE('print', 'Print card', 'Make the leave-behind with the QR code.', ['deck-builder'], ['Print-ready card'], 'QR scans from print', 'team', ['deck']),
       ]),
     }),
   });
@@ -90,6 +119,9 @@
       sketch: text(f?.sketch, 'Frame sketch'), assetId: typeof f?.assetId === 'string' && f.assetId ? f.assetId : null })) }),
   });
 
+  // Sample team; the server supplies the real list.
+  const PEOPLE = Object.freeze([['jax', 'Jax'], ['tyler', 'Tyler'], ['cassy', 'Cassy']].map(([id, name]) => Object.freeze({ id, name })));
+
   const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
   const clone = value => JSON.parse(JSON.stringify(value));
 
@@ -103,6 +135,7 @@
    *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off. */
   function createSampleService(options = {}) {
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
+    const now = typeof options.now === 'function' ? options.now : () => Date.now(); // tests pass a fake clock
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
     let counter = 0;
@@ -119,6 +152,37 @@
         ...(projects.length ? projects : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
           .map(p => ({ id: p.id, type: 'client', name: p.name })),
       ];
+    }
+
+    function startLocalJob(space, workflowId, tier, extra = {}) {
+      const workflow = WORKFLOWS[workflowId];
+      const stages = stagesFor(workflow, tier);
+      const n = spaceJobs(space.id).filter(j => j.workflowId === workflowId).length + 1;
+      const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
+        stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
+        done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null, ...extra };
+      stampOpened(job);
+      spaceJobs(space.id).push(job);
+      return job;
+    }
+
+    // Who builds each stage, picked at the start. Stages Jax approves are always his.
+    function checkAssignees(workflow, tier, input) {
+      if (input === undefined || input === null) return {};
+      if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Assignments must be an object.');
+      const stages = stagesFor(workflow, tier), out = {};
+      for (const [stageId, personId] of Object.entries(input)) {
+        const stage = stages.find(st => st.id === stageId);
+        if (!stage) throw new Error('Unknown stage.');
+        if (stage.approver === 'jax') throw new Error('Jax approves this stage; it stays with him.');
+        if (personId !== null && !peopleFor(workflow).some(x => x.id === personId)) throw new Error('Pick someone on the team.');
+        out[stageId] = personId;
+      }
+      return out;
+    }
+
+    function peopleFor(workflow) {
+      return workflow && workflow.people ? PEOPLE.filter(x => workflow.people.includes(x.id)) : PEOPLE;
     }
 
     function requireSpace(spaceId) {
@@ -155,18 +219,36 @@
       async listTools() { return clone(TOOLS); },
       /** Workflow definition with its stages; null if that workflow isn't built yet. */
       async getWorkflow(workflowId) { return WORKFLOWS[workflowId] ? clone(WORKFLOWS[workflowId]) : null; },
-      /** Starts a Job (one workflow run). tier: 'standard' | 'cinematic'. */
-      async startJob(spaceId, workflowId, tier) {
+      /** Starts a Job (one workflow run). tier: 'standard' | 'cinematic' (Pitch deck: 'deck').
+       *  options.assignees: { stageId: personId } picks who builds each stage at the start. */
+      async startJob(spaceId, workflowId, tier, options = {}) {
         const space = requireSpace(spaceId);
         const workflow = WORKFLOWS[workflowId];
         if (!workflow) throw new Error('That workflow is coming soon.');
-        if (!workflow.tiers.some(t => t.id === tier)) throw new Error('Pick Standard or Cinematic.');
-        const stages = stagesFor(workflow, tier);
-        const n = spaceJobs(space.id).filter(j => j.workflowId === workflowId).length + 1;
-        const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
-          stageIds: stages.map(st => st.id), done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {} };
-        spaceJobs(space.id).push(job);
+        if (!workflow.tiers.some(t => t.id === tier)) throw new Error(workflowId === 'website' ? 'Pick Standard or Cinematic.' : 'Pick a tier.');
+        if (workflow.clientOnly && space.type !== 'client') throw new Error(`${workflow.name} only runs inside a client project.`);
+        if (workflow.oneAtATime && spaceJobs(space.id).some(j => j.workflowId === workflowId && j.stageId !== null)) {
+          throw new Error(`This project already has a ${workflow.name.toLowerCase()} in progress.`);
+        }
+        const assignees = checkAssignees(workflow, tier, options && options.assignees);
+        const job = startLocalJob(space, workflowId, tier, { assignees,
+          locked: !!workflow.locked, template: workflow.locked ? `${workflowId}-starter` : null });
         emit('jobs-changed', { spaceId: space.id });
+        return clone(jobView(job));
+      },
+      /** Who stages can be assigned to; pass a workflowId for that workflow's team (Pitch deck: Jax and Tyler). */
+      async listPeople(workflowId) { return clone(peopleFor(WORKFLOWS[workflowId])); },
+      /** Assigns one stage of a Job to a person (or null to unassign). Stages Jax approves always stay with Jax. */
+      async assignStage(spaceId, jobId, stageId, personId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        const stage = stageOf(job, stageId);
+        if (!stage) throw new Error('Unknown stage.');
+        if (stage.approver === 'jax') throw new Error('Jax approves this stage; it stays with him.');
+        if (job.done.includes(stageId)) throw new Error('This stage is finished.');
+        if (personId !== null && !peopleFor(WORKFLOWS[job.workflowId]).some(x => x.id === personId)) throw new Error('Pick someone on the team.');
+        job.assignees[stageId] = personId;
+        emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
       async getJob(spaceId, jobId) { requireSpace(spaceId); return clone(jobView(requireJob(spaceId, jobId))); },
@@ -181,17 +263,21 @@
         for (const a of spaceAssets(spaceId)) if (a.jobId === job.id && !a.trashed && byStage[a.stageId]) byStage[a.stageId].push(a);
         return clone(byStage);
       },
-      /** Marks the current stage done and moves on. Stages Jax approves wait on him instead. */
-      async completeStage(spaceId, jobId) {
+      /** Marks a stage done and moves on. stageId is optional (default: the current stage); inside a group
+       *  (e.g. the three home pages) any open stage can be finished. Stages Jax approves wait on him instead. */
+      async completeStage(spaceId, jobId, stageId) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
-        const stage = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
+        if (job.stageId === null) throw new Error('This job is finished.');
+        const target = stageId === undefined || stageId === null ? job.stageId : stageId;
+        if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
+        const stage = stageOf(job, target);
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
           return clone(jobView(job));
         }
-        advance(job);
+        advance(job, target);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -204,11 +290,12 @@
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
-      /** Ticks or unticks one "This stage needs" item (by index) on the Job's current stage. */
-      async setStageNeed(spaceId, jobId, index, checked) {
+      /** Ticks or unticks one "This stage needs" item (by index) on an open stage (default: the current one). */
+      async setStageNeed(spaceId, jobId, index, checked, stageId) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
-        const stage = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
+        const target = stageId === undefined || stageId === null ? job.stageId : stageId;
+        const stage = openStages(job).includes(target) ? stageOf(job, target) : null;
         if (!stage || job.waitingOnJax) throw new Error('This stage can no longer be changed.');
         if (!Number.isInteger(index) || index < 0 || index >= stage.needs.length) throw new Error('Unknown checklist item.');
         const ticks = job.needs[stage.id] || (job.needs[stage.id] = stage.needs.map(() => false));
@@ -374,25 +461,52 @@
       return job;
     }
 
-    function advance(job) {
-      job.done.push(job.stageId);
-      const next = job.stageIds[job.stageIds.indexOf(job.stageId) + 1];
-      job.stageId = next || null;
+    // A Job's own copy of its stages (kept from when it started, so later template changes can't break it).
+    function stageOf(job, stageId) { return job.stageDefs.find(st => st.id === stageId) || null; }
+
+    // Stages that can be worked on now: the current stage, or every unfinished stage in its group.
+    function openStages(job) {
+      if (job.stageId === null) return [];
+      const current = stageOf(job, job.stageId);
+      if (!current.group) return [job.stageId];
+      return job.stageDefs.filter(st => st.group === current.group && !job.done.includes(st.id)).map(st => st.id);
+    }
+
+    function advance(job, stageId = job.stageId) {
+      if (!job.done.includes(stageId)) job.done.push(stageId);
+      (job.timing[stageId] || (job.timing[stageId] = {})).doneAt = now();
+      job.stageId = job.stageIds.find(id => !job.done.includes(id)) || null;
+      stampOpened(job);
+    }
+
+    // Stage timing: when each stage opened and finished (shown to Jax to find where the hours go).
+    function stampOpened(job) {
+      for (const id of openStages(job)) if (!job.timing[id]) job.timing[id] = { openedAt: now() };
+    }
+    function timingView(t) {
+      if (!t) return null;
+      const iso = ms => (Number.isFinite(ms) ? new Date(ms).toISOString() : null);
+      return { openedAt: iso(t.openedAt), doneAt: iso(t.doneAt),
+        minutes: Number.isFinite(t.openedAt) && Number.isFinite(t.doneAt) ? Math.round((t.doneAt - t.openedAt) / 60000) : null };
     }
 
     function jobView(job) {
-      const workflow = WORKFLOWS[job.workflowId];
+      const open = openStages(job);
       return { id: job.id, spaceId: job.spaceId, workflowId: job.workflowId, tier: job.tier, name: job.name,
-        stageId: job.stageId, waitingOnJax: job.waitingOnJax, finished: job.stageId === null,
-        stages: stagesFor(workflow, job.tier).map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
+        stageId: job.stageId, openStageIds: open, waitingOnJax: job.waitingOnJax, finished: job.stageId === null,
+        locked: !!job.locked, template: job.template || null, templateVersion: job.templateVersion,
+        stages: job.stageDefs.map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
+          assignee: st.approver === 'jax' ? 'jax' : (job.assignees[st.id] || null), timing: timingView(job.timing[st.id]),
           hasNotes: !!job.notes[st.id], status: job.done.includes(st.id) ? 'done'
-            : st.id === job.stageId ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
+            : open.includes(st.id) ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
     }
 
     function jobSummary(job) {
-      const current = WORKFLOWS[job.workflowId].stages.find(st => st.id === job.stageId);
+      const current = job.stageId === null ? null : stageOf(job, job.stageId);
+      const group = current && current.group ? job.stageDefs.filter(st => st.group === current.group) : null;
+      const label = !current ? '' : group ? `${current.groupName} (${group.filter(st => job.done.includes(st.id)).length} of ${group.length} done)` : current.name;
       return { id: job.id, name: job.name, workflowId: job.workflowId, tier: job.tier,
-        stage: job.stageId === null ? 'Finished' : job.waitingOnJax ? `${current.name} (waiting on Jax)` : current.name,
+        stage: !current ? 'Finished' : job.waitingOnJax ? `${label} (waiting on Jax)` : label,
         progress: Math.round((job.done.length / job.stageIds.length) * 100) };
     }
 
@@ -482,6 +596,8 @@
       },
       saveVersion: notOnServerYet,
       copyToSpace: notOnServerYet,
+      listPeople: (...a) => local.listPeople(...a),
+      assignStage: (...a) => local.assignStage(...a),
       approveAsset: notHere,
       approveStage: notHere,
       // Local until the server has Jobs (no cost involved).
