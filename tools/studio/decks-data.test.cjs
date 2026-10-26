@@ -9,8 +9,9 @@ function sample() {
   const three = make => [0, 1, 2].map(make);
   return {
     version: 1,
-    client: { name: 'Sample Roofing Co', town: 'Exampleville', preparedOn: 'October 2026' },
-    score: { value: 64, band: 'Healthy' },
+    client: { name: 'Sample Roofing Co', town: 'Exampleville', preparedOn: 'October 2026', placeId: 'ChIJsample0001' },
+    score: { value: 64, band: 'Healthy', parts: [{ name: 'Reputation', points: 20, max: 30 }, { name: 'Google profile', points: 18, max: 25 },
+      { name: 'Website', points: 14, max: 25 }, { name: 'Visibility', points: 12, max: 20 }] },
     bottomLine: { headline: 'A healthy market with room to grow.', text: 'Demand is steady; visibility holds back share.',
       findings: three(i => ({ icon: ['search', 'people', 'trend'][i], title: `Finding ${i + 1}`, text: 'What it means.' })) },
     market: { headline: 'Demand is growing.', stats: [
@@ -20,8 +21,8 @@ function sample() {
     saturation: { headline: 'One side of town is underserved.', level: 0.6, band: 'High',
       zones: [{ name: 'North', density: 70 }, { name: 'South', density: 30, open: true }], source: { ...src } },
     competitors: { headline: 'Two competitors lead online.', text: 'Presence across four channels.', channels: ['Website', 'Search', 'Social', 'Ads'],
-      rows: [{ name: 'Sample Roofing Co', you: true, presence: [50, 40, 60, 10], rating: 4.8, reviews: 90, visibility: 40 },
-        { name: 'Rival One', presence: [80, 75, 60, 70], rating: 4.6, reviews: 300, visibility: 78 }], source: { ...src } },
+      rows: [{ name: 'Sample Roofing Co', you: true, placeId: 'ChIJsample0001', presence: [50, 40, 60, 10], visibility: 40 },
+        { name: 'Rival One', placeId: 'ChIJsample0002', presence: [80, 75, 60, 70], visibility: 78 }], source: { ...src } },
     reputation: { headline: 'Customers trust you.', text: 'Strong reviews, low volume.' },
     visibility: { headline: 'Rivals show up first.', text: 'The gap is being seen first.' },
     gaps: { headline: 'Three open lanes.', text: 'Each is within reach.',
@@ -65,11 +66,11 @@ test('wrong types, ranges and counts are caught', () => {
   d.score.value = 140; d.score.band = 'Amazing';
   d.bottomLine.findings.pop();
   d.homePages.tiers.push({ name: 'Tier 4', description: 'Extra' });
-  d.competitors.rows[1].reviews = 2.5;
+  d.competitors.rows[1].visibility = 140;
   d.saturation.level = 'high';
   d.market.stats[0].icon = 'rocket';
   const p = paths(validateDeck(d));
-  for (const want of ['score.value', 'score.band', 'bottomLine.findings', 'homePages.tiers', 'competitors.rows.1.reviews', 'saturation.level', 'market.stats.0.icon']) {
+  for (const want of ['score.value', 'score.band', 'bottomLine.findings', 'homePages.tiers', 'competitors.rows.1.visibility', 'saturation.level', 'market.stats.0.icon']) {
     assert.ok(p.includes(want), want);
   }
 });
@@ -111,7 +112,29 @@ test('research summary lists every number with its source, escaped', () => {
   const md = researchSummary(deck);
   assert.match(md, /^# Research summary: Sample Roofing Co, Exampleville/);
   assert.match(md, /Monthly local searches: ~6\.2K \(estimate\)\. Source: \[Sample source\]\(https:\/\/example\.com\/source\)/);
-  assert.match(md, /Rival One: rating 4\.6 from 300 reviews/);
+  assert.match(md, /Rival One: rating and reviews live from Google Maps \(https:\/\/www\.google\.com\/maps\/place\/\?q=place_id:ChIJsample0002\)/);
+  assert.match(md, /Business score: 64 \(Healthy\): Reputation 20 of 30/);
   assert.match(md, /Tier 3: no live link yet/);
   assert.ok(!md.includes('<b>'));
+});
+
+test('Google ratings and review counts can never be stored; place IDs are checked', () => {
+  const d = sample();
+  d.competitors.rows[1].rating = 4.6; d.competitors.rows[1].reviews = 300;
+  d.client.placeId = 'bad id!';
+  const p = paths(validateDeck(d));
+  assert.ok(p.includes('competitors.rows.1.rating') && p.includes('competitors.rows.1.reviews'));
+  assert.ok(p.includes('client.placeId'));
+});
+
+test('the score must equal its parts, and the parts must total 100', () => {
+  const d = sample();
+  d.score.value = 70;
+  assert.ok(paths(validateDeck(d)).includes('score.value'));
+  const e = sample();
+  e.score.parts[3].max = 30;
+  assert.ok(paths(validateDeck(e)).includes('score.parts'));
+  const f = sample();
+  f.score.parts[0].points = 40; f.score.value = 84;
+  assert.ok(validateDeck(f).errors.some(x => x.path === 'score.parts' && /maximum/.test(x.message)));
 });

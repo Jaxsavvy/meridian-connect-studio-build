@@ -1,6 +1,8 @@
 /* Pitch deck data: the one format a prospect's Market Opportunity board is built from (#114, part 1).
  * Core lane. Rules (docs/PLAN.md, Pitch deck): every number is the prospect's own and has a source;
- * nothing internal (pricing, team, BV pipeline) can ever be in here, so unknown fields are refused. */
+ * nothing internal (pricing, team, BV pipeline) can ever be in here, so unknown fields are refused.
+ * Google terms: Places content (ratings, review counts...) must not be stored, so a deck keeps only Google
+ * place IDs; the board fills those numbers live from Google Maps when it opens. */
 'use strict';
 
 (function (root, factory) {
@@ -13,6 +15,7 @@
   const SATURATION_BANDS = Object.freeze(['Low', 'Medium', 'High', 'Oversaturated']);
   const PLACEHOLDER = /\b(tbd|todo|lorem ipsum|placeholder|xxx)\b|\{\{|\}\}/i;
   const ASSET_ID = /^[A-Za-z0-9_-]{1,128}$/;
+  const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
 
   // Field makers. Each returns a checker (value, path, errors) -> cleaned value.
   const str = (max, { optional = false } = {}) => (v, path, errors) => {
@@ -55,6 +58,11 @@
     if (typeof v !== 'string' || !ASSET_ID.test(v)) errors.push({ path, message: 'Must be an asset from this project.' });
     return v;
   };
+  const placeId = () => (v, path, errors) => {
+    if (v === undefined || v === null || v === '') return null;
+    if (typeof v !== 'string' || !PLACE_ID.test(v)) errors.push({ path, message: 'Must be a Google place ID.' });
+    return v;
+  };
   const list = (item, min, max) => (v, path, errors) => {
     if (!Array.isArray(v)) { errors.push({ path, message: 'Must be a list.' }); return []; }
     if (v.length < min || v.length > max) {
@@ -78,8 +86,10 @@
 
   const SHAPE = obj({
     version: oneOf([1]),
-    client: obj({ name: str(120), town: str(80), preparedOn: str(40) }),
-    score: obj({ value: num(0, 100, { integer: true }), band: oneOf(SCORE_BANDS) }),
+    client: obj({ name: str(120), town: str(80), preparedOn: str(40), placeId: placeId() }),
+    // parts: how the score was reached (shown on the board), e.g. Reputation 22 of 30.
+    score: obj({ value: num(0, 100, { integer: true }), band: oneOf(SCORE_BANDS),
+      parts: list(obj({ name: str(40), points: num(0, 100), max: num(1, 100) }), 1, 6) }),
     bottomLine: obj({ headline: headline(), text: blurb(),
       findings: list(obj({ icon: oneOf(ICONS), title: str(60), text: str(200) }), 3, 3) }),
     market: obj({ headline: headline(),
@@ -89,8 +99,9 @@
     saturation: obj({ headline: headline(), level: num(0, 1), band: oneOf(SATURATION_BANDS),
       zones: list(obj({ name: str(40), density: num(0, 100), open: bool() }), 1, 6), source: source() }),
     competitors: obj({ headline: headline(), text: blurb(), channels: list(str(20), 4, 4),
-      rows: list(obj({ name: str(60), you: bool(), presence: list(num(0, 100), 4, 4), rating: num(0, 5),
-        reviews: num(0, 1e7, { integer: true }), visibility: num(0, 100) }), 2, 5), source: source() }),
+      // Rating and review count are NOT stored (Google terms): the board fills them live from placeId.
+      rows: list(obj({ name: str(60), you: bool(), placeId: placeId(), presence: list(num(0, 100), 4, 4),
+        visibility: num(0, 100) }), 2, 5), source: source() }),
     reputation: obj({ headline: headline(), text: blurb() }),
     visibility: obj({ headline: headline(), text: blurb() }),
     gaps: obj({ headline: headline(), text: blurb(),
@@ -112,6 +123,13 @@
       const yours = input.competitors.rows.filter(r => r && r.you === true).length;
       if (yours !== 1) errors.push({ path: 'competitors.rows', message: 'Mark exactly one row as the prospect.' });
     }
+    const parts = Array.isArray(input?.score?.parts) ? input.score.parts : [];
+    if (parts.length && parts.every(x => x && Number.isFinite(x.points) && Number.isFinite(x.max))) {
+      const sum = parts.reduce((t, x) => t + x.points, 0), max = parts.reduce((t, x) => t + x.max, 0);
+      if (max !== 100) errors.push({ path: 'score.parts', message: 'The parts must add up to 100 points in total.' });
+      if (Math.round(sum) !== input.score.value) errors.push({ path: 'score.value', message: 'Must equal the sum of the parts.' });
+      if (parts.some(x => x.points > x.max)) errors.push({ path: 'score.parts', message: 'A part can\'t score more than its maximum.' });
+    }
     return { ok: errors.length === 0, errors, deck };
   }
 
@@ -121,14 +139,16 @@
     const three = make => [make(), make(), make()];
     return {
       version: 1,
-      client: { name, town, preparedOn },
-      score: { value: 0, band: 'Fair' },
+      client: { name, town, preparedOn, placeId: null },
+      score: { value: 0, band: 'Fair', parts: [
+        { name: 'Reputation', points: 0, max: 30 }, { name: 'Google profile', points: 0, max: 25 },
+        { name: 'Website', points: 0, max: 25 }, { name: 'Visibility', points: 0, max: 20 }] },
       bottomLine: { headline: '', text: '', findings: three(() => ({ icon: 'search', title: '', text: '' })) },
       market: { headline: '', stats: [{ icon: 'people', value: 0, prefix: '', unit: '', label: '', note: '', estimate: false, source: src() }] },
       demand: { headline: '', change: '', text: '', series: [], source: src() },
       saturation: { headline: '', level: 0, band: 'Medium', zones: [{ name: '', density: 0, open: false }], source: src() },
       competitors: { headline: '', text: '', channels: ['Website', 'Search', 'Social', 'Ads'],
-        rows: [{ name, you: true, presence: [0, 0, 0, 0], rating: 0, reviews: 0, visibility: 0 }], source: src() },
+        rows: [{ name, you: true, placeId: null, presence: [0, 0, 0, 0], visibility: 0 }], source: src() },
       reputation: { headline: '', text: '' },
       visibility: { headline: '', text: '' },
       gaps: { headline: '', text: '', lanes: three(() => ({ icon: 'search', title: '', problem: '', build: '', effect: '' })) },
@@ -147,7 +167,8 @@
     const md = s => String(s).replace(/([\\`*_[\]#<>|])/g, '\\$1');
     const ref = s => `[${md(s.label)}](${s.url})`;
     const lines = [`# Research summary: ${md(deck.client.name)}, ${md(deck.client.town)}`, '', `Prepared ${md(deck.client.preparedOn)}.`, '',
-      `Business score: ${deck.score.value} (${deck.score.band})`, '', '## Market', ''];
+      `Business score: ${deck.score.value} (${deck.score.band}): ${deck.score.parts.map(x => `${md(x.name)} ${x.points} of ${x.max}`).join(', ')}`,
+      '', '## Market', ''];
     for (const s of deck.market.stats) {
       lines.push(`- ${md(s.label)}: ${md(s.prefix)}${s.value}${md(s.unit)}${s.estimate ? ' (estimate)' : ''}. Source: ${ref(s.source)}`);
     }
@@ -156,7 +177,8 @@
     for (const z of deck.saturation.zones) lines.push(`- ${md(z.name)}: density ${z.density}${z.open ? ' (open)' : ''}`);
     lines.push('', '## Competitors', '', `Source: ${ref(deck.competitors.source)}`, '');
     for (const r of deck.competitors.rows) {
-      lines.push(`- ${md(r.name)}${r.you ? ' (this business)' : ''}: rating ${r.rating} from ${r.reviews} reviews, visibility ${r.visibility}`);
+      const live = r.placeId ? `rating and reviews live from Google Maps (https://www.google.com/maps/place/?q=place_id:${r.placeId})` : 'not on Google Maps';
+      lines.push(`- ${md(r.name)}${r.you ? ' (this business)' : ''}: ${live}, visibility ${r.visibility}`);
     }
     lines.push('', '## Home-page builds', '');
     for (const t of deck.homePages.tiers) lines.push(`- ${md(t.name)}: ${t.url ? t.url : 'no live link yet'}`);
