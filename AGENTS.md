@@ -46,7 +46,8 @@ All of these are saved in the `archive/2026-10-18/*` tags, so moving them loses 
 | Lane | Owner | Files |
 |---|---|---|
 | Studio screens | Tyler | `src/renderer/studio/screens/**`, `tools/studio/screens-*.test.cjs` |
-| Assets + Image gen | Cassy | `src/renderer/studio/assets/**`, `src/renderer/studio/tools/**`, `tools/studio/assets-*.test.cjs` |
+| Pitch deck tools | Tyler | `src/renderer/studio/tools/homepage-builder/**`, `tools/studio/pitchdeck-*.test.cjs` |
+| Assets + Image gen | Cassy | `src/renderer/studio/assets/**`, `src/renderer/studio/tools/**` (except `tools/homepage-builder/**`), `tools/studio/assets-*.test.cjs` |
 | Core + shared | Jax (with Claude) | everything else: `src/main.js`, `src/preload.js`, `src/api.js`, `src/auth.js`, `src/renderer/app.js`, `src/renderer/index.html`, `src/renderer/studio-context.js`, `src/renderer/studio/studio-app.js`, `src/renderer/studio/studio-service.js`, `src/renderer/studio/studio.css`, `src/renderer/studio/ai/**`, `package.json`, `.github/**`, `AGENTS.md`, `docs/**` |
 
 Shared files change only through the Core lane. If your issue needs a shared-file change, the issue will say so, or you stop and ask.
