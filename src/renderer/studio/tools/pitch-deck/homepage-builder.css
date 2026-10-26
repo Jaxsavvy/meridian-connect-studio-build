@@ -1,0 +1,8 @@
+.studio-homepage-builder { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-homepage-field { display: grid; gap: .35rem; max-width: 40rem; }
+.studio-homepage-field input { min-height: 2.25rem; padding-inline: .5rem; }
+.studio-homepage-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.studio-homepage-proposal { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.studio-homepage-proposal p { flex-basis: 100%; margin: 0; }
+.studio-homepage-builder :is(input, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-homepage-preview { width: 100%; min-height: 32rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); background: #fff; }
