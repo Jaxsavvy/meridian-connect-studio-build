@@ -70,6 +70,7 @@ test('builders can be changed later; Jax stages stay with Jax; finished stages l
   assert.equal(view.stages.find(st => st.id === 'home-t2').assignee, null);
   await assert.rejects(s.assignStage('riverdale', job.id, 'review', 'tyler'), /stays with him/);
   await assert.rejects(s.assignStage('riverdale', job.id, 'research', 'stranger'), /someone on the team/);
+  await s.useSampleResearch('riverdale', job.id);                                       // practice deck passes the check (#119)
   await s.completeStage('riverdale', job.id);                                           // Research done
   await assert.rejects(s.assignStage('riverdale', job.id, 'research', 'tyler'), /finished/);
 });
@@ -77,6 +78,7 @@ test('builders can be changed later; Jax stages stay with Jax; finished stages l
 test('walk the whole deck: team stages advance, Review and Publish wait on Jax, then a new deck can start', async () => {
   const s = service();
   const job = await start(s);
+  await s.useSampleResearch('riverdale', job.id);
   let view;
   for (const id of ['research', 'home-t1', 'home-t2', 'home-t3', 'assemble', 'check']) {
     view = await s.completeStage('riverdale', job.id, id);
@@ -109,6 +111,7 @@ test('server mode keeps people and assignment on the local Jobs for now', async 
 test('the three home pages are built side by side; Assemble opens when all three are done', async () => {
   const s = service();
   const job = await start(s);
+  await s.useSampleResearch('riverdale', job.id);
   let view = await s.completeStage('riverdale', job.id);                                // Research + write
   assert.deepEqual(view.openStageIds, ['home-t1', 'home-t2', 'home-t3']);
   assert.deepEqual(view.stages.filter(st => st.status === 'current').map(st => st.id), ['home-t1', 'home-t2', 'home-t3']);
@@ -153,6 +156,7 @@ test('every stage records when it opened and finished', async () => {
   assert.equal(job.stages[0].timing.openedAt, '2026-10-27T16:00:00.000Z');
   assert.equal(job.stages[1].timing, null);                                      // not open yet
   t += 25 * 60000;
+  await s.useSampleResearch('riverdale', job.id);
   let view = await s.completeStage('riverdale', job.id);                         // Research + write took 25 min
   assert.equal(view.stages[0].timing.minutes, 25);
   assert.ok(['home-t1', 'home-t2', 'home-t3'].every(id => view.stages.find(st => st.id === id).timing.openedAt === '2026-10-27T16:25:00.000Z'));
