@@ -151,7 +151,12 @@
   // Practice research (sample mode only): made-up evidence for a made-up market, never real Google data.
   const SAMPLE_RIVALS = Object.freeze({ 'sample-place-rival-1': 'Summit Services (sample)',
     'sample-place-rival-2': 'Valley Pros (sample)', 'sample-place-rival-3': 'Northside Crew (sample)' });
-  function sampleEvidence(fetchedAt) {
+  // Two lookalike businesses, so the person confirms which one is the prospect.
+  const sampleCandidates = name => [
+    { placeId: 'sample-place-you-0001', name, address: '100 Main St, Sample Town' },
+    { placeId: 'sample-place-you-0002', name: `${name} (other location)`, address: '9 Oak Ave, Sample Town' },
+  ];
+  function sampleEvidence(fetchedAt, you = 'sample-place-you-0001') {
     const maps = { label: 'Google Maps', url: 'https://www.google.com/maps' };
     let n = 0;
     const fact = (kind, subject, field, value, method = 'api', source = maps) => ({ id: `ev-${++n}`, kind, subject, field, value, method, source, fetchedAt });
@@ -159,7 +164,7 @@
     const site = { label: 'Website check (sample)', url: 'https://pagespeed.web.dev/' };
     const census = { label: 'US Census Bureau (sample)', url: 'https://data.census.gov/' };
     return [
-      place('client', 'sample-place-you-0001', 2),
+      place('client', you, 2),
       ...Object.keys(SAMPLE_RIVALS).map((id, i) => place('competitor', id, [1, 3, 4][i])),
       ...[['website', true], ['phone', true], ['hours', true], ['categories', true], ['photos', false]].map(([f, v]) => fact('profile', 'client', f, v)),
       ...[['speed', 58], ['https', true], ['phoneLink', true], ['contactForm', false], ['social', true], ['adsPixel', false]]
@@ -168,6 +173,21 @@
       fact('census', 'market', 'households', 18100, 'census', census),
       fact('demand', 'market', 'monthlySearches', 1900, 'api', { label: 'Google Ads Keyword Planner (sample)', url: 'https://ads.google.com/' }),
     ];
+  }
+  // Meridian's draft words fill only what the person left blank; anything they wrote stays.
+  function fillBlanks(mine, draft) {
+    if (typeof draft === 'string') return typeof mine === 'string' && mine.trim() ? mine : draft;
+    if (Array.isArray(draft)) {
+      if (!Array.isArray(mine) || !mine.length) return draft;
+      if (draft.every(x => !x || typeof x !== 'object')) return mine;   // a list of numbers or words: theirs, not mixed
+      return draft.map((d, i) => (i < mine.length ? fillBlanks(mine[i], d) : d)).concat(mine.slice(draft.length));
+    }
+    if (draft && typeof draft === 'object') {
+      const out = { ...(mine && typeof mine === 'object' ? mine : {}) };
+      for (const [key, value] of Object.entries(draft)) out[key] = fillBlanks(out[key], value);
+      return out;
+    }
+    return mine === undefined || mine === null ? draft : mine;
   }
   // A finished practice deck: numbers from the evidence (the research model), words made up.
   function sampleDeck(name, evidence, preparedOn) {
@@ -225,7 +245,7 @@
       const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
-        deck: null, evidence: [], ...extra }; // deck + evidence: Pitch deck only (#119)
+        deck: null, evidence: [], research: null, ...extra }; // deck, evidence, research run: Pitch deck only (#119, #125)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -338,7 +358,7 @@
         const target = stageId === undefined || stageId === null ? job.stageId : stageId;
         if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
         const stage = stageOf(job, target);
-        if (job.workflowId === 'pitch-deck' && target === 'research') passingDeck(space, job);
+        if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -465,10 +485,71 @@
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         const today = new Date(now()).toISOString();
+        job.research = { runId: nextId('run'), category: 'sample', status: 'done', candidates: sampleCandidates(space.name), placeId: 'sample-place-you-0001' };
         job.evidence = sampleEvidence(today);
         job.deck = sampleDeck(space.name, job.evidence, today.slice(0, 10));
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
         emit('deck-changed', { spaceId: space.id, jobId: job.id });
         return clone({ evidence: job.evidence, deck: job.deck });
+      },
+      /** Starts research on the deck's business (its name comes from the project). category: e.g. 'plumber'.
+       *  Practice mode finds two lookalike businesses, so the person confirms the right one. Returns { runId, status }. */
+      async startResearch(spaceId, jobId, { category } = {}) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        if (job.research && job.research.status === 'running') throw new Error('Research is already running.');
+        const kind = text(category, 'Category', 60);
+        if (!kind || /[\u0000-\u001f\u007f]/.test(kind)) throw new Error('Say what kind of business it is (for example, plumber).');
+        const run = { runId: nextId('run'), category: kind, status: 'running', candidates: [], placeId: null };
+        const found = () => { run.status = 'needs-match'; run.candidates = sampleCandidates(space.name); };
+        job.research = run; job.evidence = []; // a new run replaces the old evidence
+        if (simulateJaxMs) later(() => { if (job.research === run && run.status === 'running') { found(); emit('research-changed', { spaceId: space.id, jobId: job.id }); } });
+        else found();
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ runId: run.runId, status: run.status });
+      },
+      /** Where research stands. status: 'not-started' | 'running' | 'needs-match' | 'done' | 'failed'; candidates
+       *  (businesses that could match), evidence, score (parts + what couldn't be found) and, once the deck passes, the summary. */
+      async getResearch(spaceId, jobId) {
+        const { space, job } = deckJob(spaceId, jobId);
+        const run = job.research || { runId: null, category: '', status: 'not-started', candidates: [], placeId: null };
+        const done = run.status === 'done';
+        let summary = null;
+        if (done) { try { summary = DeckData.researchSummary(passingDeck(space, job)); } catch (_) { /* the deck still needs work */ } }
+        return clone({ ...run, evidence: job.evidence, score: done ? Research.scoreFromEvidence(job.evidence, {}) : null, summary });
+      },
+      /** The person picks which business is the prospect; then the research is done. */
+      async confirmMatch(spaceId, jobId, placeId) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        const run = job.research;
+        if (!run || run.status !== 'needs-match') throw new Error('There\'s no match to confirm.');
+        if (!run.candidates.some(c => c.placeId === placeId)) throw new Error('Pick one of the businesses found.');
+        run.placeId = placeId; run.status = 'done';
+        job.evidence = sampleEvidence(new Date(now()).toISOString(), placeId);
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ runId: run.runId, status: run.status });
+      },
+      /** Puts the research into the deck: the numbers from the evidence (score, market stats, competitor rows) and
+       *  Meridian's draft words in every blank field, keeping every word the person wrote. Practice words here; the
+       *  server agent drafts real ones (#126). names: { placeId: name } typed by the person (Places names aren't stored).
+       *  Returns { ok, errors, deck, missing }: missing is what research couldn't find; it's never saved in the deck. */
+      async applyResearchToDeck(spaceId, jobId, { names = {} } = {}) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        researchDone(job);
+        const words = sampleDeck(space.name, job.evidence, new Date(now()).toISOString().slice(0, 10));
+        const current = fillBlanks(deckOf(space, job), words);
+        const known = Object.fromEntries(current.competitors.rows.filter(r => r.placeId && r.name).map(r => [r.placeId, r.name]));
+        const { missing, ...draft } = Research.draftDeckFromEvidence(job.evidence,
+          { ...current.client, names: { ...SAMPLE_RIVALS, ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
+        const label = i => (current.market.stats[i] || {}).label || (words.market.stats[i] || {}).label || '';
+        const checked = checkDeck(job, { ...current, client: { ...current.client, placeId: draft.client.placeId }, score: draft.score,
+          market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: label(i) })) },
+          competitors: { ...current.competitors, channels: draft.competitors.channels, rows: draft.competitors.rows, source: draft.competitors.source } });
+        job.deck = checked.deck;
+        emit('deck-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ ok: checked.errors.length === 0, ...checked, missing });
       },
       async listAssets(spaceId, { query = '', includeTrash = false } = {}) {
         requireSpace(spaceId);
@@ -629,6 +710,11 @@
     function checkDeck(job, input) {
       const { deck, errors } = DeckData.validateDeck(input);
       return { deck, errors: [...errors, ...Research.checkDeckAgainstEvidence(deck, job.evidence, {})] };
+    }
+    function researchDone(job) {
+      if (!job.research || job.research.status !== 'done') {
+        throw new Error('Research + write isn\'t done yet: run the research and confirm the business first.');
+      }
     }
     function passingDeck(space, job) {
       const deck = deckOf(space, job);
@@ -791,8 +877,12 @@
       saveDeck: (...a) => local.saveDeck(...a),
       getResearchSummary: (...a) => local.getResearchSummary(...a),
       getResearchFiles: (...a) => local.getResearchFiles(...a),
-      // Real decks get their evidence from the research agent (#125, #126), never from practice data.
+      // Real decks get their evidence from the research agent on the server (#126), never from practice data.
       async useSampleResearch() { throw new Error('Practice research only runs in practice mode.'); },
+      startResearch: async () => notOnServerYet(),
+      getResearch: async () => notOnServerYet(),
+      confirmMatch: async () => notOnServerYet(),
+      applyResearchToDeck: async () => notOnServerYet(),   // the agent drafts real words; practice words stay local
       async listJobAssets(spaceId, jobId) {
         const job = await local.getJob(spaceId, jobId);
         const byStage = {};
