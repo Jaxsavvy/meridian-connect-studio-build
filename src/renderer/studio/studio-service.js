@@ -23,7 +23,8 @@
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],
     ['social', 'Social content', 'workflow', 'coming-soon'],
     ['brand-kit', 'Brand kit', 'workflow', 'coming-soon'],
-    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'],
+    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'] // starts from New prospect, not the tile,
+    ['deck-builder', 'Deck builder', 'tool', 'coming-soon'],
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
 
   const PRESETS = [
@@ -58,6 +59,22 @@
         STAGE('check', 'Check', 'Test speed, mobile, links and spelling.', ['seo'], ['Mobile check', 'Speed check', 'Link check'], 'All checks pass'),
         STAGE('review', 'Review', 'Jax reviews before the client sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax'),
         STAGE('launch', 'Launch', 'Publish the site.', [], ['Domain ready'], 'Live and checked', 'jax'),
+      ]),
+    }),
+    // Pitch deck (docs/PLAN.md): only starts from "New prospect" as a locked starter; stages never change.
+    'pitch-deck': Object.freeze({
+      id: 'pitch-deck', name: 'Pitch deck', starterOnly: true,
+      tiers: Object.freeze([
+        Object.freeze({ id: 'deck', name: 'Market Opportunity', description: 'A hosted page built from the prospect\'s own numbers, plus a printed QR card.' }),
+      ]),
+      stages: Object.freeze([
+        STAGE('research', 'Research', 'Gather the prospect\'s real numbers.', [], ['Google profile', 'Reviews and rating', 'Website check', '3 local competitors', 'Search demand'], 'Every number has a source', 'team', ['deck']),
+        STAGE('fill', 'Fill', 'Put the research into the deck.', ['deck-builder'], ['All required fields'], 'Deck data passes the check', 'team', ['deck']),
+        STAGE('generate', 'Generate', 'Meridian builds the page from the deck data.', ['deck-builder'], ['Preview built'], 'Page builds with no errors', 'team', ['deck']),
+        STAGE('check', 'Check', 'Test the page on desktop and phone.', [], ['Desktop check', 'Phone check', 'No placeholders', 'Nothing internal'], 'All checks pass', 'team', ['deck']),
+        STAGE('review', 'Review', 'Jax reviews before the prospect sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax', ['deck']),
+        STAGE('publish', 'Publish', 'Put the page live and make the QR code.', [], ['Live link', 'QR code'], 'Link opens on a phone', 'jax', ['deck']),
+        STAGE('print', 'Print card', 'Make the leave-behind with the QR code.', ['deck-builder'], ['Print-ready card'], 'QR scans from print', 'team', ['deck']),
       ]),
     }),
   });
@@ -105,6 +122,7 @@
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
+    const prospects = []; // made by createProspect; kept when Connect refreshes the assigned projects
     let counter = 0;
     const assets = new Map();
     const jobs = new Map(); // spaceId -> started jobs
@@ -118,7 +136,19 @@
         { id: 'sandbox-team', type: 'sandbox-team', name: 'Team sandbox' },
         ...(projects.length ? projects : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
           .map(p => ({ id: p.id, type: 'client', name: p.name })),
+        ...prospects.map(p => ({ id: p.id, type: 'client', name: p.name, prospect: true })),
       ];
+    }
+
+    function startLocalJob(space, workflowId, tier, extra = {}) {
+      const workflow = WORKFLOWS[workflowId];
+      const stages = stagesFor(workflow, tier);
+      const n = spaceJobs(space.id).filter(j => j.workflowId === workflowId).length + 1;
+      const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
+        stageIds: Object.freeze(stages.map(st => st.id)), done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {},
+        locked: false, template: null, ...extra };
+      spaceJobs(space.id).push(job);
+      return job;
     }
 
     function requireSpace(spaceId) {
