@@ -10,7 +10,10 @@ async function deck({ homePagesOpen = true } = {}) {
   const s = createSampleService();
   s.setProjects([{ id: 'riverdale', name: 'Riverdale Home Services' }]);
   const job = await s.startJob('riverdale', 'pitch-deck', 'deck');
-  if (homePagesOpen) await s.completeStage('riverdale', job.id); // Research + write done: the three home pages open
+  if (homePagesOpen) {   // Research + write done (practice deck passes the check): the three home pages open
+    await s.useSampleResearch('riverdale', job.id);
+    await s.completeStage('riverdale', job.id);
+  }
   return { s, job };
 }
 
