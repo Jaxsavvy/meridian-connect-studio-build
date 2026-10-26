@@ -750,6 +750,17 @@ if (!gotTheLock) {
     // Project workspace (2026-10-06)
     ipcMain.handle('ws:request', (e, { method, endpoint, body }) => api.wsRequest(method, endpoint, body));
     ipcMain.handle('studio:request', (e, req) => api.studioRequest(req && req.method, req && req.endpoint, req && req.body));
+    // Pitch deck outputs (research summary, deck data, home pages, board) saved into the project's folder
+    // (Files tab, Docs section). Text files only, safe names only; Team Hub checks who may write to the project.
+    ipcMain.handle('studio:save-project-file', async (e, req) => {
+      const projectId = String((req && req.projectId) || '');
+      const name = String((req && req.name) || '');
+      const content = req && req.content;
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) return { success: false, error: 'Unknown project.' };
+      if (!/^[A-Za-z0-9 ._()-]{1,140}\.(md|json|html|txt)$/.test(name) || name.includes('..')) return { success: false, error: 'Use a normal file name.' };
+      if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > 5 * 1024 * 1024) return { success: false, error: 'File must be text, 5 MB at most.' };
+      return api.uploadProjectBytes(projectId, Buffer.from(content, 'utf8'), name, 'Docs');
+    });
     ipcMain.handle('ws:upload', async (e, { projectId, section }) => {
       const pick = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Add files to project', properties: ['openFile', 'multiSelections'] });
       if (pick.canceled || !pick.filePaths.length) return { success: true, uploaded: 0 };
