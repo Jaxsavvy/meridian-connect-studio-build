@@ -123,6 +123,20 @@
   const PEOPLE = Object.freeze([['jax', 'Jax'], ['tyler', 'Tyler'], ['cassy', 'Cassy']].map(([id, name]) => Object.freeze({ id, name })));
 
   const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+  // Files saved into a project's folder (Files tab, Docs section): text only, safe names, named after the Job.
+  const FILE_NAME = /^[A-Za-z0-9 ._()-]{1,140}\.(md|json|html|txt)$/;
+  const MAX_FILE = 5 * 1024 * 1024;
+  function projectFileList(jobName, files) {
+    if (!Array.isArray(files) || !files.length || files.length > 10) throw new Error('Save 1 to 10 files at a time.');
+    return files.map(f => {
+      const base = String((f && f.name) || '').trim();
+      const name = `${jobName} - ${base}`;
+      if (!FILE_NAME.test(name) || name.includes('..')) throw new Error('Use a normal file name ending in .md, .json, .html or .txt.');
+      if (typeof f.content !== 'string') throw new Error('File content must be text.');
+      if (new TextEncoder().encode(f.content).length > MAX_FILE) throw new Error('A file can be 5 MB at most.');
+      return { name, content: f.content };
+    });
+  }
   const clone = value => JSON.parse(JSON.stringify(value));
 
   function sampleImage(label, hue) {
@@ -140,6 +154,7 @@
     let projects = [];
     let counter = 0;
     const assets = new Map();
+    const projectFiles = new Map(); // spaceId -> files saved to the project folder (sample stand-in)
     const jobs = new Map(); // spaceId -> started jobs
     const listeners = new Set();
     const nextId = prefix => `${prefix}-${++counter}`;
@@ -341,6 +356,25 @@
         return clone({ draft, settingsUsed: { kind, voice, model: 'sample', useBrandDna: space.type === 'client' } });
       },
       async listPresets(toolId) { return clone(PRESETS.filter(p => p.toolId === toolId)); },
+      /** Saves a Job's outputs into the client project's folder (Files tab, Docs), named "<Job name> - <file>".
+       *  files: [{ name: 'Research summary.md', content: '...' }]. Saving the same name again replaces it. */
+      async saveToProjectFiles(spaceId, jobId, files) {
+        const space = requireSpace(spaceId);
+        if (space.type !== 'client') throw new Error('Only client projects have a project folder.');
+        const job = requireJob(spaceId, jobId);
+        const list = projectFileList(job.name, files);
+        const saved = projectFiles.get(space.id) || [];
+        for (const f of list) {
+          const i = saved.findIndex(x => x.name === f.name);
+          const row = { name: f.name, section: 'Docs', size: new TextEncoder().encode(f.content).length, jobId: job.id };
+          if (i >= 0) saved[i] = row; else saved.push(row);
+        }
+        projectFiles.set(space.id, saved);
+        emit('project-files-changed', { spaceId: space.id });
+        return clone({ saved: list.map(f => f.name), failed: [] });
+      },
+      /** Files saved to the project folder in this session (the Files tab shows the real folder). */
+      async listProjectFiles(spaceId) { requireSpace(spaceId); return clone(projectFiles.get(spaceId) || []); },
       async listAssets(spaceId, { query = '', includeTrash = false } = {}) {
         requireSpace(spaceId);
         const q = String(query).toLowerCase();
@@ -527,7 +561,7 @@
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
    * there costs money. Approvals never happen here: Jax approves from Command.
    */
-  function createServerService({ request, local }) {
+  function createServerService({ request, local, saveFile }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
     local = local || createSampleService();
     const listeners = new Set();
@@ -617,6 +651,20 @@
         for (const a of await listAssets(spaceId)) if (a.jobId === job.id && byStage[a.stageId]) byStage[a.stageId].push(a);
         return byStage;
       },
+      /** Saves a Job's outputs into the real project folder (Files tab, Docs section) through Connect. */
+      async saveToProjectFiles(spaceId, jobId, files) {
+        if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
+        const job = await local.getJob(spaceId, jobId);
+        const list = projectFileList(job.name, files);
+        const saved = [], failed = [];
+        for (const f of list) {
+          const res = await saveFile(spaceId, f.name, f.content);
+          if (res && res.success) saved.push(f.name); else failed.push({ name: f.name, error: (res && res.error) || 'Could not save.' });
+        }
+        emit('project-files-changed', { spaceId });
+        return { saved, failed };
+      },
+      async listProjectFiles() { throw new Error('Open the project\'s Files tab to see its folder.'); },
       on(listener) {
         if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');
         listeners.add(listener);
