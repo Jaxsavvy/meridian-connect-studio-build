@@ -51,13 +51,17 @@ Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Mot
 
 ## Pitch deck workflow (Wave 2, now)
 How BV wins clients: each prospect gets an interactive Market Opportunity board they open from a QR code on phone or PC.
-- **Start it inside a project**: Jax creates the client project in Command; inside it, the Pitch deck tile -> pick who builds each stage -> Start. Only client projects, one deck in progress at a time. The Job is **locked**: its stages and the board's sections never change; only the data, notes and assets do.
-- **Stages**: Research -> Fill -> Home page: Tier 1 -> Tier 2 -> Tier 3 -> Assemble board -> Check -> Review (Jax) -> Publish (Jax) -> Print card.
-- **Three home-page builds** sit at the bottom of the board, one per tier, built **side by side** (all three open after Fill; Assemble opens when all three are done). The Home page builder makes the home page only, not a full site.
-- **Every stage is assignable** to **Jax or Tyler** (the Pitch deck team): picked at Start and changeable until the stage is done; Review and Publish always stay with Jax.
-- **Each Job keeps the stages it started with** (template version), so changing the workflow later never breaks a deck in progress.
+- **Start it inside a project**: Jax creates the client project in Command; inside it, the Pitch deck tile -> pick who builds each stage -> Start. Only client projects, one deck in progress at a time. The Job is **locked**: its stages and the board's sections never change; only the data, notes and assets do. Each Job keeps the stages it started with (template version).
+- **Command owns the pipeline** (stages, who's assigned, tasks, notifications, approvals); Studio supplies the tools (research, Home page builder, board). Until that link exists, Studio runs the stages locally.
+- **Stages**: Research + write -> Home page: Tier 1, Tier 2, Tier 3 (side by side) -> Assemble board -> Auto check -> Review (Jax) -> Publish (Jax) -> Print card.
+- **Research + write**: Meridian finds the prospect's real numbers and drafts the words; the builder checks and edits. Every number traces to evidence; the AI never writes numbers.
+- **Three custom home pages**, one per tier, each a clear step up from the last so the prospect sees where they could go. Home page only, not a full site. Every mockup carries a "Concept for discussion, not affiliated with [business]" line.
+- **Auto check**: Meridian runs the deck checker, the evidence guard, a phone-size screenshot, a link check and an internal-words scan; a person reviews only what's flagged.
+- **Every stage is assignable** to **Jax or Tyler** (the Pitch deck team): picked at Start and changeable until the stage is done; Review and Publish always stay with Jax, batched in the Overseer review inbox and approvable from the watch.
+- **Every stage is timed** (opened, finished), shown to Jax so the slow steps are visible.
 - **Everything is saved to the project's files**: research summary, deck data, the three home pages, the board, the QR card.
-- Every number on the board is the prospect's own and has a source. Nothing internal (pricing, team, BV pipeline) ever appears on it.
+- Every number on the board is the prospect's own and has a source. Nothing internal (pricing, team, BV pipeline) ever appears on it. Google ratings and review counts are never stored; the board shows them live with the "Google Maps" credit.
+- Sending decks by email or text follows CAN-SPAM and TCPA (consent, opt-out, real sender).
 
 ## Old work
 Everything from before this plan is saved in git tags named `archive/2026-10-18/<branch>`. Issues tell you exactly which archived file to reuse. Don't copy from the archive unless your issue says to.

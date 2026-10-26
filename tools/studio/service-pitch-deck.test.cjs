@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSampleService, createServerService } = require('../../src/renderer/studio/studio-service.js');
 
-const STAGES = ['research', 'fill', 'home-t1', 'home-t2', 'home-t3', 'assemble', 'check', 'review', 'publish', 'print'];
+const STAGES = ['research', 'home-t1', 'home-t2', 'home-t3', 'assemble', 'check', 'review', 'publish', 'print'];
 function service() {
   const s = createSampleService();
   s.setProjects([{ id: 'riverdale', name: 'Riverdale Home Services' }, { id: 'client-b', name: 'Client B' }]);
@@ -12,7 +12,7 @@ function service() {
 }
 const start = (s, options) => s.startJob('riverdale', 'pitch-deck', 'deck', options);
 
-test('pitch deck workflow: ten stages, three home-page builds, Review and Publish wait on Jax', async () => {
+test('pitch deck workflow: nine stages, three home-page builds, Review and Publish wait on Jax', async () => {
   const s = service();
   const wf = await s.getWorkflow('pitch-deck');
   assert.deepEqual(wf.stages.map(st => st.id), STAGES);
@@ -32,7 +32,7 @@ test('Start pitch deck inside a project: locked Job on stage 1 with the builders
   assert.deepEqual(job.stages.map(st => st.id), STAGES);
   const who = Object.fromEntries(job.stages.map(st => [st.id, st.assignee]));
   assert.equal(who.research, 'jax'); assert.equal(who['home-t2'], 'tyler'); assert.equal(who['home-t3'], 'jax');
-  assert.equal(who.fill, null); assert.equal(who.review, 'jax'); assert.equal(who.publish, 'jax');
+  assert.equal(who.assemble, null); assert.equal(who.review, 'jax'); assert.equal(who.publish, 'jax');
   assert.equal((await s.getSpace('riverdale')).jobs[0].workflowId, 'pitch-deck');
   assert.equal((await s.startJob('client-b', 'website', 'standard')).locked, false);   // Website stays unlocked
 });
@@ -63,7 +63,7 @@ test('builders can be changed later; Jax stages stay with Jax; finished stages l
   const job = await start(s);
   assert.deepEqual((await s.listPeople('pitch-deck')).map(p => p.id), ['jax', 'tyler']);
   assert.deepEqual((await s.listPeople()).map(p => p.id), ['jax', 'tyler', 'cassy']);
-  await assert.rejects(s.assignStage('riverdale', job.id, 'fill', 'cassy'), /someone on the team/);   // Jax and Tyler only
+  await assert.rejects(s.assignStage('riverdale', job.id, 'assemble', 'cassy'), /someone on the team/);   // Jax and Tyler only
   let view = await s.assignStage('riverdale', job.id, 'home-t2', 'tyler');
   assert.equal(view.stages.find(st => st.id === 'home-t2').assignee, 'tyler');
   view = await s.assignStage('riverdale', job.id, 'home-t2', null);
@@ -78,7 +78,7 @@ test('walk the whole deck: team stages advance, Review and Publish wait on Jax, 
   const s = service();
   const job = await start(s);
   let view;
-  for (const id of ['research', 'fill', 'home-t1', 'home-t2', 'home-t3', 'assemble', 'check']) {
+  for (const id of ['research', 'home-t1', 'home-t2', 'home-t3', 'assemble', 'check']) {
     view = await s.completeStage('riverdale', job.id, id);
     assert.equal(view.stages.find(st => st.id === id).status, 'done');
   }
@@ -109,13 +109,12 @@ test('server mode keeps people and assignment on the local Jobs for now', async 
 test('the three home pages are built side by side; Assemble opens when all three are done', async () => {
   const s = service();
   const job = await start(s);
-  await s.completeStage('riverdale', job.id);                                           // Research
-  let view = await s.completeStage('riverdale', job.id);                                // Fill
+  let view = await s.completeStage('riverdale', job.id);                                // Research + write
   assert.deepEqual(view.openStageIds, ['home-t1', 'home-t2', 'home-t3']);
   assert.deepEqual(view.stages.filter(st => st.status === 'current').map(st => st.id), ['home-t1', 'home-t2', 'home-t3']);
   await assert.rejects(s.completeStage('riverdale', job.id, 'assemble'), /isn't open yet/);
   view = await s.setStageNeed('riverdale', job.id, 0, true, 'home-t3');                 // tick on a non-first open stage
-  assert.deepEqual(view.stages.find(st => st.id === 'home-t3').needsDone, [true, false]);
+  assert.deepEqual(view.stages.find(st => st.id === 'home-t3').needsDone, [true, false, false]);
   view = await s.completeStage('riverdale', job.id, 'home-t3');
   view = await s.completeStage('riverdale', job.id, 'home-t1');
   assert.deepEqual(view.openStageIds, ['home-t2']);
@@ -132,4 +131,33 @@ test('a Job keeps the stages it started with (template version)', async () => {
   const wf = await s.getWorkflow('pitch-deck');
   wf.stages.length = 0;                                                                  // callers get copies
   assert.deepEqual((await s.getJob('riverdale', job.id)).stages.map(st => st.id), STAGES);
+});
+
+test('Research + write is one stage; Check is automatic; home pages need the "Concept for discussion" line', async () => {
+  const wf = await service().getWorkflow('pitch-deck');
+  const research = wf.stages.find(st => st.id === 'research');
+  assert.equal(research.name, 'Research + write');
+  assert.ok(research.tools.includes('research') && research.tools.includes('deck-builder'));
+  assert.ok(!wf.stages.some(st => st.id === 'fill'));
+  const check = wf.stages.find(st => st.id === 'check');
+  assert.equal(check.automatic, true);
+  assert.deepEqual(check.needs, ['Deck checker', 'Evidence guard', 'Phone screenshot', 'Link check', 'Internal-words scan']);
+  assert.ok(wf.stages.filter(st => st.group === 'home').every(st => st.needs.includes('"Concept for discussion" line')));
+});
+
+test('every stage records when it opened and finished', async () => {
+  let t = Date.parse('2026-10-27T16:00:00Z');
+  const s = createSampleService({ now: () => t });
+  s.setProjects([{ id: 'riverdale', name: 'Riverdale Home Services' }]);
+  const job = await s.startJob('riverdale', 'pitch-deck', 'deck');
+  assert.equal(job.stages[0].timing.openedAt, '2026-10-27T16:00:00.000Z');
+  assert.equal(job.stages[1].timing, null);                                      // not open yet
+  t += 25 * 60000;
+  let view = await s.completeStage('riverdale', job.id);                         // Research + write took 25 min
+  assert.equal(view.stages[0].timing.minutes, 25);
+  assert.ok(['home-t1', 'home-t2', 'home-t3'].every(id => view.stages.find(st => st.id === id).timing.openedAt === '2026-10-27T16:25:00.000Z'));
+  t += 40 * 60000;
+  view = await s.completeStage('riverdale', job.id, 'home-t2');
+  assert.equal(view.stages.find(st => st.id === 'home-t2').timing.minutes, 40);
+  assert.equal(view.stages.find(st => st.id === 'home-t1').timing.minutes, null); // still open
 });

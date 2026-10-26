@@ -26,6 +26,8 @@
     ['pitch-deck', 'Pitch deck', 'workflow', 'available'],
     ['deck-builder', 'Deck builder', 'tool', 'coming-soon'],
     ['homepage-builder', 'Home page builder', 'tool', 'coming-soon'],
+    ['research', 'Research', 'tool', 'coming-soon'],
+    ['auto-check', 'Auto check', 'tool', 'coming-soon'],
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
 
   const PRESETS = [
@@ -73,14 +75,15 @@
         Object.freeze({ id: 'deck', name: 'Market Opportunity', description: 'A hosted page built from the prospect\'s own numbers, plus a printed QR card.' }),
       ]),
       stages: Object.freeze([
-        STAGE('research', 'Research', 'Gather the prospect\'s real numbers.', [], ['Google profile', 'Reviews and rating', 'Website check', '3 local competitors', 'Search demand'], 'Every number has a source', 'team', ['deck']),
-        STAGE('fill', 'Fill', 'Put the research into the deck.', ['deck-builder'], ['All required fields'], 'Deck data passes the check', 'team', ['deck']),
+        // Research + write: the agent finds the numbers and drafts the words; the builder checks and edits.
+        STAGE('research', 'Research + write', 'Meridian finds the prospect\'s real numbers and drafts the words; the builder checks and edits.', ['research', 'deck-builder'], ['Business matched', 'Evidence gathered', 'Words drafted', 'Builder edited'], 'Deck passes the checker and the evidence guard', 'team', ['deck']),
         // Three home-page builds shown at the bottom of the board (home page only, not full sites); built side by side.
-        GROUP('home', 'Home pages', STAGE('home-t1', 'Home page: Tier 1', 'The essentials: clear offer, services, one way to get in touch.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture'], 'Uses the prospect\'s real name and services', 'team', ['deck'])),
-        GROUP('home', 'Home pages', STAGE('home-t2', 'Home page: Tier 2', 'A bolder custom concept with a stronger story and booking path.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture'], 'Clearly a step up from Tier 1', 'team', ['deck'])),
-        GROUP('home', 'Home pages', STAGE('home-t3', 'Home page: Tier 3', 'The full immersive experience: motion and video moments.', ['homepage-builder', 'image-gen', 'video'], ['Home page built', 'Desktop and phone capture'], 'Clearly a step up from Tier 2', 'team', ['deck'])),
+        GROUP('home', 'Home pages', STAGE('home-t1', 'Home page: Tier 1', 'The essentials: clear offer, services, one way to get in touch.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Uses the prospect\'s real name and services', 'team', ['deck'])),
+        GROUP('home', 'Home pages', STAGE('home-t2', 'Home page: Tier 2', 'A bolder custom concept with a stronger story and booking path.', ['homepage-builder', 'image-gen'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Clearly a step up from Tier 1', 'team', ['deck'])),
+        GROUP('home', 'Home pages', STAGE('home-t3', 'Home page: Tier 3', 'The full immersive experience: motion and video moments.', ['homepage-builder', 'image-gen', 'video'], ['Home page built', 'Desktop and phone capture', '"Concept for discussion" line'], 'Clearly a step up from Tier 2', 'team', ['deck'])),
         STAGE('assemble', 'Assemble board', 'Meridian builds the interactive board from the deck data and the three home pages.', ['deck-builder'], ['Board built', 'Saved to project files'], 'Board opens with no errors', 'team', ['deck']),
-        STAGE('check', 'Check', 'Test the board on desktop and phone.', [], ['Desktop check', 'Phone check', 'No placeholders', 'Nothing internal'], 'All checks pass', 'team', ['deck']),
+        // Automatic: Meridian runs every check; a person only reviews what gets flagged.
+        Object.freeze({ ...STAGE('check', 'Auto check', 'Meridian runs every check; a person reviews only what gets flagged.', ['auto-check'], ['Deck checker', 'Evidence guard', 'Phone screenshot', 'Link check', 'Internal-words scan'], 'No open flags', 'team', ['deck']), automatic: true }),
         STAGE('review', 'Review', 'Jax reviews before the prospect sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax', ['deck']),
         STAGE('publish', 'Publish', 'Put the page live and make the QR code.', [], ['Live link', 'QR code'], 'Link opens on a phone', 'jax', ['deck']),
         STAGE('print', 'Print card', 'Make the leave-behind with the QR code.', ['deck-builder'], ['Print-ready card'], 'QR scans from print', 'team', ['deck']),
@@ -132,6 +135,7 @@
    *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off. */
   function createSampleService(options = {}) {
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
+    const now = typeof options.now === 'function' ? options.now : () => Date.now(); // tests pass a fake clock
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
     let counter = 0;
@@ -156,7 +160,8 @@
       const n = spaceJobs(space.id).filter(j => j.workflowId === workflowId).length + 1;
       const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
-        done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, locked: false, template: null, ...extra };
+        done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null, ...extra };
+      stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
     }
@@ -469,7 +474,20 @@
 
     function advance(job, stageId = job.stageId) {
       if (!job.done.includes(stageId)) job.done.push(stageId);
+      (job.timing[stageId] || (job.timing[stageId] = {})).doneAt = now();
       job.stageId = job.stageIds.find(id => !job.done.includes(id)) || null;
+      stampOpened(job);
+    }
+
+    // Stage timing: when each stage opened and finished (shown to Jax to find where the hours go).
+    function stampOpened(job) {
+      for (const id of openStages(job)) if (!job.timing[id]) job.timing[id] = { openedAt: now() };
+    }
+    function timingView(t) {
+      if (!t) return null;
+      const iso = ms => (Number.isFinite(ms) ? new Date(ms).toISOString() : null);
+      return { openedAt: iso(t.openedAt), doneAt: iso(t.doneAt),
+        minutes: Number.isFinite(t.openedAt) && Number.isFinite(t.doneAt) ? Math.round((t.doneAt - t.openedAt) / 60000) : null };
     }
 
     function jobView(job) {
@@ -478,7 +496,7 @@
         stageId: job.stageId, openStageIds: open, waitingOnJax: job.waitingOnJax, finished: job.stageId === null,
         locked: !!job.locked, template: job.template || null, templateVersion: job.templateVersion,
         stages: job.stageDefs.map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
-          assignee: st.approver === 'jax' ? 'jax' : (job.assignees[st.id] || null),
+          assignee: st.approver === 'jax' ? 'jax' : (job.assignees[st.id] || null), timing: timingView(job.timing[st.id]),
           hasNotes: !!job.notes[st.id], status: job.done.includes(st.id) ? 'done'
             : open.includes(st.id) ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
     }
