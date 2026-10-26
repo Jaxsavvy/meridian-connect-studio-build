@@ -59,11 +59,11 @@
 
   function createBuilder({ service, spaceId, jobId, stageId, report, onDirty = () => {} }) {
     const tier = TIERS[stageId] || 0;
-    let disposed = false, revision = 0, space = null, stage = null, headline = '', proposal = '', busy = false, dirty = false;
+    let disposed = false, revision = 0, space = null, stage = null, headline = '', proposal = '', busy = false, dirty = false, kept = 0;
     const page = () => buildPage({ tier, name: space.name, headline, dna: space.dna });
     const setDirty = value => { if (value !== dirty) { dirty = value; onDirty(value); } };
     function show(error = '') {
-      report({ state: 'ready', tier, name: space.name, headline, proposal, busy, error,
+      report({ state: 'ready', tier, name: space.name, headline, proposal, busy, error, kept,
         open: stage.status === 'current', done: stage.status === 'done', html: page() });
     }
     async function load() {
@@ -100,6 +100,13 @@
       accept() { if (disposed || busy || !proposal) return; headline = proposal; proposal = ''; setDirty(true); show(); },
       dismiss() { if (disposed || busy) return; proposal = ''; show(); },
       // Finish: save the page into the project folder first, then complete this tier only.
+      // Keep: save the page as a kept asset in this stage; keeping again makes the next version.
+      keep: () => act(async () => {
+        if (stage.status !== 'current') throw Error('This home page stage isn\'t open.');
+        const asset = await service.savePageAsset(spaceId, jobId, stageId, { name: `Home page Tier ${tier}`, html: page() });
+        if (!asset || asset.jobId !== jobId || asset.stageId !== stageId) throw Error('Could not keep this page. Try again.');
+        kept = Number(asset.version) || kept + 1; setDirty(false);
+      }),
       finish: () => act(async () => {
         if (stage.status !== 'current') throw Error('This home page stage isn\'t open.');
         const saved = await service.saveToProjectFiles(spaceId, jobId, [{ name: `Home page Tier ${tier}.html`, content: page() }]);
@@ -140,6 +147,7 @@
         listen(input, 'change', () => model.edit(input.value)); field.append(node('span', 'Headline'), input);
         const tools = node('div', '', 'studio-homepage-actions');
         tools.append(button('Draft headline with Meridian', () => void model.draft(), false, view.busy || !view.open),
+          button('Keep', () => void model.keep(), false, view.busy || !view.open),
           button(view.busy ? 'Working…' : 'Finish stage', () => void model.finish(), true, view.busy || !view.open));
         root.replaceChildren(node('h2', `Home page: Tier ${view.tier}`), field, tools);
         if (view.proposal) {
@@ -148,6 +156,7 @@
             button('Use this headline', () => model.accept(), true, view.busy), button('Dismiss', () => model.dismiss(), false, view.busy));
           root.appendChild(offer);
         }
+        if (view.kept) { const note = node('p', `Kept as version ${view.kept} in this stage.`); note.setAttribute('role', 'status'); root.appendChild(note); }
         if (view.done) root.appendChild(node('p', 'This tier is finished and saved to the project folder.', 'studio-chip'));
         if (view.error) { const error = node('p', view.error); error.setAttribute('role', 'alert'); root.appendChild(error); }
         const frame = node('iframe', '', 'studio-homepage-preview');

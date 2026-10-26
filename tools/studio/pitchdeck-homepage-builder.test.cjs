@@ -8,6 +8,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 async function started(name = 'Client A') {
   const service = createSampleService(); service.setProjects([{ id: 'client-a', name }]);
   const job = await service.startJob('client-a', 'pitch-deck', 'deck');
+  await service.useSampleResearch('client-a', job.id);           // a passing practice deck lets Research + write finish
   await service.completeStage('client-a', job.id, 'research');   // opens the three home pages side by side
   return { service, job };
 }
@@ -76,6 +77,21 @@ test('Finish saves the page to the project folder, then completes only this tier
   await s.model.finish(); assert.match(s.views.at(-1).error, /isn't open/);
 });
 
+test('Keep saves the page as a kept asset in this stage; keeping again makes the next version', async () => {
+  const { service, job } = await started();
+  const s = setup(service, job.id, 'home-t3'); await s.model.load();
+  s.model.edit('Roofs that last'); await s.model.keep();
+  assert.equal(s.views.at(-1).kept, 1); assert.deepEqual(s.dirty, [true, false]);
+  await s.model.keep(); assert.equal(s.views.at(-1).kept, 2);
+  const byStage = await service.listJobAssets('client-a', job.id);
+  assert.equal(byStage['home-t3'].length, 2); assert.deepEqual(byStage['home-t1'], []);
+  const [first] = byStage['home-t3'];
+  assert.equal(first.kind, 'page'); assert.equal(first.kept, true); assert.match(first.name, /^Home page Tier 3/);
+  assert.match(first.html, /Roofs that last/); assert.match(first.html, /not affiliated with Client A/);
+  const status = Object.fromEntries((await service.getJob('client-a', job.id)).stages.map(st => [st.id, st.status]));
+  assert.equal(status['home-t3'], 'current');   // Keep never finishes the stage
+});
+
 test('a failed project-folder save stops Finish before the stage completes', async () => {
   const { service, job } = await started(); let completed = false;
   const spy = { ...service, saveToProjectFiles: async () => ({ saved: [], failed: ['x'] }), completeStage: async () => { completed = true; } };
@@ -114,6 +130,7 @@ test('rendered tool: sandboxed preview without same-origin, Finish works, cleanu
   assert.match(frame.srcdoc, /data-tier="3"/); assert.match(frame.srcdoc, /not affiliated with Client A/);
   find(el, 'Draft headline with Meridian').click(); await tick();
   find(el, 'Use this headline').click(); assert.deepEqual(dirty, [true]);
+  find(el, 'Keep').click(); await tick(); await tick(); assert.match(text(el), /Kept as version 1/);
   find(el, 'Finish stage').click(); await tick(); await tick();
   assert.match(text(el), /This tier is finished/); assert.equal(find(el, 'Finish stage').disabled, true);
   const controls = walk(el).filter(n => n.events.click || n.events.change); assert.ok(controls.length > 0);
