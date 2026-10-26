@@ -133,7 +133,7 @@
     return { ok: errors.length === 0, errors, deck };
   }
 
-  /** A blank deck for the Fill stage, with the prospect's name and town already in. */
+  /** A blank deck for the Research + write stage, with the prospect's name and town already in. */
   function emptyDeck({ name = '', town = '', preparedOn = '' } = {}) {
     const src = () => ({ label: '', url: '' });
     const three = make => [make(), make(), make()];
