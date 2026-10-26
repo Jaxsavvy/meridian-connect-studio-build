@@ -174,6 +174,21 @@
       fact('demand', 'market', 'monthlySearches', 1900, 'api', { label: 'Google Ads Keyword Planner (sample)', url: 'https://ads.google.com/' }),
     ];
   }
+  // Meridian's draft words fill only what the person left blank; anything they wrote stays.
+  function fillBlanks(mine, draft) {
+    if (typeof draft === 'string') return typeof mine === 'string' && mine.trim() ? mine : draft;
+    if (Array.isArray(draft)) {
+      if (!Array.isArray(mine) || !mine.length) return draft;
+      if (draft.every(x => !x || typeof x !== 'object')) return mine;   // a list of numbers or words: theirs, not mixed
+      return draft.map((d, i) => (i < mine.length ? fillBlanks(mine[i], d) : d)).concat(mine.slice(draft.length));
+    }
+    if (draft && typeof draft === 'object') {
+      const out = { ...(mine && typeof mine === 'object' ? mine : {}) };
+      for (const [key, value] of Object.entries(draft)) out[key] = fillBlanks(out[key], value);
+      return out;
+    }
+    return mine === undefined || mine === null ? draft : mine;
+  }
   // A finished practice deck: numbers from the evidence (the research model), words made up.
   function sampleDeck(name, evidence, preparedOn) {
     const town = 'Sample Town';
@@ -515,19 +530,22 @@
         emit('research-changed', { spaceId: space.id, jobId: job.id });
         return clone({ runId: run.runId, status: run.status });
       },
-      /** Puts the research numbers into the deck (score, market stats, competitor rows) and keeps every word the
-       *  person wrote. names: { placeId: name } typed by the person (Places names aren't stored).
+      /** Puts the research into the deck: the numbers from the evidence (score, market stats, competitor rows) and
+       *  Meridian's draft words in every blank field, keeping every word the person wrote. Practice words here; the
+       *  server agent drafts real ones (#126). names: { placeId: name } typed by the person (Places names aren't stored).
        *  Returns { ok, errors, deck, missing }: missing is what research couldn't find; it's never saved in the deck. */
       async applyResearchToDeck(spaceId, jobId, { names = {} } = {}) {
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         researchDone(job);
-        const current = deckOf(space, job);
+        const words = sampleDeck(space.name, job.evidence, new Date(now()).toISOString().slice(0, 10));
+        const current = fillBlanks(deckOf(space, job), words);
         const known = Object.fromEntries(current.competitors.rows.filter(r => r.placeId && r.name).map(r => [r.placeId, r.name]));
         const { missing, ...draft } = Research.draftDeckFromEvidence(job.evidence,
-          { ...current.client, names: { ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
+          { ...current.client, names: { ...SAMPLE_RIVALS, ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
+        const label = i => (current.market.stats[i] || {}).label || (words.market.stats[i] || {}).label || '';
         const checked = checkDeck(job, { ...current, client: { ...current.client, placeId: draft.client.placeId }, score: draft.score,
-          market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: (current.market.stats[i] || {}).label || '' })) },
+          market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: label(i) })) },
           competitors: { ...current.competitors, channels: draft.competitors.channels, rows: draft.competitors.rows, source: draft.competitors.source } });
         job.deck = checked.deck;
         emit('deck-changed', { spaceId: space.id, jobId: job.id });
@@ -864,7 +882,7 @@
       startResearch: async () => notOnServerYet(),
       getResearch: async () => notOnServerYet(),
       confirmMatch: async () => notOnServerYet(),
-      applyResearchToDeck: (...a) => local.applyResearchToDeck(...a),
+      applyResearchToDeck: async () => notOnServerYet(),   // the agent drafts real words; practice words stay local
       async listJobAssets(spaceId, jobId) {
         const job = await local.getJob(spaceId, jobId);
         const byStage = {};

@@ -48,7 +48,7 @@ test('in the app, practice research shows as running first', async () => {
   assert.equal((await s.getResearch('riverdale', job.id)).status, 'needs-match');
 });
 
-test('apply research to the deck: numbers from the evidence, the person\'s words kept, missing returned', async () => {
+test('apply research to the deck: numbers from the evidence, draft words in the blanks, the person\'s words kept', async () => {
   const { s, job } = await deck();
   await assert.rejects(s.applyResearchToDeck('riverdale', job.id), /run the research and confirm/);
   const blank = await s.getDeck('riverdale', job.id);
@@ -61,9 +61,12 @@ test('apply research to the deck: numbers from the evidence, the person\'s words
   assert.deepEqual(out.deck.market.stats.map(x => x.value), [48.2, 18.1, 1.9]);
   assert.equal(out.deck.competitors.rows.find(r => r.placeId === 'sample-place-rival-1').name, 'Summit Services');
   assert.ok(out.missing.length > 0); assert.equal('missing' in out.deck, false);
-  assert.equal(out.ok, false);                                               // words still to write...
-  assert.equal(out.errors.some(e => /evidence|isn't in the research/.test(e.message)), false);   // ...but every number is backed
+  assert.equal(out.deck.competitors.rows.find(r => r.placeId === 'sample-place-rival-2').name, 'Valley Pros (sample)');
+  assert.ok(out.deck.bottomLine.headline.length > 0);                        // Meridian drafted the blanks
+  assert.deepEqual(out.errors, []); assert.equal(out.ok, true);              // every number backed, every field filled
   assert.deepEqual((await s.getDeck('riverdale', job.id)).score, out.deck.score);
+  const view = await s.completeStage('riverdale', job.id);                   // the #129 path: run, confirm, use, finish
+  assert.deepEqual(view.openStageIds, ['home-t1', 'home-t2', 'home-t3']);
 });
 
 test('Research + write needs research done and a confirmed business', async () => {
@@ -86,5 +89,5 @@ test('real mode: research waits on the server agent (#126)', async () => {
   await assert.rejects(server.startResearch('riverdale', job.id, { category: 'plumber' }), /Coming soon/);
   await assert.rejects(server.getResearch('riverdale', job.id), /Coming soon/);
   await assert.rejects(server.confirmMatch('riverdale', job.id, 'sample-place-you-0001'), /Coming soon/);
-  await assert.rejects(server.applyResearchToDeck('riverdale', job.id), /run the research/);
+  await assert.rejects(server.applyResearchToDeck('riverdale', job.id), /Coming soon/);
 });
