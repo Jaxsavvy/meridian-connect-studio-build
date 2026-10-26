@@ -23,7 +23,7 @@
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],
     ['social', 'Social content', 'workflow', 'coming-soon'],
     ['brand-kit', 'Brand kit', 'workflow', 'coming-soon'],
-    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'] // starts from New prospect, not the tile,
+    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'], // starts from New prospect, not the tile
     ['deck-builder', 'Deck builder', 'tool', 'coming-soon'],
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
 
