@@ -87,6 +87,7 @@ test('Keep saves the page as a kept asset in this stage; keeping again makes the
   assert.equal(byStage['home-t3'].length, 2); assert.deepEqual(byStage['home-t1'], []);
   const [first] = byStage['home-t3'];
   assert.equal(first.kind, 'page'); assert.equal(first.kept, true); assert.match(first.name, /^Home page Tier 3/);
+  assert.equal(first.jobId, job.id); assert.equal(first.stageId, 'home-t3');
   assert.match(first.html, /Roofs that last/); assert.match(first.html, /not affiliated with Client A/);
   const status = Object.fromEntries((await service.getJob('client-a', job.id)).stages.map(st => [st.id, st.status]));
   assert.equal(status['home-t3'], 'current');   // Keep never finishes the stage
