@@ -125,6 +125,21 @@
   // Sample team; the server supplies the real list.
   const PEOPLE = Object.freeze([['jax', 'Jax'], ['tyler', 'Tyler'], ['cassy', 'Cassy']].map(([id, name]) => Object.freeze({ id, name })));
 
+  // Auto check (#131): words that must never reach a prospect's board: pricing, money signs, team names, internal notes.
+  // The "$" prefix on a market stat is allowed (Jax, 2026-10-26); links, ids and assets aren't board text.
+  const INTERNAL_WORDS = Object.freeze([/\bpric(?:e|es|ing)\b/i, /[$€£]/, /\bno clients\b/i, /\binternal\b/i, /\bdraft\b/i, /\btbd\b/i,
+    new RegExp(`\\b(?:${PEOPLE.map(p => p.name).join('|')})\\b`, 'i')]);
+  const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
+  const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // on the server, with the board (#131 part 2)
+  // Every text field in a deck as [path, key, text].
+  function deckText(value, path = '', out = []) {
+    if (Array.isArray(value)) value.forEach((v, i) => deckText(v, `${path}.${i}`, out));
+    else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) {
+      if (typeof v === 'string') out.push([path ? `${path}.${k}` : k, k, v]); else deckText(v, path ? `${path}.${k}` : k, out);
+    }
+    return out;
+  }
+
   const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
   // Files saved into a project's folder (Files tab, Docs section): text only, safe names, named after the Job.
   const FILE_NAME = /^[A-Za-z0-9 ._()-]{1,140}\.(md|json|html|txt)$/;
@@ -245,7 +260,7 @@
       const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
-        deck: null, evidence: [], research: null, ...extra }; // deck, evidence, research run: Pitch deck only (#119, #125)
+        deck: null, evidence: [], research: null, checks: null, checkLog: [], ...extra }; // Pitch deck only (#119, #125, #131)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -359,12 +374,14 @@
         if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
+        if (job.workflowId === 'pitch-deck' && target === 'check') checksClear(job);
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
           return clone(jobView(job));
         }
         advance(job, target);
+        if (job.workflowId === 'pitch-deck' && target === 'assemble') runDeckChecks(space, job);   // Auto check runs by itself
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -551,6 +568,35 @@
         emit('deck-changed', { spaceId: space.id, jobId: job.id });
         return clone({ ok: checked.errors.length === 0, ...checked, missing });
       },
+      /** Auto check: runs every check on the deck by itself; a person only reviews what gets flagged. Returns the
+       *  flags [{ id, check, message, where, resolved }]; check is 'deck' | 'evidence' | 'links' | 'internal-words'.
+       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board. */
+      async runChecks(spaceId, jobId) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('check')) throw new Error('Auto check is finished.');
+        return clone(runDeckChecks(space, job).flags.map(flagView));
+      },
+      /** The last Auto check: { ranAt, flags, notRun, log } (log: every flag a person resolved, with their note). */
+      async getChecks(spaceId, jobId) {
+        const { job } = deckJob(spaceId, jobId);
+        const last = job.checks || { ranAt: null, flags: [] };
+        return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: CHECKS_NOT_RUN, log: job.checkLog });
+      },
+      /** A person marks a flag OK with a note saying why; the note is logged. It stays resolved when checks re-run. */
+      async resolveFlag(spaceId, jobId, flagId, note) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('check')) throw new Error('Auto check is finished.');
+        const flag = job.checks && job.checks.flags.find(f => f.id === flagId);
+        if (!flag) throw new Error('Flag not found.');
+        if (flag.resolved) throw new Error('This flag is already resolved.');
+        const why = text(note, 'Note', 500);
+        if (!why) throw new Error('Say why this is OK.');
+        const at = new Date(now()).toISOString();
+        flag.resolved = { note: why, at };
+        job.checkLog.push({ at, flagId: flag.id, check: flag.check, where: flag.where, message: flag.message, note: why });
+        emit('checks-changed', { spaceId: space.id, jobId: job.id });
+        return clone(flagView(flag));
+      },
       async listAssets(spaceId, { query = '', includeTrash = false } = {}) {
         requireSpace(spaceId);
         const q = String(query).toLowerCase();
@@ -723,6 +769,34 @@
       return deck;
     }
 
+    // Auto check (#131 part 1): the deck checker, the evidence guard, secure links and the internal-words scan.
+    function runDeckChecks(space, job) {
+      const deck = deckOf(space, job), found = [];
+      const flag = (check, message, where) => found.push({ check, message, where });
+      for (const e of DeckData.validateDeck(deck).errors) flag('deck', e.message, e.path);
+      for (const e of Research.checkDeckAgainstEvidence(deck, job.evidence, {})) flag('evidence', e.message, e.path);
+      for (const [where, key, value] of deckText(deck)) {
+        if (key === 'url') { if (value && !value.startsWith('https://')) flag('links', 'Use a secure https:// link.', where); continue; }
+        if (NOT_BOARD_TEXT.includes(key)) continue;
+        const hit = INTERNAL_WORDS.map(word => value.match(word)).find(Boolean);
+        if (hit) flag('internal-words', `Internal word on the board: "${hit[0]}".`, where);
+      }
+      // A flag a person already resolved stays resolved when the same thing is found again.
+      const before = new Map(((job.checks && job.checks.flags) || []).map(f => [f.key, f]));
+      job.checks = { ranAt: new Date(now()).toISOString(), flags: found.map(f => {
+        const key = `${f.check}|${f.where}|${f.message}`;
+        return before.get(key) || { id: nextId('flag'), key, ...f, resolved: null };
+      }) };
+      emit('checks-changed', { spaceId: space.id, jobId: job.id });
+      return job.checks;
+    }
+    function checksClear(job) {
+      if (!job.checks) throw new Error('Auto check hasn\'t run yet.');
+      const n = job.checks.flags.filter(f => !f.resolved).length;
+      if (n) throw new Error(`Auto check isn't done: ${n} ${n === 1 ? 'flag' : 'flags'} to review.`);
+    }
+    function flagView(f) { return { id: f.id, check: f.check, message: f.message, where: f.where, resolved: f.resolved }; }
+
     // A Job's own copy of its stages (kept from when it started, so later template changes can't break it).
     function stageOf(job, stageId) { return job.stageDefs.find(st => st.id === stageId) || null; }
 
@@ -883,6 +957,9 @@
       getResearch: async () => notOnServerYet(),
       confirmMatch: async () => notOnServerYet(),
       applyResearchToDeck: async () => notOnServerYet(),   // the agent drafts real words; practice words stay local
+      runChecks: (...a) => local.runChecks(...a),
+      getChecks: (...a) => local.getChecks(...a),
+      resolveFlag: (...a) => local.resolveFlag(...a),
       async listJobAssets(spaceId, jobId) {
         const job = await local.getJob(spaceId, jobId);
         const byStage = {};
