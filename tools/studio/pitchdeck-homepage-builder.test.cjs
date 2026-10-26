@@ -53,6 +53,13 @@ test('project text is escaped; bad colors and fonts fall back', () => {
   assert.match(page, /&lt;i&gt;Roofs&lt;\/i&gt;/); assert.match(page, /color:#0b1f3a/);
 });
 
+test('a non-text or blank audience falls back to the default line instead of crashing', () => {
+  for (const audience of [42, ['Owners'], { a: 1 }, null, '   ']) {
+    const page = buildPage({ tier: 1, name: 'Client A', headline: 'Hi', dna: { audience } });
+    assert.match(page, /Local, licensed and on time\./); assert.doesNotMatch(page, /Trusted by/);
+  }
+});
+
 test('Finish saves the page to the project folder, then completes only this tier', async () => {
   const { service, job } = await started(), calls = [];
   const spy = { ...service,
@@ -103,7 +110,7 @@ test('rendered tool: sandboxed preview without same-origin, Finish works, cleanu
   const cleanup = mountCanvas(el, { spaceId: 'client-a', jobId: job.id, stageId: 'home-t3', studio: { service, setDirty: v => dirty.push(v) } });
   assert.match(text(el), /Loading home page/); await tick();
   const frame = walk(el).find(n => n.tag === 'iframe');
-  assert.equal(frame.attrs.sandbox, 'allow-scripts'); assert.doesNotMatch(frame.attrs.sandbox, /same-origin/);
+  assert.equal(frame.attrs.sandbox, ''); assert.doesNotMatch(frame.srcdoc, /<script|script-src/);
   assert.match(frame.srcdoc, /data-tier="3"/); assert.match(frame.srcdoc, /not affiliated with Client A/);
   find(el, 'Draft headline with Meridian').click(); await tick();
   find(el, 'Use this headline').click(); assert.deepEqual(dirty, [true]);

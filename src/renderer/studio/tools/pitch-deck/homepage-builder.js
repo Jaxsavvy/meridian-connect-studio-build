@@ -20,7 +20,8 @@
     const display = font(dna.fonts?.[0], 'Georgia'), body = font(dna.fonts?.[1], 'Arial');
     const services = (Array.isArray(dna.services) && dna.services.length ? dna.services : SAMPLE_SERVICES).slice(0, 6);
     const who = escape(name), cta = tier === 1 ? 'Call us today' : 'Book a visit';
-    const intro = escape(dna.audience ? `Trusted by ${dna.audience.toLowerCase()}.` : 'Local, licensed and on time.');
+    const audience = typeof dna.audience === 'string' ? dna.audience.trim() : '';
+    const intro = escape(audience ? `Trusted by ${audience.toLowerCase()}.` : 'Local, licensed and on time.');
     const items = services.map(s => tier === 1 ? `<li>${escape(s)}</li>`
       : `<li class="card"><h3>${escape(s)}</h3><p>Done right, explained in plain words.</p></li>`).join('');
     const parts = [
@@ -42,7 +43,7 @@
     const motion = tier === 3 ? '@keyframes rise{from{opacity:.15;transform:translateY(32px)}}@media (prefers-reduced-motion: no-preference){'
       + '@supports (animation-timeline: view()){.reveal{animation:rise linear both;animation-timeline:view();animation-range:entry 0% cover 35%}}}' : '';
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">'
+      + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">'
       + `<title>${who}</title><style>body{margin:0;font-family:"${body}",sans-serif;color:${ink};background:#fff}`
       + `h1,h2,h3{font-family:"${display}",serif}header{display:flex;justify-content:space-between;align-items:center;padding:1rem 5vw}`
       + `section{padding:2.5rem 5vw}.hero{background:${tier === 1 ? '#f4f6f8' : ink};color:${tier === 1 ? ink : '#fff'}}`
@@ -150,7 +151,8 @@
         if (view.done) root.appendChild(node('p', 'This tier is finished and saved to the project folder.', 'studio-chip'));
         if (view.error) { const error = node('p', view.error); error.setAttribute('role', 'alert'); root.appendChild(error); }
         const frame = node('iframe', '', 'studio-homepage-preview');
-        frame.setAttribute('sandbox', 'allow-scripts'); frame.setAttribute('title', `Home page Tier ${view.tier} preview`);
+        // The pages have no scripts, so the preview runs fully sandboxed.
+        frame.setAttribute('sandbox', ''); frame.setAttribute('title', `Home page Tier ${view.tier} preview`);
         frame.srcdoc = view.html; root.appendChild(frame);
       } });
     void model.load(); return () => { model.dispose(); unlisten(); root.remove(); };
