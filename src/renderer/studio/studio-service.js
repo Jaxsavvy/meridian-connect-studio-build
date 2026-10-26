@@ -477,6 +477,30 @@
         emit('assets-changed', { spaceId: space.id });
         return clone({ requestId: nextId('req'), refinedDescription, settingsUsed, results });
       },
+      /** Keep for a page a tool built (e.g. Home page: Tier 1): a kept asset in an open stage of the Job.
+       *  page: { name, html }. Keeping again in the same stage makes the next version of that page.
+       *  Show the html only in a sandboxed iframe (never allow-same-origin), never inside Studio itself. */
+      async savePageAsset(spaceId, jobId, stageId, page) {
+        const space = requireSpace(spaceId);
+        const job = requireJob(space.id, jobId);
+        if (!openStages(job).includes(stageId) || job.waitingOnJax) throw new Error('That stage isn\'t open.');
+        const name = text(page && page.name, 'Page name', 80).replace(/__v\d+$/, '');
+        if (!name || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('Give the page a plain name.');
+        const html = page && page.html;
+        if (typeof html !== 'string' || !html.trim()) throw new Error('The page is empty.');
+        if (new TextEncoder().encode(html).length > MAX_FILE) throw new Error('A page can be 5 MB at most.');
+        const list = spaceAssets(space.id);
+        const latest = list.filter(a => a.kind === 'page' && a.jobId === job.id && a.stageId === stageId)
+          .reduce((top, a) => (!top || a.version > top.version ? a : top), null);
+        const version = latest ? latest.version + 1 : 1;
+        const asset = { id: nextId('asset'), spaceId: space.id, name: `${name}__v${version}`, kind: 'page', html,
+          url: sampleImage(name, 160), version, parentId: latest ? latest.id : null, kept: true, approved: false,
+          review: null, trashed: false, createdBy: stageOf(job, stageId).tools[0] || 'studio', jobId: job.id, stageId };
+        if (latest) asset.rootId = latest.rootId || latest.id;
+        list.push(asset);
+        emit('assets-changed', { spaceId: space.id });
+        return clone(asset);
+      },
       on(listener) {
         if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');
         listeners.add(listener);
@@ -630,6 +654,7 @@
       },
       saveVersion: notOnServerYet,
       copyToSpace: notOnServerYet,
+      savePageAsset: notOnServerYet, // until Team Hub stores pages; Finish still saves them to the project folder
       listPeople: (...a) => local.listPeople(...a),
       assignStage: (...a) => local.assignStage(...a),
       approveAsset: notHere,
