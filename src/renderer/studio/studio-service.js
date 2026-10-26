@@ -23,7 +23,7 @@
     ['ad-campaign', 'Ad campaign', 'workflow', 'coming-soon'],
     ['social', 'Social content', 'workflow', 'coming-soon'],
     ['brand-kit', 'Brand kit', 'workflow', 'coming-soon'],
-    ['pitch-deck', 'Pitch deck', 'workflow', 'coming-soon'], // starts from New prospect, not the tile
+    ['pitch-deck', 'Pitch deck', 'workflow', 'available'],
     ['deck-builder', 'Deck builder', 'tool', 'coming-soon'],
     ['homepage-builder', 'Home page builder', 'tool', 'coming-soon'],
   ].map(([id, name, kind, state]) => Object.freeze({ id, name, kind, state }));
@@ -62,9 +62,9 @@
         STAGE('launch', 'Launch', 'Publish the site.', [], ['Domain ready'], 'Live and checked', 'jax'),
       ]),
     }),
-    // Pitch deck (docs/PLAN.md): only starts from "New prospect" as a locked starter; stages never change.
+    // Pitch deck (docs/PLAN.md): started inside a client project; the Job is locked (stages never change).
     'pitch-deck': Object.freeze({
-      id: 'pitch-deck', name: 'Pitch deck', starterOnly: true,
+      id: 'pitch-deck', name: 'Pitch deck', clientOnly: true, locked: true, oneAtATime: true,
       tiers: Object.freeze([
         Object.freeze({ id: 'deck', name: 'Market Opportunity', description: 'A hosted page built from the prospect\'s own numbers, plus a printed QR card.' }),
       ]),
@@ -112,15 +112,6 @@
       sketch: text(f?.sketch, 'Frame sketch'), assetId: typeof f?.assetId === 'string' && f.assetId ? f.assetId : null })) }),
   });
 
-  // Optional web link: empty, or http(s) only.
-  const link = (value, field) => {
-    const v = text(value, field, 500);
-    if (!v) return '';
-    let url;
-    try { url = new URL(v); } catch (_) { throw new Error(`${field} must be a web link.`); }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`${field} must start with http:// or https://.`);
-    return url.href;
-  };
   // Sample team; the server supplies the real list.
   const PEOPLE = Object.freeze([['jax', 'Jax'], ['tyler', 'Tyler'], ['cassy', 'Cassy']].map(([id, name]) => Object.freeze({ id, name })));
 
@@ -139,7 +130,6 @@
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
-    const prospects = []; // made by createProspect; kept when Connect refreshes the assigned projects
     let counter = 0;
     const assets = new Map();
     const jobs = new Map(); // spaceId -> started jobs
@@ -153,7 +143,6 @@
         { id: 'sandbox-team', type: 'sandbox-team', name: 'Team sandbox' },
         ...(projects.length ? projects : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
           .map(p => ({ id: p.id, type: 'client', name: p.name })),
-        ...prospects.map(p => ({ id: p.id, type: 'client', name: p.name, prospect: true })),
       ];
     }
 
@@ -166,6 +155,21 @@
         assignees: {}, locked: false, template: null, ...extra };
       spaceJobs(space.id).push(job);
       return job;
+    }
+
+    // Who builds each stage, picked at the start. Stages Jax approves are always his.
+    function checkAssignees(workflow, tier, input) {
+      if (input === undefined || input === null) return {};
+      if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Assignments must be an object.');
+      const stages = stagesFor(workflow, tier), out = {};
+      for (const [stageId, personId] of Object.entries(input)) {
+        const stage = stages.find(st => st.id === stageId);
+        if (!stage) throw new Error('Unknown stage.');
+        if (stage.approver === 'jax') throw new Error('Jax approves this stage; it stays with him.');
+        if (personId !== null && !PEOPLE.some(x => x.id === personId)) throw new Error('Pick someone on the team.');
+        out[stageId] = personId;
+      }
+      return out;
     }
 
     function requireSpace(spaceId) {
@@ -197,44 +201,27 @@
         const started = spaceJobs(space.id).map(jobSummary);
         const jobList = space.type === 'client' && !started.length
           ? [{ id: `${space.id}-job-1`, name: 'Website v1', stage: 'Not started', progress: 0 }] : started;
-        const pr = prospects.find(x => x.id === space.id);
-        const details = pr ? { town: pr.town, website: pr.website, googleProfile: pr.googleProfile } : {};
-        return clone({ ...space, ...details, dna, jobs: jobList });
+        return clone({ ...space, dna, jobs: jobList });
       },
       async listTools() { return clone(TOOLS); },
       /** Workflow definition with its stages; null if that workflow isn't built yet. */
       async getWorkflow(workflowId) { return WORKFLOWS[workflowId] ? clone(WORKFLOWS[workflowId]) : null; },
-      /** Starts a Job (one workflow run). tier: 'standard' | 'cinematic'. */
-      async startJob(spaceId, workflowId, tier) {
+      /** Starts a Job (one workflow run). tier: 'standard' | 'cinematic' (Pitch deck: 'deck').
+       *  options.assignees: { stageId: personId } picks who builds each stage at the start. */
+      async startJob(spaceId, workflowId, tier, options = {}) {
         const space = requireSpace(spaceId);
         const workflow = WORKFLOWS[workflowId];
         if (!workflow) throw new Error('That workflow is coming soon.');
-        if (workflow.starterOnly) throw new Error('Pitch decks start from New prospect.');
-        if (!workflow.tiers.some(t => t.id === tier)) throw new Error('Pick Standard or Cinematic.');
-        const job = startLocalJob(space, workflowId, tier);
+        if (!workflow.tiers.some(t => t.id === tier)) throw new Error(workflowId === 'website' ? 'Pick Standard or Cinematic.' : 'Pick a tier.');
+        if (workflow.clientOnly && space.type !== 'client') throw new Error(`${workflow.name} only runs inside a client project.`);
+        if (workflow.oneAtATime && spaceJobs(space.id).some(j => j.workflowId === workflowId && j.stageId !== null)) {
+          throw new Error(`This project already has a ${workflow.name.toLowerCase()} in progress.`);
+        }
+        const assignees = checkAssignees(workflow, tier, options && options.assignees);
+        const job = startLocalJob(space, workflowId, tier, { assignees,
+          locked: !!workflow.locked, template: workflow.locked ? `${workflowId}-starter` : null });
         emit('jobs-changed', { spaceId: space.id });
         return clone(jobView(job));
-      },
-      /** Locked starter: a new prospect becomes a client Space with a Pitch deck Job already on stage 1.
-       *  input: { company, town, website?, googleProfile? }. No money fields exist here, by design. */
-      async createProspect(input) {
-        const p = input && typeof input === 'object' ? input : {};
-        const company = text(p.company, 'Company name', 120);
-        const town = text(p.town, 'Town', 80);
-        if (!company) throw new Error('Company name is required.');
-        if (!town) throw new Error('Town is required.');
-        const website = link(p.website, 'Website');
-        const googleProfile = link(p.googleProfile, 'Google profile link');
-        const key = `${company}|${town}`.toLowerCase();
-        if (prospects.some(x => x.key === key)) throw new Error('That prospect already exists.');
-        const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'prospect';
-        const prospect = { id: nextId(`prospect-${slug}`), key, name: company, town, website, googleProfile };
-        prospects.push(prospect);
-        const space = requireSpace(prospect.id);
-        const job = startLocalJob(space, 'pitch-deck', 'deck', { locked: true, template: 'pitch-deck-starter' });
-        emit('spaces-changed');
-        emit('jobs-changed', { spaceId: space.id });
-        return clone({ space: { ...space, town, website, googleProfile }, job: jobView(job) });
       },
       /** Who stages can be assigned to. */
       async listPeople() { return clone(PEOPLE); },
@@ -566,8 +553,6 @@
       },
       saveVersion: notOnServerYet,
       copyToSpace: notOnServerYet,
-      // A real prospect project is made by Team Hub (follow-up Core issue); until then, server mode says so.
-      async createProspect() { notOnServerYet(); },
       listPeople: (...a) => local.listPeople(...a),
       assignStage: (...a) => local.assignStage(...a),
       approveAsset: notHere,

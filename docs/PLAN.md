@@ -51,10 +51,10 @@ Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Mot
 
 ## Pitch deck workflow (Wave 2, now)
 How BV wins clients: each prospect gets an interactive Market Opportunity board they open from a QR code on phone or PC.
-- **Locked starter**: "New prospect" (company, town, website, Google profile) creates a client Space with a Pitch deck Job already on stage 1. Its stages and the board's sections never change; only the data, notes and assets do. Pitch decks can't be started any other way.
+- **Start it inside a project**: Jax creates the client project in Command; inside it, the Pitch deck tile -> pick who builds each stage -> Start. Only client projects, one deck in progress at a time. The Job is **locked**: its stages and the board's sections never change; only the data, notes and assets do.
 - **Stages**: Research -> Fill -> Home page: Tier 1 -> Tier 2 -> Tier 3 -> Assemble board -> Check -> Review (Jax) -> Publish (Jax) -> Print card.
 - **Three home-page builds** sit at the bottom of the board, one per tier. The Home page builder makes the home page only, not a full site.
-- **Every stage is assignable** to someone on the team; Review and Publish always stay with Jax.
+- **Every stage is assignable**: picked at Start and changeable until the stage is done; Review and Publish always stay with Jax.
 - **Everything is saved to the project's files**: research summary, deck data, the three home pages, the board, the QR card.
 - Every number on the board is the prospect's own and has a source. Nothing internal (pricing, team, BV pipeline) ever appears on it.
 
