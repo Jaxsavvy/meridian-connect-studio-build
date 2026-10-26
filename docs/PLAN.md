@@ -47,7 +47,16 @@ Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Mot
 - **Wave 0** (now): clean slate, new rules, labels, Wave 1 issues.
 - **Wave 1**: cloud server + router/keys/log/budgets (Jax+Claude); Studio frame and Space home (Tyler); Project DNA; Meridian Studio panel; Asset Library + Image gen (Cassy).
   Done when: Tyler or Cassy asks Meridian Studio for on-brand images for a real client, keeps them, sends them to Review, and Jax approves, with everything logged.
-- **Wave 2**: Website, Standard tier. **Wave 3**: Website Cinematic + Video/Motion. **Wave 4**: Ad campaign, Social, Logo/Brand kit. **Wave 5**: Landing page, SEO, Pitch deck, autopilot, A/B, learning presets.
+- **Wave 2**: Website, Standard tier, and **Pitch deck** (pulled forward by Jax, 2026-10-26). **Wave 3**: Website Cinematic + Video/Motion. **Wave 4**: Ad campaign, Social, Logo/Brand kit. **Wave 5**: Landing page, SEO, autopilot, A/B, learning presets.
+
+## Pitch deck workflow (Wave 2, now)
+How BV wins clients: each prospect gets an interactive Market Opportunity board they open from a QR code on phone or PC.
+- **Locked starter**: "New prospect" (company, town, website, Google profile) creates a client Space with a Pitch deck Job already on stage 1. Its stages and the board's sections never change; only the data, notes and assets do. Pitch decks can't be started any other way.
+- **Stages**: Research -> Fill -> Home page: Tier 1 -> Tier 2 -> Tier 3 -> Assemble board -> Check -> Review (Jax) -> Publish (Jax) -> Print card.
+- **Three home-page builds** sit at the bottom of the board, one per tier. The Home page builder makes the home page only, not a full site.
+- **Every stage is assignable** to someone on the team; Review and Publish always stay with Jax.
+- **Everything is saved to the project's files**: research summary, deck data, the three home pages, the board, the QR card.
+- Every number on the board is the prospect's own and has a source. Nothing internal (pricing, team, BV pipeline) ever appears on it.
 
 ## Old work
 Everything from before this plan is saved in git tags named `archive/2026-10-18/<branch>`. Issues tell you exactly which archived file to reuse. Don't copy from the archive unless your issue says to.
