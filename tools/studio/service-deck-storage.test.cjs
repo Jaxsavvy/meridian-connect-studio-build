@@ -42,7 +42,7 @@ test('saving keeps an unfinished deck and names every field still to fix', async
 
 test('Research + write refuses a broken deck, then passes with one the evidence backs', async () => {
   const { s, job } = await deck();
-  await assert.rejects(s.completeStage('riverdale', job.id), /Research \+ write isn't done yet: \d+ fields still need work/);
+  await assert.rejects(s.completeStage('riverdale', job.id), /run the research and confirm the business first/);   // #125
   const { evidence, deck: practice } = await s.useSampleResearch('riverdale', job.id);
   assert.equal(validateEvidence(evidence).ok, true);
   assert.equal(evidence.some(e => e.kind === 'google' && e.value != null), false);   // Google values are never stored
