@@ -1,0 +1,12 @@
+.studio-research { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-research > button { justify-self: start; }
+.studio-research-run { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+.studio-research-run label { display: grid; gap: .35rem; flex: 1 1 14rem; max-width: 24rem; }
+.studio-research-run input { min-height: 2.25rem; padding-inline: .5rem; }
+.studio-research-list { display: grid; gap: .5rem; margin: 0; padding-inline-start: 1.25rem; }
+.studio-research-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; }
+.studio-research-row strong { flex: 1 1 14rem; }
+.studio-research-credit { font-size: .8rem; color: var(--studio-muted); }
+.studio-research-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.studio-research :is(input, button, a):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-research a { color: var(--studio-sky); text-underline-offset: 2px; }
