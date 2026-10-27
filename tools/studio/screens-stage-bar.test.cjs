@@ -59,13 +59,17 @@ function dom() {
 }
 const walk = el => [el, ...el.children.flatMap(walk)];
 const text = el => (el.textContent || '') + el.children.map(text).join('');
-test('actual stage controls show current step, local checklist, quality check and waiting status', async () => {
+const boxes = el => walk(el).filter(n => n.type === 'checkbox');
+async function tickAll(el) {   // each tick saves on the Job, then the bar redraws
+  for (let i = 0; i < boxes(el).length; i++) { const box = boxes(el)[i]; box.checked = true; box.events.change(); for (let k = 0; k < 4; k++) await tick(); }
+}
+test('actual stage controls show current step, saved checklist, quality check and waiting status', async () => {
   const s = await setup(), el = dom();
   const cleanup = mount(el, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service: s.service } });
   await tick(); assert.equal(walk(el).filter(n => n.attrs['aria-current'] === 'step').length, 1);
   assert.match(text(el), /Quality check: Jax approves the DNA and the goal/); assert.match(text(el), /Approved by Jax/);
-  const checkbox = walk(el).find(n => n.type === 'checkbox'); checkbox.checked = true; checkbox.events.change();
-  walk(el).find(n => text(n) === 'Mark stage done').click(); await tick();
+  await tickAll(el);
+  walk(el).find(n => text(n) === 'Mark stage done').click(); await tick(); await tick();
   assert.equal(walk(el).find(n => n.tag === 'button').disabled, true);
   assert.match(text(el), /Waiting on Jax/); assert.equal(walk(el).find(n => n.type === 'checkbox').checked, true);
   assert.equal((await s.service.getJob(s.job.spaceId, s.job.id)).stageId, 'brief'); cleanup(); s.model.dispose();
@@ -135,4 +139,46 @@ test('actual shell guards tool changes, disposes old mounts and ignores Job even
   assert.equal(studio.current().params.stageId, 'look'); assert.equal(activeTools, 1);
   studio.navigate('space', { spaceId: job.spaceId }); assert.equal(activeTools, 0);
   await service.completeStage(job.spaceId, job.id); await tick(); assert.equal(studio.current().name, 'space');
+});
+
+test('ticks are saved on the Job and come back after leaving and returning', async () => {
+  const s = await setup(), el = dom();
+  let cleanup = mount(el, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service: s.service } }); await tick();
+  const first = boxes(el)[0]; assert.equal(first.checked, false);
+  first.checked = true; first.events.change();
+  assert.equal(boxes(el)[0].disabled, true);   // disabled while saving
+  for (let k = 0; k < 4; k++) await tick();
+  assert.equal((await s.service.getJob(s.job.spaceId, s.job.id)).stages[0].needsDone[0], true);
+  assert.equal(el.ownerDocument.activeElement, boxes(el)[0]);   // focus stays on the box you ticked
+  cleanup(); const again = dom();
+  cleanup = mount(again, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service: s.service } }); await tick();
+  assert.equal(boxes(again)[0].checked, true); assert.equal(boxes(again)[1].checked, false);
+  cleanup(); s.model.dispose();
+});
+
+test('a failed save puts the box back and shows the message', async () => {
+  const s = await setup(), el = dom();
+  const service = { ...s.service, setStageNeed: async () => { throw Error('This stage can no longer be changed.'); } };
+  const cleanup = mount(el, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service } }); await tick();
+  const first = boxes(el)[0]; first.checked = true; first.events.change(); for (let k = 0; k < 4; k++) await tick();
+  assert.equal(boxes(el)[0].checked, false); assert.equal(boxes(el)[0].disabled, false);
+  assert.ok(walk(el).some(n => n.attrs.role === 'alert' && text(n) === 'This stage can no longer be changed.'));
+  assert.equal((await s.service.getJob(s.job.spaceId, s.job.id)).stages[0].needsDone[0], false);
+  cleanup(); s.model.dispose();
+});
+
+test('Mark stage done stays off until everything is ticked, then works; ticks made elsewhere show up', async () => {
+  const s = await setup(), el = dom();
+  const cleanup = mount(el, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service: s.service } }); await tick();
+  const done = () => walk(el).find(n => n.tag === 'button' && text(n) === 'Mark stage done');
+  assert.equal(done().disabled, true); assert.match(text(el), /Tick everything this stage needs first/);
+  const count = boxes(el).length; assert.ok(count > 1);
+  for (let i = 0; i < count - 1; i++) await s.service.setStageNeed(s.job.spaceId, s.job.id, i, true);   // someone else ticks
+  await tick(); await tick();
+  assert.deepEqual(boxes(el).map(b => b.checked), [...Array(count - 1).fill(true), false]); assert.equal(done().disabled, true);
+  const last = boxes(el)[count - 1]; last.checked = true; last.events.change(); for (let k = 0; k < 4; k++) await tick();
+  assert.equal(done().disabled, false); assert.doesNotMatch(text(el), /Tick everything/);
+  done().click(); await tick(); await tick();
+  assert.equal((await s.service.getJob(s.job.spaceId, s.job.id)).waitingOnJax, true);
+  cleanup(); s.model.dispose();
 });
