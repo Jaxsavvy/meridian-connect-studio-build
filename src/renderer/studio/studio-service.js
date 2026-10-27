@@ -184,6 +184,8 @@
   }
   // What a Job keeps in the project's save file (pitch deck #171, website #226); the stages always come from the current template.
   const COMMON_FIELDS = ['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs', 'assignees', 'timing', 'checks', 'checkLog'];
+  // Older templates a saved Job can still be on, as a filter over today's stages: running Jobs keep the stages they started with.
+  const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => st.id !== 'concept' }) });   // v2 had no Concept (#229)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
     website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'look', 'site', 'review', 'siteFilesSaved']),
@@ -1087,8 +1089,9 @@
     function restoredJob(space, s) {
       const kind = s && typeof s === 'object' ? s.workflowId : null, workflow = SAVED_FIELDS[kind] ? WORKFLOWS[kind] : null;
       if (!workflow || !SAFE_ID.test(String(s.id))) return null;
-      if (s.templateVersion !== workflow.version || !workflow.tiers.some(t => t.id === s.tier)) return null;
-      const stages = stagesFor(workflow, s.tier), ids = stages.map(st => st.id);
+      const older = (OLDER_TEMPLATES[kind] || {})[s.templateVersion];
+      if ((s.templateVersion !== workflow.version && !older) || !workflow.tiers.some(t => t.id === s.tier)) return null;
+      const stages = stagesFor(workflow, s.tier).filter(older || Boolean), ids = stages.map(st => st.id);
       const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), str = (v, max = 500) => (typeof v === 'string' ? v.slice(0, max) : '');
       const done = ids.filter(id => Array.isArray(s.done) && s.done.includes(id)), timing = {}, needs = {}, assignees = {};
       for (const st of stages) {
@@ -1103,7 +1106,7 @@
       const entries = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object');
       for (const m of JSON.stringify(s).matchAll(/"(?:job|fact|flag|run|comment|frame)-(\d+)"/g)) counter = Math.max(counter, Number(m[1]));   // new ids never clash
       const common = { id: String(s.id), spaceId: space.id, workflowId: kind, tier: s.tier, name: str(s.name, 80) || workflow.name,
-        stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: workflow.version, done, stageId,
+        stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: s.templateVersion, done, stageId,
         waitingOnJax: !!s.waitingOnJax && stageId !== null && stages.find(st => st.id === stageId).approver === 'jax', needs, assignees, timing,
         checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag),
           notRun: Array.isArray(c.notRun) ? CHECKS_NOT_RUN.filter(x => c.notRun.includes(x)) : CHECKS_NOT_RUN } : null,

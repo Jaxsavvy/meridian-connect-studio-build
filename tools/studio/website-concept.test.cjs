@@ -101,4 +101,11 @@ test('real sign-in keeps the concept in the project folder, and a bad saved conc
   saved.jobs[0].concept.references[0].url = 'http://example.com'; saved.revision += 1;
   folder.set(file, JSON.stringify(saved));
   assert.deepEqual(await computer().getConcept(ID, job.id), cleanConcept({}));
+  const v2 = JSON.parse(folder.get(file));   // a Job saved before Concept existed keeps its stages
+  Object.assign(v2.jobs[0], { templateVersion: 2, done: ['brief'], stageId: 'plan' }); v2.revision += 1;
+  folder.set(file, JSON.stringify(v2));
+  const back = await computer().getJob(ID, job.id);
+  assert.deepEqual([back.templateVersion, back.stageId, back.stages.some(st => st.id === 'concept')], [2, 'plan', false]);
+  v2.jobs[0].templateVersion = 1; v2.revision += 1; folder.set(file, JSON.stringify(v2));
+  assert.equal((await computer().listJobs(ID)).length, 0, 'an unknown template is still refused');
 });
