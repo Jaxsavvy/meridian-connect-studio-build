@@ -64,8 +64,10 @@
       `<section id="market">${head(2, 'Market snapshot', d.market.headline)}<ul class="stats">`
         + d.market.stats.map(s => `<li>${icon(s.icon)}<strong>${esc(s.prefix)}${fmt(s.value)}${esc(s.unit)}</strong><span>${esc(s.label)}</span>`
           + `${s.note || s.estimate ? `<em>${esc(s.note || 'est.')}</em>` : ''}${source(s.source)}</li>`).join('') + '</ul></section>',
-      `<section id="demand" class="split"><div>${head(3, 'Demand (estimate)', d.demand.headline, d.demand.text)}<p class="basis">${esc(d.demand.basis)}</p>${source(d.demand.source)}</div>`
-        + `<div class="chart"><p class="change">${esc(d.demand.change)}</p>${trend(d.demand.series)}</div></section>`,
+      // Demand is always a labeled estimate with how it was estimated (Jax, 2026-10-27); never hidden.
+      `<section id="demand" class="split"><div>${head(3, 'Demand', d.demand.headline, d.demand.text)}`
+        + `<p class="basis">How it was estimated: ${esc(d.demand.basis)}</p>${source(d.demand.source)}</div>`
+        + `<div class="chart"><p class="change">${esc(d.demand.change)} <span class="tag">Estimate</span></p>${trend(d.demand.series)}</div></section>`,
       `<section id="saturation">${head(4, 'Market saturation', d.saturation.headline)}<div class="scale"><u style="left:${d.saturation.level * 100}%"></u></div>`
         + `<p class="ticks"><span>Low</span><span>Medium</span><span>High</span><span>Oversaturated</span></p><p class="band">Overall: ${esc(d.saturation.band)}</p>`
         + d.saturation.zones.map(z => bar(z.name, z.density, z.open ? 'open' : '', z.open ? 'Open' : '')).join('') + source(d.saturation.source) + '</section>',
@@ -116,7 +118,7 @@ section{max-width:1080px;margin:0 auto;padding:4.5rem 1.25rem;border-top:1px sol
 .parts,.finds,.stats,.reviews,.timeline{list-style:none;margin:0;padding:0}.parts li{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;border-bottom:1px solid var(--line)}
 .finds,.stats,.lanes,.tiers,.moves{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}.finds li{display:flex;gap:.8rem}.finds p{margin:0;color:var(--muted)}
 .stats{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.stats li{border-left:1px solid var(--line);padding-left:1rem}.stats strong{display:block;font-size:2.4rem;font-weight:500}.stats em{display:block;color:var(--muted);font-size:.8rem}
-.chart{position:relative}.change{color:var(--sky);font-size:1.6rem;font-weight:600;margin:0}.trend{width:100%;height:160px}.trend polyline{fill:none;stroke:var(--sky);stroke-width:3;vector-effect:non-scaling-stroke}
+.chart{position:relative}.tag{display:inline-block;vertical-align:middle;margin-left:.5rem;padding:.15rem .55rem;border:1px solid var(--sky);border-radius:999px;font-size:.7rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--sky)}.change{color:var(--sky);font-size:1.6rem;font-weight:600;margin:0}.trend{width:100%;height:160px}.trend polyline{fill:none;stroke:var(--sky);stroke-width:3;vector-effect:non-scaling-stroke}
 .scale{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,#2bb39a,#3d8bff 40%,#e8a33c 70%,#e2533c)}.scale u{position:absolute;top:-5px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:#fff;border:3px solid var(--blue)}
 .ticks{display:flex;justify-content:space-between;font-size:.8rem}.bar{display:grid;grid-template-columns:minmax(7rem,12rem) 1fr 3.5rem;gap:1rem;align-items:center;margin:.55rem 0}
 .bar i{height:8px;border-radius:4px;background:var(--line)}.bar b{display:block;height:100%;border-radius:4px;background:#7f8ea6}.bar.you span,.bar.open em{color:var(--sky)}.bar.you b,.bar.open b{background:var(--blue)}.bar em{font-style:normal;color:var(--muted)}

@@ -20,7 +20,11 @@ test('a synthetic deck renders every section, the score total and its parts', as
   }
   assert.match(html, new RegExp(`aria-label="Score ${deck.score.value} of 100`));
   for (const p of deck.score.parts) assert.ok(html.includes(`<span>${p.name}</span><strong>${p.points.toLocaleString('en-US')} of ${p.max}</strong>`), p.name);
-  assert.match(html, /Demand \(estimate\)/); assert.ok(html.includes(deck.demand.basis.replace(/'/g, '&#39;')));
+  const demand = html.slice(html.indexOf('id="demand"'), html.indexOf('id="saturation"'));   // always a labeled estimate
+  assert.match(demand, /<span class="tag">Estimate<\/span>/);
+  assert.ok(demand.includes(`How it was estimated: ${deck.demand.basis.replace(/'/g, '&#39;')}`));
+  const est = deck.market.stats.find(s => s.estimate);
+  assert.ok(est && html.includes(`<span>${est.label}</span><em>${est.note || 'est.'}</em>`), 'estimated market stat shows its note');
   assert.ok((html.match(/Source: <a href="https?:\/\//g) || []).length >= deck.market.stats.length + 3);
   assert.match(html, /Prepared exclusively for/); assert.match(html, /Client A/);
   assert.doesNotMatch(html, /\$|price|cost|deal value/i);
