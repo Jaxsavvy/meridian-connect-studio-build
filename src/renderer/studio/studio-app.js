@@ -164,7 +164,7 @@
       const bridge = window.meridian && window.meridian.api && window.meridian.api.studio;
       const next = on && typeof bridge === 'function'
         ? (serverService = serverService || window.MeridianStudioService.createServerService({ request: bridge,
-          saveFile: window.meridian.api.studioSaveFile }))
+          saveFile: window.meridian.api.studioSaveFile, readSave: window.meridian.api.studioReadSave }))
         : sampleService;
       if (next === service) return service.mode;
       runCleanups(); dirtyOwners.clear();

@@ -156,6 +156,9 @@
     });
   }
   const clone = value => JSON.parse(JSON.stringify(value));
+  // What a pitch deck Job keeps in the project's save file (#171); the stages always come from the current template.
+  const SAVED_FIELDS = Object.freeze(['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs',
+    'assignees', 'timing', 'deck', 'evidence', 'research', 'checks', 'checkLog']);
 
   function sampleImage(label, hue) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="hsl(${hue},45%,22%)"/>` +
@@ -358,6 +361,19 @@
       async getJob(spaceId, jobId) { requireSpace(spaceId); return clone(jobView(requireJob(spaceId, jobId))); },
       /** Started Jobs in this Space (not the placeholder shown on a fresh client). */
       async listJobs(spaceId) { requireSpace(spaceId); return clone(spaceJobs(spaceId).map(jobSummary)); },
+      /** Core only: the real service keeps pitch deck Jobs in the project's folder (#171). Plain data out... */
+      exportJobs(spaceId) {
+        requireSpace(spaceId);
+        return clone(spaceJobs(spaceId).filter(j => j.workflowId === 'pitch-deck').map(j => Object.fromEntries(SAVED_FIELDS.map(k => [k, j[k]]))));
+      },
+      /** ...and back in, every field checked; a Job that doesn't check out is left out. Replaces this project's pitch deck Jobs. */
+      importJobs(spaceId, list) {
+        const space = requireSpace(spaceId);
+        const restored = (Array.isArray(list) ? list : []).map(s => restoredJob(space, s)).filter(Boolean);
+        jobs.set(space.id, [...spaceJobs(space.id).filter(j => j.workflowId !== 'pitch-deck'), ...restored]);
+        emit('jobs-changed', { spaceId: space.id });
+        return restored.length;
+      },
       /** Assets made inside a Job (kept or not, never trashed), grouped by stage id. */
       async listJobAssets(spaceId, jobId) {
         requireSpace(spaceId);
@@ -790,6 +806,38 @@
       return job;
     }
 
+    // A saved pitch deck Job read back from the project folder (#171): nothing in the file is trusted as-is.
+    function restoredJob(space, s) {
+      const workflow = WORKFLOWS['pitch-deck'];
+      if (!s || typeof s !== 'object' || s.workflowId !== 'pitch-deck' || !SAFE_ID.test(String(s.id))) return null;
+      if (s.templateVersion !== workflow.version || !workflow.tiers.some(t => t.id === s.tier)) return null;
+      const stages = stagesFor(workflow, s.tier), ids = stages.map(st => st.id);
+      const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), str = (v, max = 500) => (typeof v === 'string' ? v.slice(0, max) : '');
+      const done = ids.filter(id => Array.isArray(s.done) && s.done.includes(id)), timing = {}, needs = {}, assignees = {};
+      for (const st of stages) {
+        const tm = obj(obj(s.timing)[st.id]), need = obj(s.needs)[st.id], who = obj(s.assignees)[st.id];
+        if (Number.isFinite(tm.openedAt)) timing[st.id] = { openedAt: tm.openedAt, ...(Number.isFinite(tm.doneAt) ? { doneAt: tm.doneAt } : {}) };
+        if (Array.isArray(need) && need.length === st.needs.length) needs[st.id] = need.map(Boolean);
+        if (st.approver !== 'jax' && peopleFor(workflow).some(x => x.id === who)) assignees[st.id] = who;
+      }
+      const stageId = ids.find(id => !done.includes(id)) || null, r = obj(s.research), c = obj(s.checks);
+      const research = ['by-hand', 'done', 'failed'].includes(r.status) ? { runId: str(r.runId, 40), category: str(r.category, 60), status: r.status,
+        candidates: [], placeId: /^[A-Za-z0-9_-]{10,300}$/.test(String(r.placeId)) ? r.placeId : null, byHand: !!r.byHand } : null;
+      const flag = f => ({ id: str(f.id, 40), key: str(f.key), check: str(f.check, 40), message: str(f.message), where: str(f.where, 200),
+        resolved: f.resolved && typeof f.resolved === 'object' ? { note: str(f.resolved.note), at: str(f.resolved.at, 40) } : null });
+      const entries = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object');
+      for (const m of JSON.stringify(s).matchAll(/"(?:job|fact|flag|run)-(\d+)"/g)) counter = Math.max(counter, Number(m[1]));   // new ids never clash
+      return { id: String(s.id), spaceId: space.id, workflowId: 'pitch-deck', tier: s.tier, name: str(s.name, 80) || workflow.name,
+        stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: workflow.version, done, stageId,
+        waitingOnJax: !!s.waitingOnJax && stageId !== null && stages.find(st => st.id === stageId).approver === 'jax',
+        notes: {}, needs, assignees, timing, locked: true, template: 'pitch-deck-starter',
+        deck: s.deck && typeof s.deck === 'object' ? DeckData.validateDeck(s.deck).deck : null,
+        evidence: Array.isArray(s.evidence) && Research.validateEvidence(s.evidence).ok ? s.evidence : [], research,
+        checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag) } : null,
+        checkLog: entries(s.checkLog).map(x => ({ at: str(x.at, 40), flagId: str(x.flagId, 40), check: str(x.check, 40), where: str(x.where, 200),
+          message: str(x.message), note: str(x.note) })) };
+    }
+
     // Pitch deck data (#119): each Job keeps its own deck and the evidence its numbers come from.
     function deckJob(spaceId, jobId) {
       const space = requireSpace(spaceId);
@@ -912,7 +960,7 @@
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
    * there costs money. Approvals never happen here: Jax approves from Command.
    */
-  function createServerService({ request, local, saveFile }) {
+  function createServerService({ request, local, saveFile, readSave }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
     local = local || createSampleService({ practice: false });   // nothing made-up in real mode
     const listeners = new Set();
@@ -935,6 +983,61 @@
     const notOnServerYet = () => { throw new Error('Coming soon with the real server.'); };
     const notHere = () => { throw new Error('Only Jax approves, from Command.'); };
 
+    // Pitch deck Jobs live in each client project's folder (Docs) until the server has Jobs (#120), so they survive a restart
+    // and Jax and Tyler see the same deck. A revision number stops one person's save from silently replacing another's.
+    const SAVE_FILE = 'Pitch deck - Studio save.json';
+    const saves = new Map(); // spaceId -> { revision, loading, dirty }
+    const keeps = async spaceId => typeof readSave === 'function' && typeof saveFile === 'function'
+      && (await local.listSpaces()).some(s => s.id === spaceId && s.type === 'client');
+    async function readSaved(spaceId) {
+      const res = await readSave(spaceId);
+      if (res && res.missing) return { revision: 0, jobs: [] };
+      if (!res || !res.success) throw new Error('Couldn\'t reach the project folder. Check your connection, then try again.');
+      let data = null;
+      try { data = JSON.parse(res.content); } catch (_) { /* checked below */ }
+      if (!data || data.version !== 1 || !Array.isArray(data.jobs)) throw new Error('The saved pitch deck in the project folder can\'t be read. Ask Jax before changing it.');
+      return { revision: Number(data.revision) || 0, jobs: data.jobs };
+    }
+    async function loadSaved(spaceId) {
+      if (!(await keeps(spaceId))) return null;
+      const entry = saves.get(spaceId) || { revision: 0, loading: null, dirty: false };
+      saves.set(spaceId, entry);
+      if (!entry.loading) {
+        entry.loading = readSaved(spaceId).then(data => { entry.revision = data.revision; local.importJobs(spaceId, data.jobs); })
+          .catch(error => { entry.loading = null; throw error; });
+      }
+      await entry.loading;
+      return entry;
+    }
+    // When the project's Jobs are listed, pick up a newer save (e.g. Tyler's), unless this computer has a change still to save.
+    async function refreshSaved(spaceId) {
+      const entry = await loadSaved(spaceId);
+      if (!entry || entry.dirty) return;
+      const remote = await readSaved(spaceId);
+      if (remote.revision > entry.revision) { entry.revision = remote.revision; local.importJobs(spaceId, remote.jobs); }
+    }
+    async function saveJobs(spaceId) {
+      const entry = await loadSaved(spaceId);
+      if (!entry) return;
+      const remote = await readSaved(spaceId);
+      if (remote.revision !== entry.revision) {   // someone else saved first: take theirs, so nothing is silently lost
+        entry.revision = remote.revision; entry.dirty = false; local.importJobs(spaceId, remote.jobs);
+        throw new Error('Someone else saved this deck a moment ago. Studio loaded their version; please do your last change again.');
+      }
+      const revision = entry.revision + 1;
+      const res = await saveFile(spaceId, SAVE_FILE, JSON.stringify({ version: 1, revision, savedAt: new Date().toISOString(), jobs: local.exportJobs(spaceId) }));
+      if (!res || !res.success) { entry.dirty = true; throw new Error('Couldn\'t save to the project folder. Your change is kept on this computer and saves with your next change.'); }
+      entry.revision = revision; entry.dirty = false;
+    }
+    const loaded = method => async (spaceId, ...rest) => { await loadSaved(spaceId); return local[method](spaceId, ...rest); };
+    // Saves after the change; pitchDeckOnly: only when the Job the call returns is a pitch deck (Website Jobs stay local for now).
+    const saved = (method, pitchDeckOnly = false) => async (spaceId, ...rest) => {
+      await loadSaved(spaceId);
+      const out = await local[method](spaceId, ...rest);
+      if (!pitchDeckOnly || (out && out.workflowId === 'pitch-deck')) await saveJobs(spaceId);
+      return out;
+    };
+
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
       if (query) q.set('q', String(query).slice(0, 100));
@@ -955,7 +1058,7 @@
       async getSpace(spaceId) {
         const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
         let jobs = [];
-        try { jobs = (await local.getSpace(spaceId)).jobs || []; } catch (_) { jobs = []; }
+        try { await refreshSaved(spaceId); jobs = (await local.getSpace(spaceId)).jobs || []; } catch (_) { jobs = []; }
         return { ...space, jobs };
       },
       async listTools() { return local.listTools(); },
@@ -983,36 +1086,38 @@
       copyToSpace: notOnServerYet,
       savePageAsset: notOnServerYet, // until Team Hub stores pages; Finish still saves them to the project folder
       listPeople: (...a) => local.listPeople(...a),
-      assignStage: (...a) => local.assignStage(...a),
+      assignStage: saved('assignStage', true),
       approveAsset: notHere,
       approveStage: notHere,
       // Local until the server has Jobs (no cost involved).
       getWorkflow: (...a) => local.getWorkflow(...a),
-      startJob: (...a) => local.startJob(...a),
-      getJob: (...a) => local.getJob(...a),
-      listJobs: (...a) => local.listJobs(...a),
-      completeStage: (...a) => local.completeStage(...a),
-      setStageNeed: (...a) => local.setStageNeed(...a),
+      // Pitch deck Jobs are saved to the project folder after every change (#171).
+      startJob: saved('startJob', true),
+      getJob: loaded('getJob'),
+      async listJobs(spaceId) { await refreshSaved(spaceId); return local.listJobs(spaceId); },
+      completeStage: saved('completeStage', true),
+      setStageNeed: saved('setStageNeed', true),
       getStageNotes: (...a) => local.getStageNotes(...a),
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
-      getDeck: (...a) => local.getDeck(...a),
-      saveDeck: (...a) => local.saveDeck(...a),
-      getResearchSummary: (...a) => local.getResearchSummary(...a),
-      getResearchFiles: (...a) => local.getResearchFiles(...a),
+      getDeck: loaded('getDeck'),
+      saveDeck: saved('saveDeck'),
+      getResearchSummary: loaded('getResearchSummary'),
+      getResearchFiles: loaded('getResearchFiles'),
       // Real decks get their evidence from the research agent on the server (#126), never from practice data.
       async useSampleResearch() { throw new Error('Practice research only runs in practice mode.'); },
       startResearch: async () => notOnServerYet(),
       confirmMatch: async () => notOnServerYet(),
       // Hand-entered research works now (local, like Jobs); the numbers go into the deck, never practice words.
-      getResearch: (...a) => local.getResearch(...a),
-      addEvidence: (...a) => local.addEvidence(...a),
-      removeEvidence: (...a) => local.removeEvidence(...a),
-      applyResearchToDeck: (...a) => local.applyResearchToDeck(...a),
-      runChecks: (...a) => local.runChecks(...a),
-      getChecks: (...a) => local.getChecks(...a),
-      resolveFlag: (...a) => local.resolveFlag(...a),
+      getResearch: loaded('getResearch'),
+      addEvidence: saved('addEvidence'),
+      removeEvidence: saved('removeEvidence'),
+      applyResearchToDeck: saved('applyResearchToDeck'),
+      runChecks: saved('runChecks'),
+      getChecks: loaded('getChecks'),
+      resolveFlag: saved('resolveFlag'),
       async listJobAssets(spaceId, jobId) {
+        await loadSaved(spaceId);
         const job = await local.getJob(spaceId, jobId);
         const byStage = {};
         for (const st of job.stages) byStage[st.id] = [];
@@ -1022,6 +1127,7 @@
       /** Saves a Job's outputs into the real project folder (Files tab, Docs section) through Connect. */
       async saveToProjectFiles(spaceId, jobId, files) {
         if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
+        await loadSaved(spaceId);
         const job = await local.getJob(spaceId, jobId);
         const list = projectFileList(job.name, files);
         const saved = [], failed = [];
