@@ -9,7 +9,7 @@ async function sampleDeck() {   // synthetic: the practice deck for a made-up "C
   const job = await s.startJob('client-a', 'pitch-deck', 'deck');
   return (await s.useSampleResearch('client-a', job.id)).deck;
 }
-const SECTIONS = ['bottom-line', 'market', 'demand', 'saturation', 'competitors', 'reputation', 'visibility', 'gaps', 'home-pages', 'plan'];
+const SECTIONS = ['s-score', 's-market', 's-demand', 's-saturation', 's-competitors', 's-reputation', 's-visibility', 's-gaps', 's-homepages', 's-plan'];
 
 test('a synthetic deck renders every section, the score total and its parts', async () => {
   const deck = await sampleDeck(), html = renderDeck(deck);
@@ -20,7 +20,7 @@ test('a synthetic deck renders every section, the score total and its parts', as
   }
   assert.match(html, new RegExp(`aria-label="Score ${deck.score.value} of 100`));
   for (const p of deck.score.parts) assert.ok(html.includes(`<span>${p.name}</span><strong>${p.points.toLocaleString('en-US')} of ${p.max}</strong>`), p.name);
-  const demand = html.slice(html.indexOf('id="demand"'), html.indexOf('id="saturation"'));   // always a labeled estimate
+  const demand = html.slice(html.indexOf('id="s-demand"'), html.indexOf('id="s-saturation"'));   // always a labeled estimate
   assert.match(demand, /<span class="tag">Estimate<\/span>/);
   assert.ok(demand.includes(`How it was estimated: ${deck.demand.basis.replace(/'/g, '&#39;')}`));
   const est = deck.market.stats.find(s => s.estimate);
@@ -55,8 +55,8 @@ test('tiers sit at the bottom with captures and links; a missing tier says "In p
   deck.homePages.tiers[1] = { ...deck.homePages.tiers[1], url: '', desktopAsset: 'nowhere', phoneAsset: null };
   deck.homePages.tiers[2] = { ...deck.homePages.tiers[2], url: '', desktopAsset: null, phoneAsset: null };
   const html = renderDeck(deck, { 'cap-1': 'https://cdn.example.com/t1.jpg', 'cap-1p': { url: 'captures/t1-phone.jpg' } });
-  const tiers = html.slice(html.indexOf('id="home-pages"'), html.indexOf('id="plan"'));
-  assert.ok(html.indexOf('id="home-pages"') > html.indexOf('id="gaps"'));
+  const tiers = html.slice(html.indexOf('id="s-homepages"'), html.indexOf('id="s-plan"'));
+  assert.ok(html.indexOf('id="s-homepages"') > html.indexOf('id="s-gaps"'));
   assert.match(tiers, /<img class="cap" src="https:\/\/cdn\.example\.com\/t1\.jpg"/);
   assert.match(tiers, /<img class="cap-phone" src="captures\/t1-phone\.jpg"/);
   assert.match(tiers, /href="https:\/\/example\.com\/tier-1"/);

@@ -21,6 +21,16 @@
   }
   const img = (url, cls, alt = '') => url ? `<img class="${cls}" src="${esc(url)}" alt="${esc(alt)}" loading="lazy">` : '';
   const source = s => `<p class="src">Source: <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a></p>`;
+  const httpsUrl = value => { try { const u = new URL(String(value)); return u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; } };
+  /** The selling buttons: Book a call (https booking link only) and Text me this (sms with the board's https link). */
+  function sell(options, where) {
+    const book = httpsUrl(options.bookingUrl), page = httpsUrl(options.pageUrl);
+    const sms = page ? `sms:?&body=${encodeURIComponent(`Here's the market report: ${page}`)}` : '';
+    if (!book && !sms) return '';
+    return `<div class="sell sell-${where}">`
+      + (book ? `<a class="btn primary" href="${esc(book)}" target="_blank" rel="noopener noreferrer">Book a 15-minute call</a>` : '')
+      + (sms ? `<a class="btn" href="${esc(sms)}">Text me this</a>` : '') + '</div>';
+  }
   const head = (n, label, title, text) => `<p class="eyebrow">${String(n).padStart(2, '0')}. ${label}</p><h2>${esc(title)}</h2>${text ? `<p class="lede">${esc(text)}</p>` : ''}`;
 
   function gauge(score) {
@@ -48,50 +58,53 @@
       + '</article>';
   }
 
-  /** Builds the board. Refuses a deck that fails the deck checker; every piece of deck text is escaped. */
-  function renderDeck(input, assets = {}) {
+  /** Builds the board. Refuses a deck that fails the deck checker; every piece of deck text is escaped.
+   *  options: { bookingUrl, pageUrl } (https only; a button whose link is missing or not https is left out). */
+  function renderDeck(input, assets = {}, options = {}) {
+    options = options && typeof options === 'object' ? options : {};
     const checked = getDeckData().validateDeck(input);
     if (!checked.ok) throw new Error(`The deck has ${checked.errors.length} thing(s) to fix before the board can be built.`);
     const d = checked.deck, c = d.client, rows = d.competitors.rows;
     const logo = img(assetUrl(assets, 'logo'), 'logo', 'Breakthrough Ventures');
     const sections = [
       `<header class="hero">${img(assetUrl(assets, 'hero'), 'bg')}<div class="top">${logo}</div><div class="in"><p class="eyebrow">Prepared exclusively for</p>`
-        + `<p class="who">${esc(c.name)}</p><h1>Market Opportunity Analysis</h1><p class="lede">${esc(c.town)} · ${esc(c.preparedOn)}</p></div></header>`,
-      `<section id="bottom-line" class="split"><div>${head(1, 'The bottom line', d.bottomLine.headline, d.bottomLine.text)}</div>`
+        + `<p class="who">${esc(c.name)}</p><h1>Market Opportunity Analysis</h1><p class="lede">${esc(c.town)} · ${esc(c.preparedOn)}</p>${sell(options, 'top')}</div></header>`,
+      `<section id="s-score" class="split"><div>${head(1, 'The bottom line', d.bottomLine.headline, d.bottomLine.text)}</div>`
         + `<div class="score"><p class="eyebrow">Business success score</p>${gauge(d.score)}<ul class="parts">`
         + d.score.parts.map(p => `<li><span>${esc(p.name)}</span><strong>${fmt(p.points)} of ${fmt(p.max)}</strong></li>`).join('') + '</ul></div>'
         + '<ul class="finds">' + d.bottomLine.findings.map(f => `<li>${icon(f.icon)}<div><h3>${esc(f.title)}</h3><p>${esc(f.text)}</p></div></li>`).join('') + '</ul></section>',
-      `<section id="market">${head(2, 'Market snapshot', d.market.headline)}<ul class="stats">`
+      `<section id="s-market">${head(2, 'Market snapshot', d.market.headline)}<ul class="stats">`
         + d.market.stats.map(s => `<li>${icon(s.icon)}<strong>${esc(s.prefix)}${fmt(s.value)}${esc(s.unit)}</strong><span>${esc(s.label)}</span>`
           + `${s.note || s.estimate ? `<em>${esc(s.note || 'est.')}</em>` : ''}${source(s.source)}</li>`).join('') + '</ul></section>',
       // Demand is always a labeled estimate with how it was estimated (Jax, 2026-10-27); never hidden.
-      `<section id="demand" class="split"><div>${head(3, 'Demand', d.demand.headline, d.demand.text)}`
+      `<section id="s-demand" class="split"><div>${head(3, 'Demand', d.demand.headline, d.demand.text)}`
         + `<p class="basis">How it was estimated: ${esc(d.demand.basis)}</p>${source(d.demand.source)}</div>`
         + `<div class="chart"><p class="change">${esc(d.demand.change)} <span class="tag">Estimate</span></p>${trend(d.demand.series)}</div></section>`,
-      `<section id="saturation">${head(4, 'Market saturation', d.saturation.headline)}<div class="scale"><u style="left:${d.saturation.level * 100}%"></u></div>`
+      `<section id="s-saturation">${head(4, 'Market saturation', d.saturation.headline)}<div class="scale"><u style="left:${d.saturation.level * 100}%"></u></div>`
         + `<p class="ticks"><span>Low</span><span>Medium</span><span>High</span><span>Oversaturated</span></p><p class="band">Overall: ${esc(d.saturation.band)}</p>`
         + d.saturation.zones.map(z => bar(z.name, z.density, z.open ? 'open' : '', z.open ? 'Open' : '')).join('') + source(d.saturation.source) + '</section>',
-      `<section id="competitors">${head(5, 'Competitive landscape', d.competitors.headline, d.competitors.text)}<table class="grid"><thead><tr><th></th>`
+      `<section id="s-competitors">${head(5, 'Competitive landscape', d.competitors.headline, d.competitors.text)}<table class="grid"><thead><tr><th></th>`
         + d.competitors.channels.map(ch => `<th>${esc(ch)}</th>`).join('') + '</tr></thead><tbody>'
         + rows.map(r => `<tr${r.you ? ' class="you"' : ''}><th>${esc(r.name)}</th>${r.presence.map(p => `<td class="${level(p)}"></td>`).join('')}</tr>`).join('')
         + `</tbody></table><p class="legend"><i class="p3"></i>Strong <i class="p2"></i>Moderate <i class="p1"></i>Weak</p>${source(d.competitors.source)}</section>`,
-      `<section id="reputation">${head(6, 'Reviews and reputation', d.reputation.headline, d.reputation.text)}<ul class="reviews">`
+      `<section id="s-reputation">${head(6, 'Reviews and reputation', d.reputation.headline, d.reputation.text)}<ul class="reviews">`
         // Ratings and review counts are never stored: #127 fills each [data-field] live from Google Maps.
         + rows.map(r => `<li${r.you ? ' class="you"' : ''}><span>${esc(r.name)}</span>${r.placeId
           ? ['rating', 'reviews'].map(f => `<span class="live"><small>${f === 'rating' ? 'Rating' : 'Reviews'}</small>`
             + `<b data-place-id="${esc(r.placeId)}" data-field="${f}">Live from Google Maps</b></span>`).join('')
           : '<span class="live">Not on Google Maps</span>'}</li>`).join('') + '</ul><p class="credit">Google Maps</p></section>',
-      `<section id="visibility">${head(7, 'Online visibility', d.visibility.headline, d.visibility.text)}`
+      `<section id="s-visibility">${head(7, 'Online visibility', d.visibility.headline, d.visibility.text)}`
         + rows.map(r => bar(r.name, r.visibility, r.you ? 'you' : '', fmt(r.visibility))).join('') + '<p class="src">Visibility rating out of 100.</p></section>',
-      `<section id="gaps">${head(8, 'Opportunity gap', d.gaps.headline, d.gaps.text)}<div class="lanes">`
+      `<section id="s-gaps">${head(8, 'Opportunity gap', d.gaps.headline, d.gaps.text)}<div class="lanes">`
         + d.gaps.lanes.map(l => `<article>${icon(l.icon)}<h3>${esc(l.title)}</h3><p>${esc(l.problem)}</p><p class="k">Build</p><p>${esc(l.build)}</p>`
           + `<p class="k">Expected effect</p><p>${esc(l.effect)}</p></article>`).join('') + '</div></section>',
-      `<section id="home-pages">${head(9, 'Home-page concepts', d.homePages.headline, d.homePages.text)}<div class="tiers">`
+      `<section id="s-homepages">${head(9, 'Home-page concepts', d.homePages.headline, d.homePages.text)}<div class="tiers">`
         + d.homePages.tiers.map(t => tierCard(t, assets)).join('') + '</div></section>',
-      `<section id="plan">${head(10, 'The plan', d.plan.headline)}<div class="moves">`
+      `<section id="s-plan">${head(10, 'The plan', d.plan.headline)}<div class="moves">`
         + d.plan.moves.map((m, i) => `<article><p class="eyebrow">0${i + 1}</p><h3>${esc(m.name)}</h3><p class="goal">${esc(m.goal)}</p><p>${esc(m.detail)}</p></article>`).join('')
         + '</div><ol class="timeline">' + d.plan.timeline.map(t => `<li><strong>${esc(t.when)}</strong><span>${esc(t.label)}</span></li>`).join('') + '</ol></section>',
-      `<footer class="close">${img(assetUrl(assets, 'closing'), 'bg')}<div class="in">${logo}<p>Prepared for ${esc(c.name)}, ${esc(c.town)}. Every number on this page comes from the source shown with it.</p></div></footer>`,
+      `<footer class="close">${img(assetUrl(assets, 'closing'), 'bg')}<div class="in">${logo}<p>Prepared for ${esc(c.name)}, ${esc(c.town)}. Every number on this page comes from the source shown with it.</p>${sell(options, 'bottom')}`
+        + '<p class="privacy">This page counts views so we know it was helpful. No third-party trackers.</p></div></footer>',
     ];
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
       + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\' https: http:; style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com">'
@@ -132,7 +145,9 @@ section{max-width:1080px;margin:0 auto;padding:4.5rem 1.25rem;border-top:1px sol
 .cap{width:100%;display:block}.cap-phone{position:absolute;right:8px;bottom:8px;width:24%;aspect-ratio:9/18;object-fit:cover;object-position:top;border-radius:8px;border:2px solid var(--line)}.wip{display:grid;place-items:center;height:80%;margin:0}
 .look{display:inline-block;margin-top:.6rem}.moves .goal{color:var(--text);font-weight:600}.moves p{color:var(--muted);margin:.2rem 0}
 .timeline{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-top:2rem;border-top:1px solid var(--line)}.timeline li{padding-top:1rem}.timeline strong{display:block}.timeline span{color:var(--muted)}
-.close p{max-width:36rem;color:var(--text)}
+.close p{max-width:36rem;color:var(--text)}.close .privacy{font-size:.8rem;color:var(--muted)}
+.sell{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem}.btn{display:inline-flex;align-items:center;min-height:48px;padding:0 1.4rem;border:1px solid rgba(255,255,255,.6);border-radius:999px;color:var(--text);text-decoration:none;font-weight:600}
+.btn.primary{background:var(--blue);border-color:var(--blue)}.btn:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
 @media (max-width:760px){section{padding:3rem 1rem}.split,.finds,.lanes,.tiers,.moves,.timeline{grid-template-columns:1fr}.bar{grid-template-columns:7rem 1fr 2.5rem}
 .reviews li{grid-template-columns:1fr}.stats strong{font-size:2rem}.hero{min-height:80vh}}`;
 
