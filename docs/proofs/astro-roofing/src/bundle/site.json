@@ -1,0 +1,24 @@
+{
+  "business": { "name": "Sample Roofing Co", "phone": "(541) 555-0100", "town": "Eugene, Oregon" },
+  "dna": { "colors": ["#0b1f3a", "#2bb3a3"], "voice": "Confident, plain-spoken", "audience": "Local homeowners" },
+  "chapters": {
+    "hero": { "headline": "Roofs done right, the first time", "body": "Licensed, insured crews across the Willamette Valley. Free inspections, written warranties, no surprises.", "button": "Book a free inspection",
+      "proof": ["Licensed and insured", "Written warranty on labor and materials", "Free inspections"] },
+    "services": { "headline": "Everything your roof needs", "items": [
+      { "name": "Roof repair", "detail": "Leaks, storm damage and missing shingles, fixed fast and matched to what you have.", "material": "shingle" },
+      { "name": "Full replacement", "detail": "Architectural asphalt or standing-seam metal, installed to the manufacturer's spec.", "material": "seam" },
+      { "name": "Gutters", "detail": "Seamless gutters and guards sized for valley rain, so water goes where it should.", "material": "gutter" } ] },
+    "steps": { "headline": "Three steps to a roof you never think about", "items": [
+      { "name": "Call", "detail": "Tell us what you're seeing. We'll set a time that works." },
+      { "name": "Inspect", "detail": "A free on-site inspection, with photos of everything we find." },
+      { "name": "Build", "detail": "On time, on budget, and the yard cleaned up after." } ] },
+    "why": { "headline": "Why neighbors choose us", "body": "Family run since 2009. The person who quotes your roof is on the crew that builds it.", "items": [
+      { "name": "Licensed and insured", "detail": "Every crew, every job." },
+      { "name": "Local", "detail": "We live here and work here." },
+      { "name": "Written warranty", "detail": "On labor and materials, in writing before we start." } ] },
+    "band": { "headline": "Ready for a roof you never think about?", "body": "Free estimates, usually within 48 hours.", "button": "Book now" },
+    "area": { "headline": "Where we work", "towns": ["Junction City", "Eugene", "Springfield", "Creswell", "Cottage Grove"] },
+    "book": { "headline": "Get your free roof inspection", "body": "Call us or book online. Most inspections happen within 48 hours.", "button": "Book online" },
+    "foot": { "body": "Serving the southern Willamette Valley." }
+  }
+}

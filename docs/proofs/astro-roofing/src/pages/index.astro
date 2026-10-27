@@ -1,0 +1,139 @@
+---
+import '../styles/site.css';
+import RoofScene from '../components/RoofScene.astro';
+import Material from '../components/Material.astro';
+import site from '../bundle/site.json';
+const { business: b, chapters: c } = site;
+const tel = `tel:${b.phone.replace(/[^0-9+]/g, '')}`;
+// Numbers set in the display face (the body face slashes its zeros). Words come from the bundle; only the digits are wrapped.
+const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const nums = (t) => esc(t).replace(/(\d+)/g, '<span class="num">$1</span>');
+const whyHtml = nums(c.why.body), bandHtml = nums(c.band.body);
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{b.name} | Roofing in {b.town}</title>
+  <meta name="description" content={c.hero.body} />
+</head>
+<body>
+  <a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
+
+  <header class="hero relative isolate overflow-hidden text-mist">
+    <RoofScene />
+    <nav class="relative z-10 mx-auto flex w-full max-w-[1240px] items-center justify-between gap-6 px-6 py-6 md:px-10" aria-label="Main">
+      <a href="/" class="display-tight text-lg no-underline text-mist md:text-xl">{b.name}</a>
+      <a href={tel} class="btn btn-line text-sm md:text-base">Call {b.phone}</a>
+    </nav>
+    <div class="relative z-10 mx-auto w-full max-w-[1240px] px-6 pb-20 pt-[18vh] md:px-10 md:pb-28">
+      <h1 class="display max-w-[16ch] text-balance text-[clamp(3rem,7.6vw,7rem)]">{c.hero.headline}</h1>
+      <p class="measure mt-7 text-lg leading-relaxed text-mist/80 md:text-xl">{c.hero.body}</p>
+      <div class="mt-10 flex flex-wrap gap-3">
+        <a href="#book" class="btn btn-primary">{c.hero.button}</a>
+        <a href={tel} class="btn btn-line">Call {b.phone}</a>
+      </div>
+      <ul class="mt-12 flex flex-wrap gap-x-8 gap-y-3 text-sm text-mist/75">
+        {c.hero.proof.map(p => <li class="flex items-center gap-3"><span class="h-px w-6 bg-teal"></span>{p}</li>)}
+      </ul>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="mx-auto max-w-[1240px] px-6 py-24 md:px-10 md:py-32" aria-labelledby="services">
+      <h2 id="services" class="display-tight max-w-[16ch] text-[clamp(2.2rem,4.6vw,3.8rem)]">{c.services.headline}</h2>
+      <div class="mt-14 grid gap-6 md:grid-cols-3">
+        {c.services.items.map(s => (
+          <article class="group overflow-hidden rounded-[4px] bg-cloud">
+            <div class="h-52 overflow-hidden"><Material kind={s.material} /></div>
+            <div class="p-7">
+              <h3 class="display-tight text-2xl">{s.name}</h3>
+              <p class="mt-3 leading-relaxed text-ink/75">{s.detail}</p>
+            </div>
+          </article>))}
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-[1240px] px-6 pb-24 md:px-10 md:pb-32" aria-labelledby="steps">
+      <h2 id="steps" class="display-tight max-w-[18ch] text-[clamp(2.2rem,4.6vw,3.8rem)]">{c.steps.headline}</h2>
+      <ol class="ridge mt-16 grid gap-12 md:grid-cols-3 md:gap-8">
+        {c.steps.items.map((s, i) => (
+          <li class="relative pt-10">
+            <span class="node" aria-hidden="true"></span>
+            <span class="display block text-6xl text-teal">{i + 1}</span>
+            <h3 class="display-tight mt-4 text-2xl">{s.name}</h3>
+            <p class="mt-2 max-w-[28ch] leading-relaxed text-ink/75">{s.detail}</p>
+          </li>))}
+      </ol>
+    </section>
+
+    <section class="bg-ink text-mist" aria-labelledby="why">
+      <div class="mx-auto grid max-w-[1240px] gap-14 px-6 py-24 md:grid-cols-[1.1fr_1fr] md:px-10 md:py-32">
+        <div>
+          <h2 id="why" class="display-tight max-w-[14ch] text-[clamp(2.2rem,4.6vw,3.8rem)]">{c.why.headline}</h2>
+          <p class="measure mt-6 text-xl leading-relaxed text-mist/75" set:html={whyHtml} />
+        </div>
+        <ul class="self-end">
+          {c.why.items.map(w => (
+            <li class="border-t border-mist/15 py-6 first:border-t-0 first:pt-0">
+              <h3 class="display-tight flex items-center gap-4 text-xl"><span class="h-[3px] w-8 bg-teal" aria-hidden="true"></span>{w.name}</h3>
+              <p class="mt-2 pl-12 text-mist/70">{w.detail}</p>
+            </li>))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="band relative isolate overflow-hidden bg-asphalt text-mist" aria-labelledby="band">
+      <div class="mx-auto max-w-[1240px] px-6 py-28 md:px-10 md:py-36">
+        <h2 id="band" class="display max-w-[14ch] text-[clamp(2.4rem,6vw,5.2rem)]">{c.band.headline}</h2>
+        <p class="mt-6 text-xl text-mist/75" set:html={bandHtml} />
+        <div class="mt-10 flex flex-wrap gap-3"><a href="#book" class="btn btn-primary">{c.band.button}</a><a href={tel} class="btn btn-line">Call {b.phone}</a></div>
+      </div>
+    </section>
+
+    <section class="mx-auto grid max-w-[1240px] items-center gap-14 px-6 py-24 md:grid-cols-2 md:px-10 md:py-32" aria-labelledby="area">
+      <div>
+        <h2 id="area" class="display-tight text-[clamp(2.2rem,4.6vw,3.8rem)]">{c.area.headline}</h2>
+        <p class="measure mt-5 text-lg text-ink/75">From Junction City down to Cottage Grove, along the valley floor.</p>
+      </div>
+      <ol class="route" aria-label="Towns we serve, north to south">
+        {c.area.towns.map(t => <li class={t === 'Eugene' ? 'home' : ''}>{t}{t === 'Eugene' && <span class="ml-3 text-sm font-normal text-ink/60">our base</span>}</li>)}
+      </ol>
+    </section>
+
+    <section id="book" class="mx-auto max-w-[1240px] px-6 pb-24 md:px-10 md:pb-32" aria-labelledby="book-title">
+      <div class="grid gap-10 rounded-[6px] bg-ink p-8 text-mist md:grid-cols-[1.3fr_1fr] md:items-end md:p-14">
+        <div>
+          <h2 id="book-title" class="display-tight max-w-[14ch] text-[clamp(2rem,4vw,3.4rem)]">{c.book.headline}</h2>
+          <p class="measure mt-5 text-lg text-mist/75">{c.book.body}</p>
+        </div>
+        <div class="grid justify-items-start gap-5">
+          <a href={tel} class="display whitespace-nowrap text-[clamp(1.9rem,3.6vw,3rem)] text-mist no-underline">{b.phone}</a>
+          <a href={tel} class="btn btn-primary">{c.book.button}</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-asphalt text-mist/80">
+    <div class="mx-auto flex max-w-[1240px] flex-wrap items-end justify-between gap-6 px-6 py-14 md:px-10">
+      <div><p class="display-tight text-2xl text-mist">{b.name}</p><p class="mt-2">{c.foot.body}</p></div>
+      <div class="text-sm md:text-right"><a href={tel} class="num text-mist">{b.phone}</a><p class="mt-1">© <span class="num">{new Date().getFullYear()}</span> {b.name}</p></div>
+    </div>
+  </footer>
+</body>
+</html>
+
+<style>
+  .hero { min-height: min(100vh, 940px); display: flex; flex-direction: column; justify-content: space-between; }
+  .ridge { position: relative; }
+  .ridge::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--color-ink); }
+  .node { position: absolute; top: -7px; left: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--color-mist); border: 3px solid var(--color-teal); }
+  .band::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5;
+    background-image: repeating-linear-gradient(104deg, transparent 0 22px, rgba(232,236,239,.07) 22px 23px, transparent 23px 61px); }
+  .route { position: relative; list-style: none; margin: 0; padding: 0 0 0 2.25rem; }
+  .route::before { content: ""; position: absolute; left: .55rem; top: .7rem; bottom: .7rem; width: 2px; background: var(--color-rain); opacity: .5; }
+  .route li { position: relative; padding: .7rem 0; font-family: var(--font-display); font-stretch: 112%; font-weight: 700; font-size: 1.5rem; }
+  .route li::before { content: ""; position: absolute; left: -2.05rem; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--color-mist); border: 2px solid var(--color-rain); }
+  .route li.home::before { background: var(--color-teal); border-color: var(--color-teal); width: 18px; height: 18px; margin-top: -9px; left: -2.2rem; }
+  @media (max-width: 767px) { .ridge::before { display: none; } .node { display: none; } .ridge li { border-top: 2px solid var(--color-ink); padding-top: 1.5rem; } }
+</style>

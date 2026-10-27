@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@import "@fontsource-variable/archivo/standard.css";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+
+@theme {
+  --color-ink: #0b1f3a;      /* DNA navy: text and dark bands */
+  --color-asphalt: #1d2934;  /* wet asphalt: hero and roof */
+  --color-rain: #6f7d8a;     /* rain grey: quiet text on dark */
+  --color-mist: #e8ecef;     /* the page */
+  --color-cloud: #f4f6f7;    /* raised panels */
+  --color-teal: #2bb3a3;     /* DNA accent, used sparingly */
+  --font-display: "Archivo Variable", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --ease-settle: cubic-bezier(.2, .7, .2, 1);
+}
+
+html { background: var(--color-mist); color: var(--color-ink); font-family: var(--font-body); font-size: 17px; }
+body { margin: 0; }
+.display { font-family: var(--font-display); font-stretch: 125%; font-weight: 800; letter-spacing: -0.02em; line-height: .98; }
+.display-tight { font-family: var(--font-display); font-stretch: 112%; font-weight: 750; letter-spacing: -0.015em; line-height: 1.04; }
+.measure { max-width: 34rem; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--color-teal); outline-offset: 4px; border-radius: 4px; }
+.btn { font-family: var(--font-display); font-stretch: 106%; letter-spacing: .005em; white-space: nowrap; display: inline-flex; align-items: center; padding: .95rem 1.5rem; border-radius: .35rem; font-weight: 700; text-decoration: none;
+  transition: transform .4s var(--ease-settle), background-color .4s var(--ease-settle); }
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: var(--color-teal); color: var(--color-ink); }
+.btn-line { box-shadow: inset 0 0 0 2px currentColor; color: inherit; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.num { font-family: var(--font-display); font-stretch: 106%; white-space: nowrap; }

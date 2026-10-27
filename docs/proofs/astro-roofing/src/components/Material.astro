@@ -1,0 +1,27 @@
+---
+// Material swatches for the services: shingle, standing seam, gutter profile.
+const { kind } = Astro.props;
+const rows = Array.from({ length: 7 }, (_, r) => r);
+---
+<svg viewBox="0 0 400 220" class="block h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+  {kind === 'shingle' && (<g>
+    <rect width="400" height="220" fill="#2b3640" />
+    {rows.map(r => Array.from({ length: 9 }, (_, c) => (
+      <path d={`M${c * 52 - (r % 2) * 26 - 10} ${r * 34} h48 v28 q-24 8 -48 0 z`} fill={(r * 3 + c) % 5 === 0 ? '#3c4955' : '#323f4a'} stroke="#1d2731" stroke-width="2" />
+    )))}
+  </g>)}
+  {kind === 'seam' && (<g>
+    <rect width="400" height="220" fill="#41525f" />
+    {Array.from({ length: 9 }, (_, i) => (<g>
+      <rect x={i * 48 - 4} y="0" width="44" height="220" fill={i % 2 ? '#465866' : '#3d4e5b'} />
+      <rect x={i * 48 + 38} y="0" width="6" height="220" fill="#9aa7b2" opacity=".55" />
+    </g>))}
+  </g>)}
+  {kind === 'gutter' && (<g>
+    <rect width="400" height="220" fill="#dfe5e9" />
+    <path d="M70 60 h230 l-20 18 h-196 z" fill="#1d2934" />
+    <path d="M90 78 v70 q0 34 34 34 h150 q30 0 30 -30 v-74" fill="none" stroke="#1d2934" stroke-width="14" stroke-linejoin="round" />
+    <path d="M104 150 q0 20 20 20 h150 q16 0 16 -16" fill="none" stroke="#2bb3a3" stroke-width="10" stroke-linecap="round" />
+    <path d="M300 182 v38" stroke="#1d2934" stroke-width="22" />
+  </g>)}
+</svg>
