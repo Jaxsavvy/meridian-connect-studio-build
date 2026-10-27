@@ -16,7 +16,7 @@
     const setDirty = value => { if (value !== dirty) { dirty = value; onDirty(value); } };
     const show = (error = '') => report({ state: 'ready', form, gaps, locked, busy, dirty, note, saved, error });
     async function load() {
-      if (disposed || dirty) return;   // never replace unsaved work
+      if (disposed) return;
       const request = ++revision; if (!form) report({ state: 'loading' });
       if (stageId !== 'concept') { report({ state: 'empty', message: 'The Concept opens at the Concept stage.' }); return; }
       try {
@@ -24,11 +24,14 @@
         if (disposed || request !== revision) return;
         if (job?.id !== jobId || job.spaceId !== spaceId) throw Error('Unavailable');
         if (job.workflowId !== 'website') { report({ state: 'empty', message: 'Only Website Jobs have a concept.' }); return; }
-        const concept = await service.getConcept(spaceId, jobId);
-        if (disposed || request !== revision || dirty) return;
         const stage = (job.stages || []).find(st => st.id === 'concept');
-        locked = stage?.status === 'done' ? 'Approved' : stage?.status === 'waiting-on-jax' ? 'With Jax' : null;
-        form = toForm(concept); gaps = gapsOf(concept); show();
+        const lock = stage?.status === 'done' ? 'Approved' : stage?.status === 'waiting-on-jax' ? 'With Jax' : null;
+        if (dirty && !lock) return;   // never replace unsaved work while it can still be saved
+        const concept = await service.getConcept(spaceId, jobId);
+        if (disposed || request !== revision || (dirty && !lock)) return;
+        // Once it's with Jax, unsaved edits can't be saved any more: show the saved concept read-only and drop the mark.
+        if (lock) setDirty(false);
+        locked = lock; form = toForm(concept); gaps = gapsOf(concept); show();
       } catch (error) {
         if (disposed || request !== revision) return;
         report(error?.code === 'OFFLINE' ? { state: 'offline', message: 'You are offline. Try again when connected.' }
@@ -184,7 +187,10 @@
         if (keep && !keep.disabled) keep.focus?.(); else if (fallback) fallback.focus?.(); else restore();
       } });
     const focusTo = id => { const t = marked.get(id); if (t && !t.disabled) t.focus?.(); };
-    const off = studio.service.on((event, detail) => { if (event === 'concept-changed' && detail?.jobId === ctx.jobId) void model.load(); });
+    // Sending to Jax fires jobs-changed (the stage moves on), so that reloads too: it's what locks the form.
+    const off = studio.service.on((event, detail) => {
+      if ((event === 'concept-changed' && detail?.jobId === ctx.jobId) || (event === 'jobs-changed' && detail?.spaceId === ctx.spaceId)) void model.load();
+    });
     void model.load();
     return () => { off(); model.dispose(); unlisten(); root.remove(); };
   }
