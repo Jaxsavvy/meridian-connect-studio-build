@@ -1,0 +1,29 @@
+.studio-chapter-cards { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-chapter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.studio-chapter-bar p { margin: 0; color: var(--studio-muted); }
+.studio-chapter-body { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(12rem, 18rem); gap: 1rem; align-items: start; }
+.studio-chapter-pages, .studio-chapter-middle, .studio-chapter-gaps, .studio-chapter-editor { display: grid; gap: .5rem; min-width: 0; }
+#studioCenter .studio-chapter-pages > button { justify-self: stretch; text-align: start; }
+#studioCenter .studio-chapter-cards [aria-pressed="true"] { border-color: var(--studio-sky); color: var(--studio-sky); }
+.studio-chapter-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.studio-chapter-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+#studioCenter .studio-chapter-list > li > button:first-child { flex: 1 1 10rem; text-align: start; }
+.studio-chapter-list > li.is-open { border-color: var(--studio-sky); }
+.studio-chapter-field { display: grid; gap: .25rem; min-width: 0; }
+.studio-chapter-field :is(input, select) { min-height: 2.25rem; padding-inline: .5rem; }
+.studio-chapter-field textarea { min-height: 4rem; padding: .4rem .5rem; resize: vertical; }
+.studio-chapter-readonly { margin: 0; color: var(--studio-muted); }
+.studio-chapter-group { display: grid; gap: .4rem; min-width: 0; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); padding: .5rem .7rem; }
+.studio-chapter-gaps ul { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+#studioCenter .studio-chapter-gaps li > button { width: 100%; text-align: start; border-color: var(--studio-gold); }
+#studioCenter .studio-chapter-cards .studio-chip.is-gap { color: var(--studio-gold); border-color: var(--studio-gold); }
+#studioCenter .studio-chapter-cards .studio-chip.is-ready { color: var(--studio-teal); border-color: var(--studio-teal); }
+.studio-chapter-cards :is(input, select, textarea, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media (max-width: 70rem) { .studio-chapter-body { grid-template-columns: minmax(0, 1fr); } }
+.studio-chapter-draft { display: grid; gap: .5rem; border-color: var(--studio-sky); }
+.studio-chapter-draft h4 { margin: 0; }
+.studio-chapter-draft dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .25rem .75rem; margin: 0; }
+.studio-chapter-draft dt { color: var(--studio-muted); }
+.studio-chapter-draft dd { margin: 0; overflow-wrap: anywhere; }
+.studio-chapter-draft:focus-visible { outline: 2px solid var(--studio-sky); outline-offset: 3px; }
+@media (max-width: 40rem) { .studio-chapter-draft dl { grid-template-columns: minmax(0, 1fr); } }

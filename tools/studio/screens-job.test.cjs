@@ -89,3 +89,75 @@ test('real Active Jobs and stage-bar Job page button route to the Job; placehold
   const cleanup = mount(el, { ...params, studio: { service, navigate } }); await tick(); click(el, 'Job page');
   assert.deepEqual(routes, [['job', params], ['job', params]]); cleanup(); model.dispose();
 });
+
+// #109: what each stage decided (Kickoff notes, chapter cards, checklist), read-only.
+const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
+const stageCard = (el, name) => walk(el).find(n => n.tag === 'li' && n.children[0]?.tag === 'h2' && n.children[0].textContent === name);
+async function websiteJob() {
+  const service = createSampleService(), job = await service.startJob('sample-client', 'website', 'standard');
+  return { service, job, params: { spaceId: job.spaceId, jobId: job.id } };
+}
+
+test('Kickoff shows what was decided once notes are saved', async () => {
+  const { service, job, params } = await websiteJob(), el = dom();
+  const cleanup = render(el, params, { service, navigate() {} }); await settle();
+  assert.match(text(stageCard(el, 'Kickoff')), /Nothing decided yet/);
+  await service.saveStageNotes(job.spaceId, job.id, 'brief', { goal: 'More estimate calls', audience: '<b>Homeowners</b>',
+    callToAction: 'Call for an estimate', pages: ['Home', 'Services'] });
+  await settle(); const kickoff = text(stageCard(el, 'Kickoff'));
+  assert.match(kickoff, /GoalMore estimate calls/); assert.match(kickoff, /Audience<b>Homeowners<\/b>/);   // shown as text
+  assert.match(kickoff, /Main call to actionCall for an estimate/); assert.match(kickoff, /Pages wantedHome, Services/);
+  cleanup();
+});
+
+test('a Website Job shows the story summary and each story stage\'s gaps, and reloads on story-changed', async () => {
+  const { service, job, params } = await websiteJob(); await fillStory(service, job.spaceId, job.id);
+  const el = dom(), cleanup = render(el, params, { service, navigate() {} }); await settle();
+  assert.match(text(stageCard(el, 'Story and sitemap')), /Story so farHome: 1 chapter/);
+  for (const name of ['Story and sitemap', 'Words', 'Storyboard', 'Look and assets']) assert.match(text(stageCard(el, name)), /Ready/, name);
+  const story = await service.getStory(job.spaceId, job.id);
+  story.pages[0].chapters.push({ name: '', job: '' }); story.pages.push({ name: '', path: '/about', chapters: [] });
+  await service.saveStory(job.spaceId, job.id, story); await settle();
+  assert.match(text(stageCard(el, 'Story and sitemap')), /Home: 2 chapters · Untitled page: 0 chapters/);
+  const left = (await service.getStoryGaps(job.spaceId, job.id, 'plan')).length;
+  assert.match(text(stageCard(el, 'Story and sitemap')), new RegExp(`${left} things left`));
+  assert.equal(walk(el).some(n => n.tag === 'button' && /edit|save/i.test(text(n))), false);   // read-only
+  cleanup();
+});
+
+test('a Pitch deck Job never asks for chapter cards', async () => {
+  const base = createSampleService(); base.setProjects([{ id: 'client-a', name: 'Client A' }]);
+  const job = await base.startJob('client-a', 'pitch-deck', 'deck'), calls = [];
+  const service = { ...base, getStory: (...a) => { calls.push('getStory'); return base.getStory(...a); },
+    getStoryGaps: (...a) => { calls.push('getStoryGaps'); return base.getStoryGaps(...a); } };
+  const el = dom(), cleanup = render(el, { spaceId: 'client-a', jobId: job.id }, { service, navigate() {} }); await settle();
+  assert.deepEqual(calls, []); assert.doesNotMatch(text(el), /Story so far|things left|\$|price|cost/i);
+  assert.match(text(stageCard(el, 'Research + write')), /0 of \d+ ticked/);
+  cleanup();
+});
+
+test('one failing load only blanks its own part; ticks show as "N of M ticked"', async () => {
+  const { service: base, job, params } = await websiteJob(); await fillStory(base, job.spaceId, job.id);
+  await base.saveStageNotes(job.spaceId, job.id, 'brief', { goal: 'Calls' });
+  const service = { ...base, getStageNotes: async () => { throw Error('private'); },
+    getStoryGaps: (s, j, id) => id === 'words' ? Promise.reject(Error('private')) : base.getStoryGaps(s, j, id) };
+  const el = dom(), cleanup = render(el, params, { service, navigate() {} }); await settle();
+  assert.match(text(stageCard(el, 'Kickoff')), /Couldn't load this/); assert.match(text(stageCard(el, 'Words')), /Couldn't load this/);
+  assert.match(text(stageCard(el, 'Storyboard')), /Ready/); assert.match(text(stageCard(el, 'Story and sitemap')), /Home: 1 chapter/);
+  assert.doesNotMatch(text(el), /private/);
+  const kickoff = job.stages.find(st => st.id === 'brief');
+  assert.match(text(stageCard(el, 'Kickoff')), new RegExp(`0 of ${kickoff.needs.length} ticked`));
+  await base.setStageNeed(job.spaceId, job.id, 0, true); await settle();
+  assert.match(text(stageCard(el, 'Kickoff')), new RegExp(`1 of ${kickoff.needs.length} ticked`));
+  cleanup();
+});
+
+test('after cleanup, notes and story changes no longer reload the page', async () => {
+  const { service: base, job, params } = await websiteJob(); let reads = 0;
+  const service = { ...base, getJob: (...a) => { reads++; return base.getJob(...a); } };
+  const el = dom(), cleanup = render(el, params, { service, navigate() {} }); await settle();
+  await base.saveStageNotes(job.spaceId, job.id, 'brief', { goal: 'Calls' }); await settle();
+  const before = reads; assert.ok(before >= 2); cleanup();
+  await base.saveStageNotes(job.spaceId, job.id, 'brief', { goal: 'More calls' }); await fillStory(base, job.spaceId, job.id); await settle();
+  assert.equal(reads, before);
+});
