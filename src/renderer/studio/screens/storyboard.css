@@ -1,0 +1,21 @@
+.studio-storyboard { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-storyboard :is(h2, h3, p) { margin: 0; }
+.studio-storyboard-count { font-weight: var(--studio-weight-strong); }
+.studio-storyboard-locked { color: var(--studio-muted); }
+.studio-storyboard-strip { display: flex; gap: .75rem; margin: 0; padding: 0 0 .5rem; list-style: none; overflow-x: auto; max-width: 100%; }
+.studio-storyboard-cell { display: grid; grid-template-rows: 1.4rem auto; grid-template-columns: minmax(0, 1fr); flex: 0 0 auto; width: min(16rem, 70vw); }
+.studio-storyboard-page { grid-row: 1; color: var(--studio-muted); font-size: var(--studio-text-small); font-weight: var(--studio-weight-strong); }
+.studio-storyboard-tile { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: .3rem; justify-items: start; width: 100%; min-width: 0; padding: .5rem; text-align: start;
+  color: var(--studio-text); background: var(--studio-panel); border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); font: inherit; cursor: pointer; }
+#studioCenter .studio-storyboard-tile.is-open { border-color: var(--studio-sky); }
+.studio-storyboard-still, .studio-storyboard-thumb { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 2; object-fit: cover;
+  border-radius: var(--studio-radius); background: var(--studio-night); color: var(--studio-muted); }
+.studio-storyboard-job { color: var(--studio-muted); font-size: var(--studio-text-small); }
+.studio-storyboard-chapter { display: grid; gap: .6rem; }
+.studio-storyboard-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.studio-storyboard-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.studio-storyboard-frames li { display: grid; gap: .4rem; justify-items: start; padding: .4rem; border: var(--studio-border) solid transparent; border-radius: var(--studio-radius); }
+#studioCenter .studio-storyboard-frames li.is-kept { border-color: var(--studio-teal); }
+#studioCenter .studio-storyboard-kept { border-color: var(--studio-teal); color: var(--studio-teal); }
+.studio-storyboard-hint { color: var(--studio-muted); }
+.studio-storyboard :is(button, li[tabindex="-1"]):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
