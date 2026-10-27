@@ -7,13 +7,16 @@
 
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
-  // Pitch deck format (#114), research model (#124), chapter cards (#186): index.html loads them before this file.
+  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189):
+  // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
-    node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards);
+    node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards,
+    node ? require('./website/site-engine.js') : root && root.MeridianSiteEngine,
+    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -154,6 +157,18 @@
     });
   }
   const clone = value => JSON.parse(JSON.stringify(value));
+  const sampleDna = space => (space.type === 'client'
+    ? { status: 'draft', brief: 'Sample brief', colors: ['#0b1f3a', '#2bb3a3'], fonts: ['Source Serif 4', 'Inter'], voice: 'Confident, plain-spoken', audience: 'Local homeowners' }
+    : null);
+  // Finish saves a whole site; the project folder takes up to 10 files per save.
+  async function saveInBatches(save, files) {
+    const saved = [], failed = [];
+    for (let i = 0; i < files.length; i += 10) {
+      const out = await save(files.slice(i, i + 10));
+      saved.push(...(out.saved || [])); failed.push(...(out.failed || []));
+    }
+    return { saved, failed };
+  }
   // What a pitch deck Job keeps in the project's save file (#171); the stages always come from the current template.
   const SAVED_FIELDS = Object.freeze(['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs',
     'assignees', 'timing', 'deck', 'evidence', 'research', 'checks', 'checkLog']);
@@ -302,6 +317,22 @@
       return assets.get(spaceId);
     }
 
+    async function saveProjectFiles(spaceId, jobId, files) {
+      const space = requireSpace(spaceId);
+      if (space.type !== 'client') throw new Error('Only client projects have a project folder.');
+      const job = requireJob(spaceId, jobId);
+      const list = projectFileList(job.name, files);
+      const saved = projectFiles.get(space.id) || [];
+      for (const f of list) {
+        const i = saved.findIndex(x => x.name === f.name);
+        const row = { name: f.name, section: 'Docs', size: new TextEncoder().encode(f.content).length, jobId: job.id };
+        if (i >= 0) saved[i] = row; else saved.push(row);
+      }
+      projectFiles.set(space.id, saved);
+      emit('project-files-changed', { spaceId: space.id });
+      return clone({ saved: list.map(f => f.name), failed: [] });
+    }
+
     return Object.freeze({
       mode: 'sample',
       /** Called by Connect with the projects the signed-in person is assigned to. */
@@ -314,9 +345,7 @@
       async listSpaces() { return clone(spaceList()); },
       async getSpace(spaceId) {
         const space = requireSpace(spaceId);
-        const dna = space.type === 'client'
-          ? { status: 'draft', brief: 'Sample brief', colors: ['#0b1f3a', '#2bb3a3'], fonts: ['Source Serif 4', 'Inter'], voice: 'Confident, plain-spoken', audience: 'Local homeowners' }
-          : null;
+        const dna = sampleDna(space);
         const started = spaceJobs(space.id).map(jobSummary);
         const jobList = space.type === 'client' && !started.length
           ? [{ id: `${space.id}-job-1`, name: 'Website v1', stage: 'Not started', progress: 0 }] : started;
@@ -477,21 +506,7 @@
       async listPresets(toolId) { return clone(PRESETS.filter(p => p.toolId === toolId)); },
       /** Saves a Job's outputs into the client project's folder (Files tab, Docs), named "<Job name> - <file>".
        *  files: [{ name: 'Research summary.md', content: '...' }]. Saving the same name again replaces it. */
-      async saveToProjectFiles(spaceId, jobId, files) {
-        const space = requireSpace(spaceId);
-        if (space.type !== 'client') throw new Error('Only client projects have a project folder.');
-        const job = requireJob(spaceId, jobId);
-        const list = projectFileList(job.name, files);
-        const saved = projectFiles.get(space.id) || [];
-        for (const f of list) {
-          const i = saved.findIndex(x => x.name === f.name);
-          const row = { name: f.name, section: 'Docs', size: new TextEncoder().encode(f.content).length, jobId: job.id };
-          if (i >= 0) saved[i] = row; else saved.push(row);
-        }
-        projectFiles.set(space.id, saved);
-        emit('project-files-changed', { spaceId: space.id });
-        return clone({ saved: list.map(f => f.name), failed: [] });
-      },
+      saveToProjectFiles: saveProjectFiles,
       /** Files saved to the project folder in this session (the Files tab shows the real folder). */
       async listProjectFiles(spaceId) { requireSpace(spaceId); return clone(projectFiles.get(spaceId) || []); },
       /** Website Job's chapter cards (#186): the saved story, or one page per page named at Kickoff. */
@@ -516,6 +531,48 @@
       async getStoryGaps(spaceId, jobId, stageId) {
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
+      },
+      /** Website builder (#198): the Job's site (site engine format), or null until Build starts it. */
+      async getSite(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return job.site ? clone(job.site) : null;
+      },
+      /** Assembles the site from the locked chapter cards, once: { ok, errors, site, report: { custom, short } }.
+       *  Build must be open. options.dna: the project's DNA (real sign-in passes it; practice uses the sample DNA). */
+      async startSite(spaceId, jobId, { from, dna } = {}) {
+        const { space, job } = buildJob(spaceId, jobId);
+        if (from !== 'cards') throw new Error('For now a site starts from the chapter cards.');
+        if (job.site) throw new Error('The site is already started.');
+        const out = Library.assembleSite(storyOf(job), { name: space.name, tokens: Library.tokensFromDna(dna === undefined ? sampleDna(space) : dna) });
+        if (out.ok) { job.site = out.site; emit('site-changed', { spaceId: space.id, jobId: job.id }); }
+        return clone({ ok: out.ok, errors: out.errors, site: out.ok ? out.site : null, report: { custom: out.custom, short: out.short } });
+      },
+      /** Saves the whole site (replaces it) while Build is open: { ok, errors, site }. Refuses anything the engine refuses. */
+      async saveSite(spaceId, jobId, site) {
+        const { space, job } = buildJob(spaceId, jobId);
+        const check = Engine.validateSite(site);
+        if (!check.ok) return clone({ ok: false, errors: check.errors, site: null });
+        if (siteAssetIds(site).some(id => !hasAsset(space.id, id))) {
+          return { ok: false, errors: [{ path: 'site', message: 'An image points at an asset that is not in this Space.' }], site: null };
+        }
+        job.site = clone(site);
+        emit('site-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ ok: true, errors: [], site: job.site });
+      },
+      /** One page as HTML for the builder's sandboxed preview: the saved site, or an unsaved draft (checked, never saved).
+       *  Only this Space's assets resolve, and the preview script reports clicks (site-engine.js). */
+      async previewPage(spaceId, jobId, pageId, { site } = {}) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        const shown = site === undefined ? job.site : site;
+        if (!shown) throw new Error('Start the site first.');
+        return { html: Engine.renderPage(shown, pageId, { assets: assetUrls(space.id), preview: true }) };
+      },
+      /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
+      async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
+      /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
+      async finishSite(spaceId, jobId) {
+        const files = siteFiles(spaceId, jobId);
+        return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
       },
       /** The Job's pitch deck: the saved one, or a blank deck with the project name until someone saves. */
       async getDeck(spaceId, jobId) {
@@ -896,6 +953,35 @@
       if (job.workflowId !== 'website') throw new Error('Only Website Jobs have chapter cards.');
       return { space, job };
     }
+    function buildJob(spaceId, jobId) {
+      const found = websiteJob(spaceId, jobId);
+      if (!openStages(found.job).includes('build')) throw new Error('The site can only change while Build is open.');
+      return found;
+    }
+    // Only this Space's kept images resolve; anything else renders without its src.
+    function assetUrls(spaceId) {
+      return Object.fromEntries(spaceAssets(spaceId).filter(a => !a.trashed && typeof a.url === 'string').map(a => [a.id, a.url]));
+    }
+    function siteAssetIds(site) {
+      const ids = [];
+      const walk = n => {
+        if (!n || 'text' in n) return;
+        for (const v of Object.values(n.attrs || {})) if (typeof v === 'string' && v.startsWith('asset:')) ids.push(v.slice(6));
+        (n.children || []).forEach(walk);
+      };
+      for (const p of site.pages) for (const sec of p.sections) {
+        walk(sec.tree);
+        for (const rule of sec.styles || []) for (const v of Object.values(rule.decl)) for (const m of String(v).matchAll(/asset:([A-Za-z0-9_-]+)/g)) ids.push(m[1]);
+      }
+      return ids;
+    }
+    function siteFiles(spaceId, jobId) {
+      const { space, job } = buildJob(spaceId, jobId);
+      if (!job.site) throw new Error('Start the site first.');
+      const pages = Object.entries(Engine.renderSite(job.site, { assets: assetUrls(space.id) }))
+        .map(([file, html]) => ({ name: `Site - ${file === 'index.html' ? 'home' : file.replace(/\/index\.html$/, '').replace(/\//g, '-')}.html`, content: html }));
+      return [{ name: 'site.json', content: JSON.stringify(job.site, null, 2) }, ...pages];
+    }
     function storyOf(job) { return job.story || Cards.storyFromPages(job.notes.brief ? job.notes.brief.pages : []); }
     function hasAsset(spaceId, assetId) { return spaceAssets(spaceId).some(a => a.id === assetId && !a.trashed); }
     function gapsFor(space, job, stageId) {
@@ -1131,6 +1217,20 @@
       return out;
     }
 
+    async function saveProjectFiles(spaceId, jobId, files) {
+      if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
+      await loadSaved(spaceId);
+      const job = await local.getJob(spaceId, jobId);
+      const list = projectFileList(job.name, files);
+      const saved = [], failed = [];
+      for (const f of list) {
+        const res = await saveFile(spaceId, f.name, f.content);
+        if (res && res.success) saved.push(f.name); else failed.push({ name: f.name, error: (res && res.error) || 'Could not save.' });
+      }
+      emit('project-files-changed', { spaceId });
+      return { saved, failed };
+    }
+
     return Object.freeze({
       mode: 'server',
       setProjects(list) { local.setProjects(list); emit('spaces-changed'); },
@@ -1190,6 +1290,19 @@
       getStory: (...a) => local.getStory(...a),
       saveStory: (...a) => local.saveStory(...a),
       getStoryGaps: (...a) => local.getStoryGaps(...a),
+      // The builder's site stays local with the cards (#198); it starts from the project's real DNA, never the sample one.
+      getSite: (...a) => local.getSite(...a),
+      async startSite(spaceId, jobId, options = {}) {
+        const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
+        return local.startSite(spaceId, jobId, { ...options, dna: (space && space.dna) || null });
+      },
+      saveSite: (...a) => local.saveSite(...a),
+      previewPage: (...a) => local.previewPage(...a),
+      getSiteFiles: (...a) => local.getSiteFiles(...a),
+      async finishSite(spaceId, jobId) {
+        const files = await local.getSiteFiles(spaceId, jobId);
+        return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
+      },
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
       // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.
@@ -1225,19 +1338,7 @@
         return byStage;
       },
       /** Saves a Job's outputs into the real project folder (Files tab, Docs section) through Connect. */
-      async saveToProjectFiles(spaceId, jobId, files) {
-        if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
-        await loadSaved(spaceId);
-        const job = await local.getJob(spaceId, jobId);
-        const list = projectFileList(job.name, files);
-        const saved = [], failed = [];
-        for (const f of list) {
-          const res = await saveFile(spaceId, f.name, f.content);
-          if (res && res.success) saved.push(f.name); else failed.push({ name: f.name, error: (res && res.error) || 'Could not save.' });
-        }
-        emit('project-files-changed', { spaceId });
-        return { saved, failed };
-      },
+      saveToProjectFiles: saveProjectFiles,
       async listProjectFiles() { throw new Error('Open the project\'s Files tab to see its folder.'); },
       on(listener) {
         if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');
