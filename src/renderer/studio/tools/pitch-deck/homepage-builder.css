@@ -6,3 +6,5 @@
 .studio-homepage-proposal p { flex-basis: 100%; margin: 0; }
 .studio-homepage-builder :is(input, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .studio-homepage-preview { width: 100%; min-height: 32rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); background: #fff; }
+.studio-homepage-field select { min-height: 2.25rem; padding-inline: .5rem; justify-self: start; }
+.studio-homepage-builder select:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
