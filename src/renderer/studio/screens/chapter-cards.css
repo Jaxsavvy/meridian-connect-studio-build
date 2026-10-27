@@ -20,3 +20,10 @@
 #studioCenter .studio-chapter-cards .studio-chip.is-ready { color: var(--studio-teal); border-color: var(--studio-teal); }
 .studio-chapter-cards :is(input, select, textarea, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 @media (max-width: 70rem) { .studio-chapter-body { grid-template-columns: minmax(0, 1fr); } }
+.studio-chapter-draft { display: grid; gap: .5rem; border-color: var(--studio-sky); }
+.studio-chapter-draft h4 { margin: 0; }
+.studio-chapter-draft dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .25rem .75rem; margin: 0; }
+.studio-chapter-draft dt { color: var(--studio-muted); }
+.studio-chapter-draft dd { margin: 0; overflow-wrap: anywhere; }
+.studio-chapter-draft:focus-visible { outline: 2px solid var(--studio-sky); outline-offset: 3px; }
+@media (max-width: 40rem) { .studio-chapter-draft dl { grid-template-columns: minmax(0, 1fr); } }

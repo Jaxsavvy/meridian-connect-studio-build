@@ -13,9 +13,10 @@
 
   function createBoard({ service, spaceId, jobId, stageId, report, onDirty = () => {} }) {
     let disposed = false, revision = 0, story = null, job = null, gaps = [], assets = [], busy = false, dirty = false, page = 0, open = 0;
+    let draft = null, drafting = false, draftTurn = 0;   // Meridian's proposal for the open chapter (Words); never saved by itself
     const setDirty = value => { if (value !== dirty) { dirty = value; onDirty(value); } };
     const locked = () => !!job && (job.finished || job.stages.some(st => st.id === 'look' && st.status === 'done'));
-    const show = (error = '', message = '') => report({ state: 'ready', stageId, story, gaps, assets, page, open, busy, dirty, error, message,
+    const show = (error = '', message = '') => report({ state: 'ready', stageId, story, gaps, assets, page, open, busy, dirty, error, message, draft, drafting,
       locked: locked(), tier: job.tier, structure: stageId === 'plan' && !locked() });
     async function load() {
       if (disposed) return;
@@ -42,8 +43,26 @@
     };
     const chapters = () => story.pages[page]?.chapters || [];
     return { load,
-      selectPage: i => { if (story?.pages[i]) { page = i; open = 0; show(); } },
-      openChapter: i => { if (chapters()[i]) { open = i; show(); } },
+      selectPage: i => { if (story?.pages[i]) { page = i; open = 0; draft = null; draftTurn++; show(); } },
+      openChapter: i => { if (chapters()[i]) { open = i; draft = null; draftTurn++; show(); } },
+      // Draft with Meridian (Words): uses the page and chapter as they are on screen, even unsaved.
+      async draft() {
+        const c = chapters()[open];
+        if (disposed || busy || drafting || stageId !== 'words' || locked() || !c) return;
+        const turn = ++draftTurn; drafting = true; draft = null; show();
+        try {
+          const result = await service.draftChapter(spaceId, jobId, { page: story.pages[page].name, name: c.name, job: c.job });
+          if (disposed || turn !== draftTurn) return;   // another chapter was opened meanwhile
+          const d = result?.draft || {}, str = v => typeof v === 'string' ? v : '';
+          drafting = false; draft = { headline: str(d.headline), body: str(d.body), button: str(d.button) }; show();
+        } catch (error) { if (!disposed && turn === draftTurn) { drafting = false; show(error?.message || 'Meridian couldn\'t draft this. Try again.'); } }
+      },
+      useDraft() {
+        const c = chapters()[open];
+        if (disposed || !draft || !c || locked()) return false;
+        c.words = { ...c.words, ...draft }; draft = null; setDirty(true); show(); return true;
+      },
+      discardDraft() { if (draft) { draft = null; show(); } },
       addPage: () => change(() => { story.pages.push({ name: '', path: '', purpose: '', chapters: [] }); page = story.pages.length - 1; open = 0; }),
       removePage: i => story?.pages[i]?.path !== '/' && change(() => { story.pages.splice(i, 1); page = Math.min(page, story.pages.length - 1); }),
       addChapter: () => change(() => { chapters().push(blankChapter()); open = chapters().length - 1; }),
@@ -107,7 +126,7 @@
       listen(input, options ? 'change' : 'input', () => model.edit(set, input.value));
       wrap.append(node('span', label), input); return wrap;
     }
-    let view = {};
+    let view = {}, focusTo = null, focusOn = null, hadDraft = false;   // focus: to the draft when it appears, back to the button after
     function editor(c) {
       const at = STAGES.indexOf(view.stageId), can = s => STAGES.indexOf(s) === at, seen = s => STAGES.indexOf(s) <= at;
       const box = node('div', '', 'studio-card studio-chapter-editor'), standard = view.tier !== 'cinematic';
@@ -118,6 +137,20 @@
         box.append(field('Headline', c.words.headline, v => { c.words.headline = v; }, { editable: can('words') }),
           field('Body', c.words.body, v => { c.words.body = v; }, { editable: can('words'), long: true }),
           field('Button text', c.words.button, v => { c.words.button = v; }, { editable: can('words') }));
+        if (can('words') && !view.locked && !view.busy) {
+          const ask = button(view.drafting ? 'Drafting…' : 'Draft with Meridian', () => void model.draft(), { disabled: view.drafting });
+          box.appendChild(ask); if (focusTo === 'ask') focusOn = ask;
+        }
+        if (can('words') && view.draft) {
+          const offer = node('div', '', 'studio-card studio-chapter-draft'); offer.tabIndex = -1;
+          offer.setAttribute('role', 'region'); offer.setAttribute('aria-label', 'Meridian\'s draft');
+          const list = node('dl');
+          for (const [label, value] of [['Headline', view.draft.headline], ['Body', view.draft.body], ['Button text', view.draft.button]]) list.append(node('dt', label), node('dd', value || '–'));
+          offer.append(node('h4', 'Meridian suggests'), list,
+            button('Use this', () => { focusTo = 'ask'; model.useDraft(); }, { primary: true }),
+            button('Discard', () => { focusTo = 'ask'; model.discardDraft(); }));
+          box.appendChild(offer); if (focusTo === 'draft') focusOn = offer;
+        }
       }
       if (seen('storyboard')) {
         const sb = can('storyboard');
@@ -151,7 +184,9 @@
     const model = createBoard({ service: studio.service, spaceId: ctx.spaceId, jobId: ctx.jobId, stageId: ctx.stageId,
       onDirty: value => studio.setDirty?.(value),
       report(next) {
-        view = next; unlisten(); const restore = focus();
+        view = next; unlisten(); const restore = focus(); focusOn = null;
+        if (next.draft && !hadDraft) focusTo = 'draft';
+        hadDraft = !!next.draft;
         root.setAttribute('aria-busy', String(next.state === 'loading' || !!next.busy));
         const title = node('h2', `Chapter cards: ${STAGE_NAMES[next.stageId] || 'Website'}`);
         if (next.state !== 'ready') {
@@ -199,7 +234,8 @@
         if (next.message) { const m = node('p', next.message); m.setAttribute('role', 'status'); bar.appendChild(m); }
         if (next.error) { const e = node('p', next.error); e.setAttribute('role', 'alert'); bar.appendChild(e); }
         const body = node('div', '', 'studio-chapter-body'); body.append(pages, middle, side);
-        root.replaceChildren(title, bar, body); restore();
+        root.replaceChildren(title, bar, body);
+        if (focusOn) { focusOn.focus?.(); focusTo = null; } else restore();
       } });
     const off = studio.service.on((event, detail) => {
       if (['story-changed', 'jobs-changed'].includes(event) && detail?.spaceId === ctx.spaceId && !model.isDirty()) void model.load();
