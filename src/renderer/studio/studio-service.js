@@ -8,7 +8,7 @@
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
-  // site checker (#206), look frames (#202), site edit helpers (#198):
+  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -17,10 +17,11 @@
     node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary,
     node ? require('./website/site-check.js') : root && root.MeridianSiteCheck,
     node ? require('./website/look-frames.js') : root && root.MeridianLookFrames,
-    node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit);
+    node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit,
+    node ? require('./website/concept.js') : root && root.MeridianConcept);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -32,6 +33,7 @@
     ['site-check', 'Site check', 'tool', 'available'],       // Website Check stage results (#206, screen: Tyler)
     ['look-frames', 'Look frames', 'tool', 'available'],     // pick ChatGPT's look for the site (#202, screen: Tyler)
     ['site-review', 'Site review', 'tool', 'available'],     // team comments on the site in Review (#216, screen: Tyler)
+    ['concept', 'Concept', 'tool', 'available'],             // the big idea, before Story (#229, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -69,13 +71,14 @@
   const WORKFLOWS = Object.freeze({
     // The one website pipeline (Website Build Pipeline doc, #186). Chapter cards carry the work from Story to Look.
     website: Object.freeze({
-      id: 'website', name: 'Website', version: 2,
+      id: 'website', name: 'Website', version: 3,   // 3: Concept before Story (#229)
       tiers: Object.freeze([
         Object.freeze({ id: 'standard', name: 'Standard', description: 'Clean, fast site. Strong photos, clear pages, no motion.' }),
         Object.freeze({ id: 'cinematic', name: 'Cinematic', description: 'Everything in Standard plus video and scroll motion, planned on the chapter cards.' }),
       ]),
       stages: Object.freeze([
         STAGE('brief', 'Kickoff', 'Agree the goal, audience, main call to action and tier, from Project DNA and the pitch deck.', ['copywriter'], ['Goal', 'Audience', 'Main call to action', 'Pages wanted'], 'Jax approves the DNA and the goal', 'jax'),
+        STAGE('concept', 'Concept', 'The big idea in one line, named as a place or feeling, plus the audience, one goal, 3 reference sites and mood words.', ['concept'], ['Concept line', 'Audience and one goal', '3 reference sites', 'Mood words'], 'Jax approves the concept', 'jax'),
         STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter', 'chapter-cards'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
         STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter', 'chapter-cards'], ['Headline and body for every chapter'], 'No placeholder text'),
         STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
@@ -181,9 +184,11 @@
   }
   // What a Job keeps in the project's save file (pitch deck #171, website #226); the stages always come from the current template.
   const COMMON_FIELDS = ['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs', 'assignees', 'timing', 'checks', 'checkLog'];
+  // Older templates a saved Job can still be on, as a filter over today's stages: running Jobs keep the stages they started with.
+  const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => st.id !== 'concept' }) });   // v2 had no Concept (#229)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
-    website: Object.freeze([...COMMON_FIELDS, 'notes', 'story', 'look', 'site', 'review', 'siteFilesSaved']),
+    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'look', 'site', 'review', 'siteFilesSaved']),
   });
 
   function sampleImage(label, hue) {
@@ -294,7 +299,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, review: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216)
+        story: null, look: null, review: null, concept: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -438,6 +443,10 @@
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
         if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
+        if (job.workflowId === 'website' && target === 'concept') {
+          const gaps = Concept.conceptGaps(job.concept);
+          if (gaps.length) throw new Error(`The concept isn't ready: ${gaps[0].message}`);
+        }
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
         if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
         if (job.workflowId === 'website' && target === 'review') {
@@ -531,6 +540,36 @@
       saveToProjectFiles: saveProjectFiles,
       /** Files saved to the project folder in this session (the Files tab shows the real folder). */
       async listProjectFiles(spaceId) { requireSpace(spaceId); return clone(projectFiles.get(spaceId) || []); },
+      /** Concept (#229): the big idea for a Website Job, or an empty one until someone saves. */
+      async getConcept(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return clone(job.concept || Concept.cleanConcept({}));
+      },
+      /** Saves the concept (replaces it): { ok, errors: [{ field, message }], concept }. From Kickoff until Jax approves it. */
+      async saveConcept(spaceId, jobId, concept) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('concept') || job.stageId === null || (job.stageId === 'concept' && job.waitingOnJax)) throw new Error('The concept is locked once it goes to Jax.');
+        let clean;
+        try { clean = Concept.cleanConcept(concept); } catch (error) { return { ok: false, errors: [{ field: 'concept', message: error.message }], concept: null }; }
+        job.concept = clean;
+        emit('concept-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ ok: true, errors: Concept.conceptGaps(clean), concept: clean });
+      },
+      /** Meridian drafts a concept from Kickoff and Project DNA for the lead to accept or change. Never saves.
+       *  Reference sites are left for the lead: Meridian doesn't invent links. Real sign-in: "Coming soon" (server). */
+      async draftConcept(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        const brief = job.notes.brief || {}, dna = sampleDna(space) || {};
+        const audience = brief.audience || dna.audience || 'Local homeowners';
+        const draft = Concept.cleanConcept({
+          line: `${space.name}: the calm after one phone call`.slice(0, 140),
+          audience: audience.slice(0, 200),
+          goal: (brief.goal || brief.callToAction || 'Get a call booked').slice(0, 200),
+          references: [],
+          mood: ['calm', 'trustworthy', 'local', ...String(dna.voice || '').toLowerCase().split(/[^a-z-]+/).filter(w => w.length > 3)].slice(0, 5),
+        });
+        return clone({ draft, settingsUsed: { model: 'sample', useBrandDna: space.type === 'client' } });
+      },
       /** Website Job's chapter cards (#186): the saved story, or one page per page named at Kickoff. */
       async getStory(spaceId, jobId) {
         const { job } = websiteJob(spaceId, jobId);
@@ -1050,8 +1089,9 @@
     function restoredJob(space, s) {
       const kind = s && typeof s === 'object' ? s.workflowId : null, workflow = SAVED_FIELDS[kind] ? WORKFLOWS[kind] : null;
       if (!workflow || !SAFE_ID.test(String(s.id))) return null;
-      if (s.templateVersion !== workflow.version || !workflow.tiers.some(t => t.id === s.tier)) return null;
-      const stages = stagesFor(workflow, s.tier), ids = stages.map(st => st.id);
+      const older = (OLDER_TEMPLATES[kind] || {})[s.templateVersion];
+      if ((s.templateVersion !== workflow.version && !older) || !workflow.tiers.some(t => t.id === s.tier)) return null;
+      const stages = stagesFor(workflow, s.tier).filter(older || Boolean), ids = stages.map(st => st.id);
       const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), str = (v, max = 500) => (typeof v === 'string' ? v.slice(0, max) : '');
       const done = ids.filter(id => Array.isArray(s.done) && s.done.includes(id)), timing = {}, needs = {}, assignees = {};
       for (const st of stages) {
@@ -1066,7 +1106,7 @@
       const entries = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object');
       for (const m of JSON.stringify(s).matchAll(/"(?:job|fact|flag|run|comment|frame)-(\d+)"/g)) counter = Math.max(counter, Number(m[1]));   // new ids never clash
       const common = { id: String(s.id), spaceId: space.id, workflowId: kind, tier: s.tier, name: str(s.name, 80) || workflow.name,
-        stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: workflow.version, done, stageId,
+        stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: s.templateVersion, done, stageId,
         waitingOnJax: !!s.waitingOnJax && stageId !== null && stages.find(st => st.id === stageId).approver === 'jax', needs, assignees, timing,
         checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag),
           notRun: Array.isArray(c.notRun) ? CHECKS_NOT_RUN.filter(x => c.notRun.includes(x)) : CHECKS_NOT_RUN } : null,
@@ -1097,7 +1137,8 @@
         pageId: part(x.pageId), sectionId: part(x.sectionId), key: part(x.key), where: str(x.where, 200), text: str(x.text, 1000), at: str(x.at, 40),
         resolved: x.resolved && ['fixed', 'keep'].includes(x.resolved.kind) && str(x.resolved.note)
           ? { kind: x.resolved.kind, note: str(x.resolved.note), at: str(x.resolved.at, 40) } : null }));
-      return { ...common, notes, locked: false, template: null, story, look, site, review: comments.length ? { comments } : null,
+      const concept = s.concept ? tryOr(() => Concept.cleanConcept(s.concept), null) : null;
+      return { ...common, notes, locked: false, template: null, concept, story, look, site, review: comments.length ? { comments } : null,
         ...(typeof s.siteFilesSaved === 'boolean' ? { siteFilesSaved: s.siteFilesSaved } : {}) };
     }
 
@@ -1536,6 +1577,10 @@
       setStageNeed: saved('setStageNeed'),
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
+      getConcept: loaded('getConcept'),
+      saveConcept: saved('saveConcept'),
+      // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.
+      draftConcept: async () => notOnServerYet(),
       getStory: loaded('getStory'),
       saveStory: saved('saveStory'),
       getStoryGaps: loaded('getStoryGaps'),

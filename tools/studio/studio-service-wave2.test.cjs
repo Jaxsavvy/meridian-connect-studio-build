@@ -15,8 +15,8 @@ test('website workflow: tiers and stages; Motion only in Cinematic; unknown work
   const s = service();
   const wf = await s.getWorkflow('website');
   assert.deepEqual(wf.tiers.map(t => t.id), ['standard', 'cinematic']);
-  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'plan', 'words', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
-  assert.equal(wf.version, 2);
+  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'concept', 'plan', 'words', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
+  assert.equal(wf.version, 3);
   assert.equal(await s.getWorkflow('seo'), null);
   const std = await s.startJob('client-a', 'website', 'standard');
   const cin = await s.startJob('client-a', 'website', 'cinematic');
@@ -35,8 +35,8 @@ test('stages Jax approves wait on him; team stages advance; Space home shows pro
   assert.equal(next.stageId, 'brief'); assert.equal(next.waitingOnJax, true);
   assert.equal(next.stages[0].status, 'waiting-on-jax');
   next = await s.approveStage('client-a', job.id);
-  assert.equal(next.stageId, 'plan'); assert.equal(next.stages[0].status, 'done');
-  await fillStory(s, 'client-a', job.id);
+  assert.equal(next.stageId, 'concept'); assert.equal(next.stages[0].status, 'done');
+  await fillStory(s, 'client-a', job.id);                        // the concept goes to Jax and he approves it
   next = await s.completeStage('client-a', job.id);              // Story and sitemap is a team stage
   assert.equal(next.stageId, 'words');
   const space = await s.getSpace('client-a');
@@ -108,7 +108,7 @@ test('sample-mode stand-in Jax approves waiting stages and Review items after a 
   const job = await s.startJob('client-a', 'website', 'standard');
   assert.equal((await s.completeStage('client-a', job.id)).waitingOnJax, true);
   await wait(40);
-  assert.equal((await s.getJob('client-a', job.id)).stageId, 'plan');
+  assert.equal((await s.getJob('client-a', job.id)).stageId, 'concept');
   const out = await s.generateImage({ spaceId: 'client-a', presetId: 'website-hero', description: 'x', count: 1 });
   await s.sendToReview('client-a', out.results[0].assetId);
   await wait(40);

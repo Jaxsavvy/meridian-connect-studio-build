@@ -19,6 +19,7 @@ test('current, waiting, done and finished follow service; employees cannot appro
   const count = s.jobs.length; await s.model.complete(); assert.equal(s.jobs.length, count);
   await s.service.approveStage(s.job.spaceId, s.job.id); await tick();
   assert.equal(s.views.at(-1).job.stages[0].status, 'done');
+  await s.model.complete(); await s.service.approveStage(s.job.spaceId, s.job.id); await tick();   // Concept (Core #229)
   assert.equal(s.views.at(-1).job.stageId, 'plan');
   await s.model.complete(); assert.equal(s.views.at(-1).job.stageId, 'words');
   while (!s.views.at(-1).job.finished) {
@@ -77,6 +78,7 @@ test('actual stage controls show current step, saved checklist, quality check an
 });
 test('Work follows current stage, tool switching uses guarded screen navigation and exact mount context', async () => {
   const s = await setup(); await s.model.complete(); await s.service.approveStage(s.job.spaceId, s.job.id);
+  await s.service.completeStage(s.job.spaceId, s.job.id); await s.service.approveStage(s.job.spaceId, s.job.id); // Concept (Core #229)
   await s.service.completeStage(s.job.spaceId, s.job.id); await s.service.completeStage(s.job.spaceId, s.job.id); // Storyboard has two tools.
   const el = dom(), mounts = [], routes = [];
   const cleanup = render(el, { spaceId: s.job.spaceId, jobId: s.job.id }, { service: s.service,
@@ -128,6 +130,7 @@ test('actual shell guards tool changes, disposes old mounts and ignores Job even
   } });
   const job = await service.startJob('sample-client', 'website', 'standard'); await fillStory(service, job.spaceId, job.id);
   await service.completeStage(job.spaceId, job.id); await service.approveStage(job.spaceId, job.id);
+  await service.completeStage(job.spaceId, job.id); await service.approveStage(job.spaceId, job.id);   // Concept (Core #229)
   await service.completeStage(job.spaceId, job.id); await service.completeStage(job.spaceId, job.id);
   doc.head = { appendChild() {} }; studio.navigate('work', { spaceId: job.spaceId, jobId: job.id });
   win.MeridianStudioUI.mount({ host: el, getProjects: () => [] }); win.MeridianStudioUI.setActive(true); await tick();

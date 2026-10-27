@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
-const { fillStory } = require('./helpers/website-story.cjs');
+const { fillConcept, fillStory } = require('./helpers/website-story.cjs');
 const { mountCanvas } = require('../../src/renderer/studio/screens/chapter-cards.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
@@ -22,7 +22,7 @@ const fieldOf = (el, label) => walk(el).find(n => n.tag === 'label' && n.childre
 const set = (el, label, value) => { const f = fieldOf(el, label); f.value = value; (f.events.input || f.events.change)(); };
 async function website({ tier = 'standard', stage = 'plan', fill = true } = {}) {
   const service = createSampleService(), job = await service.startJob('sample-client', 'website', tier);
-  if (fill) await fillStory(service, job.spaceId, job.id);
+  await (fill ? fillStory : fillConcept)(service, job.spaceId, job.id);   // the concept passes either way (Core #229)
   for (let guard = 0; guard < 12; guard++) {   // walk the Job to the stage under test (sample Jax approves his stages)
     const j = await service.getJob(job.spaceId, job.id); if (j.stageId === stage) break;
     if (j.waitingOnJax) await service.approveStage(job.spaceId, job.id); else await service.completeStage(job.spaceId, job.id);
