@@ -17,6 +17,7 @@
 .studio-website-bar .is-primary { margin-inline-start: auto; }
 .studio-website-status { align-self: center; color: var(--studio-gold); }
 .studio-website-edit { display: grid; gap: .6rem; align-content: start; min-width: 0; }
+.studio-website-edit[hidden] { display: none; }
 .studio-website-edit :is(h3, p) { margin: 0; }
 .studio-website-field { display: grid; gap: .35rem; }
 .studio-website-field textarea { min-height: 4.5rem; padding: .4rem .5rem; resize: vertical; }
@@ -25,5 +26,12 @@
 .studio-website-sections li { display: grid; gap: .35rem; padding-block-start: .6rem; border-block-start: var(--studio-border) solid var(--studio-line-soft); }
 #studioCenter .studio-website-sections li > button { justify-content: flex-start; text-align: start; }
 .studio-website-tools { display: flex; flex-wrap: wrap; gap: .35rem; }
+.studio-website-foot { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1rem; align-items: start; }
+.studio-website-details, .studio-website-finish { display: grid; gap: .6rem; align-content: start; justify-items: start; min-width: 0; }
+.studio-website-details .studio-website-field { width: 100%; }
+.studio-website-field input { min-height: 2.25rem; padding-inline: .5rem; }
+.studio-website-foot :is(h3, p) { margin: 0; }
+#studioCenter .studio-website-done { color: var(--studio-teal); font-weight: var(--studio-weight-strong); }
+.studio-website-builder :is(input, [tabindex="-1"]):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 @media (max-width: 80rem) { .studio-website-body { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } .studio-website-edit { grid-column: 1 / -1; } }
 @media (max-width: 56rem) { .studio-website-body { grid-template-columns: minmax(0, 1fr); } }
