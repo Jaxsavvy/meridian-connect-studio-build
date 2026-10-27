@@ -21,6 +21,24 @@
   }
   const img = (url, cls, alt = '') => url ? `<img class="${cls}" src="${esc(url)}" alt="${esc(alt)}" loading="lazy">` : '';
   const source = s => `<p class="src">Source: <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a></p>`;
+  /** "Since your first look": our own measurements then vs now. Google ratings and review counts never appear here. */
+  function followUpPanel(followUp) {
+    if (!followUp || typeof followUp !== 'object' || !Array.isArray(followUp.items)) return '';
+    const items = followUp.items.filter(i => i && typeof i === 'object' && typeof i.label === 'string' && i.label.trim()
+      && !/rating|review/i.test(i.label)).slice(0, 8);
+    if (!items.length) return '';
+    const when = /^\d{4}-\d{2}-\d{2}/.test(String(followUp.firstLook || '')) ? ` on ${String(followUp.firstLook).slice(0, 10)}` : '';
+    const row = i => {
+      const then = String(i.then ?? '–').slice(0, 40), now = String(i.now ?? '–').slice(0, 40), a = Number(i.then), b = Number(i.now);
+      const moved = then === now ? 'same' : Number.isFinite(a) && Number.isFinite(b) && then.trim() && now.trim() ? (b > a ? 'up' : 'down') : 'changed';
+      const verdict = moved === 'same' ? 'no change' : moved === 'changed' ? 'changed' : moved === (i.better === 'down' ? 'down' : 'up') ? 'better' : 'worse';
+      const arrow = { up: '↑', down: '↓', same: '→', changed: '→' }[moved];
+      return `<li class="${verdict.replace(' ', '-')}"><span>${esc(i.label.trim().slice(0, 60))}</span><span class="was">${esc(then)}</span>`
+        + `<b aria-label="${verdict}">${arrow}</b><strong>${esc(now)}</strong></li>`;
+    };
+    return `<aside class="followup" aria-label="Since your first look"><div class="in"><p class="eyebrow">Since your first look${esc(when)}</p>`
+      + `<ul>${items.map(row).join('')}</ul><p class="note">Google ratings and reviews are shown live from Google Maps.</p></div></aside>`;
+  }
   const httpsUrl = value => { try { const u = new URL(String(value)); return u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; } };
   /** The selling buttons: Book a call (https booking link only) and Text me this (sms with the board's https link). */
   function sell(options, where) {
@@ -59,7 +77,8 @@
   }
 
   /** Builds the board. Refuses a deck that fails the deck checker; every piece of deck text is escaped.
-   *  options: { bookingUrl, pageUrl } (https only; a button whose link is missing or not https is left out). */
+   *  options: { bookingUrl, pageUrl } (https only; a button whose link is missing or not https is left out) and
+   *  followUp ("Since your first look" panel; left out when missing). */
   function renderDeck(input, assets = {}, options = {}) {
     options = options && typeof options === 'object' ? options : {};
     const checked = getDeckData().validateDeck(input);
@@ -69,6 +88,7 @@
     const sections = [
       `<header class="hero">${img(assetUrl(assets, 'hero'), 'bg')}<div class="top">${logo}</div><div class="in"><p class="eyebrow">Prepared exclusively for</p>`
         + `<p class="who">${esc(c.name)}</p><h1>Market Opportunity Analysis</h1><p class="lede">${esc(c.town)} · ${esc(c.preparedOn)}</p>${sell(options, 'top')}</div></header>`,
+      followUpPanel(options.followUp),
       `<section id="s-score" class="split"><div>${head(1, 'The bottom line', d.bottomLine.headline, d.bottomLine.text)}</div>`
         + `<div class="score"><p class="eyebrow">Business success score</p>${gauge(d.score)}<ul class="parts">`
         + d.score.parts.map(p => `<li><span>${esc(p.name)}</span><strong>${fmt(p.points)} of ${fmt(p.max)}</strong></li>`).join('') + '</ul></div>'
@@ -148,7 +168,10 @@ section{max-width:1080px;margin:0 auto;padding:4.5rem 1.25rem;border-top:1px sol
 .close p{max-width:36rem;color:var(--text)}.close .privacy{font-size:.8rem;color:var(--muted)}
 .sell{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem}.btn{display:inline-flex;align-items:center;min-height:48px;padding:0 1.4rem;border:1px solid rgba(255,255,255,.6);border-radius:999px;color:var(--text);text-decoration:none;font-weight:600}
 .btn.primary{background:var(--blue);border-color:var(--blue)}.btn:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
-@media (max-width:760px){section{padding:3rem 1rem}.split,.finds,.lanes,.tiers,.moves,.timeline{grid-template-columns:1fr}.bar{grid-template-columns:7rem 1fr 2.5rem}
+.followup{max-width:1080px;margin:0 auto;padding:2rem 1.25rem 0}.followup .in{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:1.4rem}
+.followup ul{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}.followup li{display:grid;grid-template-columns:1fr auto auto auto;gap:.8rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--line)}
+.followup .was{color:var(--muted)}.followup b{font-size:1.2rem}.followup .better b,.followup .better strong{color:#4cd29a}.followup .worse b{color:#e8a33c}.followup .note{color:var(--muted);font-size:.8rem;margin:.8rem 0 0}
+@media (max-width:760px){.followup li{grid-template-columns:1fr auto auto auto;gap:.5rem}section{padding:3rem 1rem}.split,.finds,.lanes,.tiers,.moves,.timeline{grid-template-columns:1fr}.bar{grid-template-columns:7rem 1fr 2.5rem}
 .reviews li{grid-template-columns:1fr}.stats strong{font-size:2rem}.hero{min-height:80vh}}`;
 
   return { esc, assetUrl, renderDeck };
