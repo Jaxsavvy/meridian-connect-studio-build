@@ -459,6 +459,21 @@
             : `${topic}. We show up on time, explain the work in plain words, and leave the place cleaner than we found it. Call today for a free estimate.`;
         return clone({ draft, settingsUsed: { kind, voice, model: 'sample', useBrandDna: space.type === 'client' } });
       },
+      /** Meridian drafts one chapter card's words (#193): { draft: { headline, body, button }, settingsUsed }.
+       *  input: { page?, name?, job? } as typed on the card (may be unsaved). Never saves; the person accepts it on the board. */
+      async draftChapter(spaceId, jobId, input) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        const i = input && typeof input === 'object' ? input : {};
+        const page = text(i.page, 'Page name', 80), name = text(i.name, 'Chapter name', 80), aim = text(i.job, 'Chapter job', 300);
+        const cta = text((job.notes.brief || {}).callToAction, 'Main call to action', 200);
+        const topic = name || page || 'This chapter';
+        const draft = {
+          headline: `${topic}, done right the first time`,
+          body: `${aim ? `${aim.replace(/[.!?]+$/, '')}. ` : ''}We show up on time, explain the work in plain words, and leave the place cleaner than we found it.`,
+          button: (cta || 'Get a free estimate').slice(0, 60),
+        };
+        return clone({ draft, settingsUsed: { voice: space.type === 'client' ? 'Confident, plain-spoken' : 'Friendly', model: 'sample', useBrandDna: space.type === 'client' } });
+      },
       async listPresets(toolId) { return clone(PRESETS.filter(p => p.toolId === toolId)); },
       /** Saves a Job's outputs into the client project's folder (Files tab, Docs), named "<Job name> - <file>".
        *  files: [{ name: 'Research summary.md', content: '...' }]. Saving the same name again replaces it. */
@@ -1177,6 +1192,8 @@
       getStoryGaps: (...a) => local.getStoryGaps(...a),
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
+      // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.
+      draftChapter: async () => notOnServerYet(),
       getDeck: loaded('getDeck'),
       saveDeck: saved('saveDeck'),
       getResearchSummary: loaded('getResearchSummary'),
