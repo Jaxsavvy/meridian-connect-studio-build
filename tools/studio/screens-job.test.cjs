@@ -1,6 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
+const { fillStory } = require('./helpers/website-story.cjs'); // chapter cards so Website gates pass (#186)
 const { createJob, render, safeUrl } = require('../../src/renderer/studio/screens/job.js');
 const { createSpace } = require('../../src/renderer/studio/screens/space.js');
 const { mount } = require('../../src/renderer/studio/screens/stage-bar.js');
@@ -19,10 +20,11 @@ const click = (el, label) => walk(el).find(n => n.tag === 'button' && text(n) ==
 test('sample Job page shows ordered stages, safe stage images, progress, statuses and routes', async () => {
   const service = createSampleService(), routes = [], el = dom();
   const job = await service.startJob('sample-client', 'website', 'standard');
+  await fillStory(service, job.spaceId, job.id);
   const params = { spaceId: job.spaceId, jobId: job.id };
   const cleanup = render(el, params, { service, navigate: (...v) => routes.push(v) });
   assert.match(text(el), /Loading Job/); await tick();
-  assert.match(text(el), /Website v1Standard0 of 8 stages done/);
+  assert.match(text(el), /Website v1Standard0 of 9 stages done/);
   assert.equal(walk(el).filter(n => n.attrs['aria-current'] === 'step').length, 1);
   assert.deepEqual(walk(el).filter(n => n.tag === 'h2').map(n => n.textContent), job.stages.map(s => s.name));
   assert.match(text(el), /current/); assert.match(text(el), /upcoming/); assert.match(text(el), /Nothing made here yet/);
@@ -34,14 +36,14 @@ test('sample Job page shows ordered stages, safe stage images, progress, statuse
   await tick(); const images = walk(el).filter(n => n.tag === 'img'); assert.equal(images.length, 1);
   const assets = await service.listJobAssets(job.spaceId, job.id);
   assert.equal(images[0].alt, assets.look[0].name); assert.equal(images[0].src, generated.results[0].url);
-  assert.match(text(el), /3 of 8 stages done/);
+  assert.match(text(el), /3 of 9 stages done/);
   click(el, 'Open in Work'); click(el, 'Back');
   assert.deepEqual(routes, [['work', params], ['space', { spaceId: job.spaceId }]]);
   while (!(await service.getJob(job.spaceId, job.id)).finished) {
     await service.completeStage(job.spaceId, job.id);
     if ((await service.getJob(job.spaceId, job.id)).waitingOnJax) await service.approveStage(job.spaceId, job.id);
   }
-  await tick(); assert.match(text(el), /8 of 8 stages doneJob finished/);
+  await tick(); assert.match(text(el), /9 of 9 stages doneJob finished/);
   assert.equal(walk(el).some(n => n.attrs['aria-current']), false); cleanup();
 });
 test('loads together, ignores foreign events, retries safe failures, rejects foreign Jobs and stale responses', async () => {

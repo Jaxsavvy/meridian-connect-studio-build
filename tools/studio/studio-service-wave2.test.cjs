@@ -2,6 +2,7 @@
 // Core: sample data for workflows, jobs, Review and versions (Wave 2 prep).
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { fillStory } = require('./helpers/website-story.cjs');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
 
 function service() {
@@ -14,7 +15,8 @@ test('website workflow: tiers and stages; Motion only in Cinematic; unknown work
   const s = service();
   const wf = await s.getWorkflow('website');
   assert.deepEqual(wf.tiers.map(t => t.id), ['standard', 'cinematic']);
-  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'plan', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
+  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'plan', 'words', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
+  assert.equal(wf.version, 2);
   assert.equal(await s.getWorkflow('seo'), null);
   const std = await s.startJob('client-a', 'website', 'standard');
   const cin = await s.startJob('client-a', 'website', 'cinematic');
@@ -34,10 +36,11 @@ test('stages Jax approves wait on him; team stages advance; Space home shows pro
   assert.equal(next.stages[0].status, 'waiting-on-jax');
   next = await s.approveStage('client-a', job.id);
   assert.equal(next.stageId, 'plan'); assert.equal(next.stages[0].status, 'done');
-  next = await s.completeStage('client-a', job.id);              // Plan is a team stage
-  assert.equal(next.stageId, 'storyboard');
+  await fillStory(s, 'client-a', job.id);
+  next = await s.completeStage('client-a', job.id);              // Story and sitemap is a team stage
+  assert.equal(next.stageId, 'words');
   const space = await s.getSpace('client-a');
-  assert.equal(space.jobs[0].stage, 'Storyboard');
+  assert.equal(space.jobs[0].stage, 'Words');
   assert.ok(space.jobs[0].progress > 0);
   await assert.rejects(s.approveStage('client-a', job.id), /not waiting on Jax/);
 });

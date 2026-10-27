@@ -1,12 +1,14 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
+const { fillStory } = require('./helpers/website-story.cjs'); // chapter cards so Website gates pass (#186)
 const { createStageBar, mount } = require('../../src/renderer/studio/screens/stage-bar.js');
 const { createWork, render } = require('../../src/renderer/studio/screens/work.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function setup() {
   const service = createSampleService(), views = [], jobs = [];
   const job = await service.startJob('sample-client', 'website', 'standard');
+  await fillStory(service, job.spaceId, job.id);
   const model = createStageBar({ service, spaceId: job.spaceId, jobId: job.id,
     report: v => views.push(v), onStage: j => jobs.push(j) });
   await model.load(); return { service, job, views, jobs, model };
@@ -18,7 +20,7 @@ test('current, waiting, done and finished follow service; employees cannot appro
   await s.service.approveStage(s.job.spaceId, s.job.id); await tick();
   assert.equal(s.views.at(-1).job.stages[0].status, 'done');
   assert.equal(s.views.at(-1).job.stageId, 'plan');
-  await s.model.complete(); assert.equal(s.views.at(-1).job.stageId, 'storyboard');
+  await s.model.complete(); assert.equal(s.views.at(-1).job.stageId, 'words');
   while (!s.views.at(-1).job.finished) {
     await s.model.complete();
     if (s.views.at(-1).job.waitingOnJax) { await s.service.approveStage(s.job.spaceId, s.job.id); await tick(); }
@@ -61,7 +63,7 @@ test('actual stage controls show current step, local checklist, quality check an
   const s = await setup(), el = dom();
   const cleanup = mount(el, { spaceId: s.job.spaceId, jobId: s.job.id, studio: { service: s.service } });
   await tick(); assert.equal(walk(el).filter(n => n.attrs['aria-current'] === 'step').length, 1);
-  assert.match(text(el), /Quality check: Brief matches Project DNA/); assert.match(text(el), /Approved by Jax/);
+  assert.match(text(el), /Quality check: Jax approves the DNA and the goal/); assert.match(text(el), /Approved by Jax/);
   const checkbox = walk(el).find(n => n.type === 'checkbox'); checkbox.checked = true; checkbox.events.change();
   walk(el).find(n => text(n) === 'Mark stage done').click(); await tick();
   assert.equal(walk(el).find(n => n.tag === 'button').disabled, true);
@@ -70,7 +72,7 @@ test('actual stage controls show current step, local checklist, quality check an
 });
 test('Work follows current stage, tool switching uses guarded screen navigation and exact mount context', async () => {
   const s = await setup(); await s.model.complete(); await s.service.approveStage(s.job.spaceId, s.job.id);
-  await s.service.completeStage(s.job.spaceId, s.job.id); // Storyboard has two tools.
+  await s.service.completeStage(s.job.spaceId, s.job.id); await s.service.completeStage(s.job.spaceId, s.job.id); // Storyboard has two tools.
   const el = dom(), mounts = [], routes = [];
   const cleanup = render(el, { spaceId: s.job.spaceId, jobId: s.job.id }, { service: s.service,
     navigate: (...v) => routes.push(v), mountInto: (slot, kind, id, ctx) => mounts.push({ slot, kind, id, ctx }) });
@@ -81,7 +83,7 @@ test('Work follows current stage, tool switching uses guarded screen navigation 
   assert.deepEqual(routes[0], ['work', { ...expected, toolId: 'image-gen' }]);
   const stage = mounts.find(n => n.id === 'stage-bar');
   stage.ctx.onStage(await s.service.getJob(s.job.spaceId, s.job.id)); assert.equal(routes.length, 1);
-  await s.service.completeStage(s.job.spaceId, s.job.id);
+  await s.service.completeStage(s.job.spaceId, s.job.id); await s.service.approveStage(s.job.spaceId, s.job.id); // Jax OKs the storyboard
   const next = await s.service.getJob(s.job.spaceId, s.job.id); stage.ctx.onStage(next);
   assert.deepEqual(routes[1], ['work', { spaceId: s.job.spaceId, jobId: s.job.id, stageId: 'look', toolId: 'image-gen' }]);
   cleanup(); stage.ctx.onStage({ ...next, stageId: 'review' }); assert.equal(routes.length, 2); s.model.dispose();
@@ -119,9 +121,9 @@ test('actual shell guards tool changes, disposes old mounts and ignores Job even
     activeTools++; const off = ctx.studio.service.on(() => {});
     return () => { activeTools--; off(); };
   } });
-  const job = await service.startJob('sample-client', 'website', 'standard');
+  const job = await service.startJob('sample-client', 'website', 'standard'); await fillStory(service, job.spaceId, job.id);
   await service.completeStage(job.spaceId, job.id); await service.approveStage(job.spaceId, job.id);
-  await service.completeStage(job.spaceId, job.id);
+  await service.completeStage(job.spaceId, job.id); await service.completeStage(job.spaceId, job.id);
   doc.head = { appendChild() {} }; studio.navigate('work', { spaceId: job.spaceId, jobId: job.id });
   win.MeridianStudioUI.mount({ host: el, getProjects: () => [] }); win.MeridianStudioUI.setActive(true); await tick();
   assert.equal(activeTools, 1); studio.setDirty(true);
@@ -129,7 +131,7 @@ test('actual shell guards tool changes, disposes old mounts and ignores Job even
   assert.equal(studio.current().params.toolId, undefined); assert.equal(activeTools, 1);
   allow = true; walk(el).find(n => n.tag === 'button' && text(n) === 'Image gen').click(); await tick();
   assert.equal(studio.current().params.toolId, 'image-gen'); assert.equal(activeTools, 1);
-  await service.completeStage(job.spaceId, job.id); await tick();
+  await service.completeStage(job.spaceId, job.id); await service.approveStage(job.spaceId, job.id); await tick(); // Jax OKs the storyboard
   assert.equal(studio.current().params.stageId, 'look'); assert.equal(activeTools, 1);
   studio.navigate('space', { spaceId: job.spaceId }); assert.equal(activeTools, 0);
   await service.completeStage(job.spaceId, job.id); await tick(); assert.equal(studio.current().name, 'space');
