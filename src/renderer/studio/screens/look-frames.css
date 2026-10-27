@@ -1,0 +1,24 @@
+.studio-look-frames { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-look-frames :is(h2, h3, p, figure) { margin: 0; }
+.studio-look-frames-make { display: grid; gap: .75rem; justify-items: start; }
+.studio-look-frames-make fieldset { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 0; padding: 0; border: 0; }
+.studio-look-frames-make legend { margin-block-end: .5rem; font-weight: var(--studio-weight-strong); }
+.studio-look-frames-make label { display: inline-flex; align-items: center; gap: .4rem; }
+.studio-look-frames-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.studio-look-frames-card { display: grid; gap: .5rem; align-content: start; justify-items: start; }
+#studioCenter .studio-look-frames-card.is-chosen { border-color: var(--studio-teal); }
+.studio-look-frames-card figure { display: grid; gap: .4rem; width: 100%; }
+.studio-look-frames-card img, .studio-look-frames-missing { width: 100%; aspect-ratio: 2 / 3; border-radius: var(--studio-radius); background: var(--studio-night); }
+.studio-look-frames-card img { display: block; object-fit: cover; object-position: top; }
+.studio-look-frames-missing { display: grid; place-items: center; color: var(--studio-muted); }
+.studio-look-frames-card figcaption { font-weight: var(--studio-weight-strong); }
+#studioCenter .studio-look-frames-chosen { border-color: var(--studio-teal); color: var(--studio-teal); }
+.studio-look-frames-locked { color: var(--studio-muted); }
+.studio-look-frames-shots { display: grid; gap: .6rem; }
+.studio-look-frames-shots ul { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.studio-look-frames-shots li { display: grid; gap: .4rem; justify-items: start; }
+.studio-look-frames-shots label { display: grid; gap: .35rem; width: 100%; }
+.studio-look-frames-shots textarea { min-height: 5rem; padding: .4rem .5rem; resize: vertical; }
+#studioCenter .studio-look-frames-shots .is-made { color: var(--studio-teal); }
+#studioCenter .studio-look-frames-shots .is-todo { color: var(--studio-gold); }
+.studio-look-frames :is(input, button, textarea):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
