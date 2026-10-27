@@ -761,6 +761,15 @@ if (!gotTheLock) {
       if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > 5 * 1024 * 1024) return { success: false, error: 'File must be text, 5 MB at most.' };
       return api.uploadProjectBytes(projectId, Buffer.from(content, 'utf8'), name, 'Docs');
     });
+    // Studio's pitch deck save file read back from the project's folder (Docs): only that one file; Team Hub checks access.
+    ipcMain.handle('studio:read-project-save', async (e, req) => {
+      const projectId = String((req && req.projectId) || '');
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) return { success: false, error: 'Unknown project.' };
+      const res = await api.downloadProjectFile(projectId, 'Pitch deck - Studio save.json', 'Docs');
+      if (!res.success) return { success: false, missing: res.error === 'HTTP 404', offline: !!res.offline, error: res.error };
+      if (res.bytes.length > 5 * 1024 * 1024) return { success: false, error: 'The save file is too big.' };
+      return { success: true, content: res.bytes.toString('utf8') };
+    });
     ipcMain.handle('ws:upload', async (e, { projectId, section }) => {
       const pick = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Add files to project', properties: ['openFile', 'multiSelections'] });
       if (pick.canceled || !pick.filePaths.length) return { success: true, uploaded: 0 };
