@@ -1,5 +1,5 @@
 'use strict';
-// Core: look frames, ChatGPT designs the look and the engine builds it (#191). Synthetic data only.
+// Core: look frames, ChatGPT designs the look and the engine builds it (#202). Synthetic data only.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Look = require('../../src/renderer/studio/website/look-frames.js');

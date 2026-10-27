@@ -1,4 +1,4 @@
-/* Look frames: ChatGPT designs the look, the site engine builds it (#191). Core lane.
+/* Look frames: ChatGPT designs the look, the site engine builds it (#202). Core lane.
  * Jax, 2026-10-26: ChatGPT does visual design much better, so in Look and assets it designs 2-3 full-page
  * "look frames" from the finished chapter cards + Project DNA; Jax picks one; every shot is then made in that
  * frame's style; the frame's colours, type and section choices become the site's style numbers. The build still

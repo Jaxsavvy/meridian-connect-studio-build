@@ -1065,7 +1065,7 @@ function showChangePassword(user, me) {
     box = document.createElement('div');
     box.id = 'pw-change-view';
     box.style.cssText = 'position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#05070EF0;font-family:inherit';
-    box.innerHTML = `<form id="pw-change-form" style="width:min(420px,92vw);padding:28px;border:1px solid #3A4260;border-radius:16px;background:linear-gradient(150deg,#19192B,#0D1220);color:#EAF1FC;display:grid;gap:10px">
+    box.innerHTML = `<form id="pw-change-form" style="width:min(420px,92vw);padding:28px;border:1px solid #3A4260;border-radius:16px;background:linear-gradient(150deg,#20292B,#0D1220);color:#EAF1FC;display:grid;gap:10px">
       <div style="font:700 10px ui-monospace,monospace;letter-spacing:.16em;color:#79DDE9">MERIDIAN CONNECT</div>
       <h2 style="margin:0;font-size:22px">Choose your password</h2>
       <p id="pw-change-hello" style="margin:0 0 6px;color:#8EA0BC;font-size:13px"></p>

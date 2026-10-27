@@ -47,7 +47,7 @@
     ['ad-creative', 'Ad creative', '1:1', ['What is the offer?', 'Where does the headline go?']],
     ['seasonal', 'Seasonal promo', '4:5', ['Which season or holiday?']],
   ].map(([id, name, size, questions]) => Object.freeze({ id, toolId: 'image-gen', name, size, questions: Object.freeze(questions) }));
-  // Internal: a full-page website design from ChatGPT images (#191). Not in Image gen's list; only the Website pipeline uses it.
+  // Internal: a full-page website design from ChatGPT images (#202). Not in Image gen's list; only the Website pipeline uses it.
   const LOOK_PRESET = Object.freeze({ id: 'look-frame', toolId: 'image-gen', name: 'Website look frame', size: '2:3', questions: Object.freeze([]) });
   const SAMPLE_DNA = Object.freeze({ status: 'draft', brief: 'Sample brief', colors: Object.freeze(['#0b1f3a', '#2bb3a3']), fonts: Object.freeze(['Source Serif 4', 'Inter']),
     voice: 'Confident, plain-spoken', audience: 'Local homeowners' });
@@ -271,7 +271,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, ...extra }; // Website only: chapter cards (#186), look frames (#191)
+        story: null, look: null, ...extra }; // Website only: chapter cards (#186), look frames (#202)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -520,7 +520,7 @@
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
       },
-      /** Look frames (#191): ChatGPT's full-page designs for this Website Job, and which one Jax picked. */
+      /** Look frames (#202): ChatGPT's full-page designs for this Website Job, and which one Jax picked. */
       async getLook(spaceId, jobId) {
         const { job } = websiteJob(spaceId, jobId);
         return clone(lookOf(job));
