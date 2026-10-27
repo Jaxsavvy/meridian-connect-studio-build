@@ -61,7 +61,7 @@ contextBridge.exposeInMainWorld('meridian', {
     ws: (method, endpoint, body) => ipcRenderer.invoke('ws:request', { method, endpoint, body }),
     studio: (method, endpoint, body) => ipcRenderer.invoke('studio:request', { method, endpoint, body }),
     studioSaveFile: (projectId, name, content) => ipcRenderer.invoke('studio:save-project-file', { projectId, name, content }),
-    studioReadSave: projectId => ipcRenderer.invoke('studio:read-project-save', { projectId }),
+    studioReadSave: (projectId, name) => ipcRenderer.invoke('studio:read-project-save', { projectId, name }),
     studioCheckBoard: req => ipcRenderer.invoke('studio:check-board', req),
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
     wsCreateProjectPdf: (projectId, title, content) => ipcRenderer.invoke('ws:create-project-pdf', { projectId, title, content }),
