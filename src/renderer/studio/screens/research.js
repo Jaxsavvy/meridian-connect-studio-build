@@ -12,6 +12,32 @@
   const SUBJECTS = Object.freeze({ client: 'Business', competitor: 'Competitor', market: 'Market' });
   const METHODS = Object.freeze({ api: 'API', 'page-read': 'Page read', census: 'Census', person: 'Person', 'ai-estimate': 'Estimate' });
   const httpUrl = value => { try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch (_) { return false; } };
+  // What a person can type in (research-model.js). Never Google rating or review count: those show live from Google Maps.
+  const BOTH = Object.freeze(['client', 'competitor']), MARKET = Object.freeze(['market']);
+  const fact = (kind, field, label, subjects, type) => Object.freeze({ id: field ? `${kind}:${field}` : kind, kind, field, label, subjects, type });
+  const HAND_FACTS = Object.freeze([
+    fact('place', undefined, 'A business in the local search (place ID + rank)', BOTH, 'place'),
+    ...['website', 'phone', 'hours', 'categories', 'photos'].map(f => fact('profile', f, `Google profile: ${FIELDS[f]}`, BOTH, 'yes-no')),
+    fact('website', 'speed', 'Website: Page speed (0-100)', BOTH, 'number'),
+    ...['https', 'phoneLink', 'contactForm', 'adsPixel', 'social'].map(f => fact('website', f, `Website: ${FIELDS[f]}`, BOTH, 'yes-no')),
+    ...['population', 'households'].map(f => fact('census', f, `Census: ${FIELDS[f]}`, MARKET, 'number')),
+    fact('demand', 'monthlySearches', 'Demand: Monthly searches', MARKET, 'number'),
+  ]);
+
+  /** A typed-in fact from the form, ready for addEvidence; throws a plain message when something is missing. */
+  function buildFact(draft) {
+    const what = HAND_FACTS.find(f => f.id === draft.what);
+    if (!what || !what.subjects.includes(draft.subject)) throw Error('Pick what the fact is and who it\'s about.');
+    const label = String(draft.label || '').trim(), url = String(draft.url || '').trim();
+    if (!label || !url) throw Error('Add the source name and its link.');
+    const out = { kind: what.kind, subject: draft.subject, source: { label, url } };
+    if (what.type === 'place' || draft.subject === 'competitor') out.placeId = String(draft.placeId || '').trim();
+    if (what.type === 'place') return { ...out, rank: Number(draft.rank) };
+    if (what.type === 'yes-no') return { ...out, field: what.field, value: draft.yes !== 'no' };
+    const value = String(draft.value || '').trim() === '' ? NaN : Number(draft.value);
+    if (!Number.isFinite(value)) throw Error('Type the number you found.');
+    return { ...out, field: what.field, value };
+  }
 
   /** One evidence record as plain text for a row; null when its source can't be shown (it becomes a gap). */
   function evidenceRow(e) {
@@ -21,12 +47,12 @@
     const value = e.kind === 'google' ? 'Live from Google Maps' : e.kind === 'place' ? `Rank ${Number(e.rank) || '?'}`
       : typeof e.value === 'boolean' ? (e.value ? 'Yes' : 'No')
         : Number.isFinite(e.value) ? `${e.method === 'ai-estimate' ? '~' : ''}${e.value.toLocaleString('en-US')}` : '–';
-    return { id: String(e.id), label, value, method: METHODS[e.method] || 'Other',
+    return { id: String(e.id), label, value, method: METHODS[e.method] || 'Other', removable: e.method === 'person',
       source: String(e.source.label || 'Source').slice(0, 80), url: String(e.source.url), live: e.kind === 'google' };
   }
 
   function createResearch({ service, spaceId, jobId, report }) {
-    let disposed = false, revision = 0, research = null, stage = null, busy = false, applied = null;
+    let disposed = false, revision = 0, research = null, stage = null, busy = false, applied = null, names = {};
     function show(error = '') {
       const rows = (research.evidence || []).map(evidenceRow);
       // Google rating and review count are never stored; once the business is picked they always show as live.
@@ -36,7 +62,10 @@
       }
       const gaps = [...(research.score?.missing || []), ...(rows.includes(null) ? ['A source could not be shown'] : [])];
       const done = research.status === 'done' && !!research.placeId;
-      report({ state: 'ready', research, rows: rows.filter(Boolean), gaps, busy, error, applied,
+      // Google names aren't stored, so a person types each competitor's name for the deck.
+      const competitors = (research.evidence || []).filter(e => e?.kind === 'place' && e.subject === 'competitor' && e.placeId)
+        .map(e => ({ placeId: String(e.placeId), rank: Number(e.rank) || 0 })).sort((a, b) => a.rank - b.rank);
+      report({ state: 'ready', research, rows: rows.filter(Boolean), gaps, busy, error, applied, competitors, names: { ...names },
         finished: stage?.status === 'done', canFinish: done && stage?.status === 'current' && !busy });
     }
     async function load() {
@@ -55,15 +84,23 @@
       }
     }
     async function act(work) {
-      if (disposed || busy || !research) return;
+      if (disposed || busy || !research) return false;
       busy = true; show();
-      try { await work(); busy = false; await load(); } catch (error) { if (!disposed) { busy = false; show(error?.message || 'Try again.'); } }
+      try { await work(); busy = false; await load(); return true; } catch (error) {
+        if (!disposed) { busy = false; show(error?.message || 'Try again.'); }
+        return false;
+      }
     }
     return { load,
       run: category => act(() => { applied = null; return service.startResearch(spaceId, jobId, { category: String(category || '').trim() }); }),
       confirm: placeId => act(() => service.confirmMatch(spaceId, jobId, placeId)),
+      // onSaved runs after the service accepts the fact and before the screen redraws.
+      addFact: (draft, onSaved) => act(async () => { await service.addEvidence(spaceId, jobId, buildFact(draft)); onSaved?.(); }),
+      removeFact: id => act(() => service.removeEvidence(spaceId, jobId, id)),
+      setName(placeId, name) { if (!disposed) names[placeId] = String(name).slice(0, 60); },
       apply: () => act(async () => {
-        const result = await service.applyResearchToDeck(spaceId, jobId);
+        const typed = Object.fromEntries(Object.entries(names).map(([id, name]) => [id, name.trim()]).filter(([, name]) => name));
+        const result = await service.applyResearchToDeck(spaceId, jobId, { names: typed });
         applied = { ok: !!result?.ok, errors: Array.isArray(result?.errors) ? result.errors.length : 0 };
       }),
       finish: () => act(() => service.completeStage(spaceId, jobId, 'research')),
@@ -77,6 +114,8 @@
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const focus = states.focus(root);
     let listeners = [], category = '';
+    // The "Add a fact" draft lives here so typing survives each redraw; the source stays for the next fact.
+    const draft = { what: 'place', subject: 'client', value: '', yes: 'yes', placeId: '', rank: '', label: '', url: '' };
     const listen = (item, type, fn) => { item.addEventListener(type, fn); listeners.push([item, type, fn]); };
     const unlisten = () => { for (const [item, type, fn] of listeners) item.removeEventListener?.(type, fn); listeners = []; };
     function node(tag, text, className) {
@@ -91,6 +130,48 @@
       const box = node('section', '', 'studio-card'); box.appendChild(node('h2', title));
       const ul = node('ul', '', 'studio-research-list'); for (const item of items) ul.appendChild(make(item));
       box.appendChild(ul); return box;
+    }
+    function control(tag, label, key, attrs = {}) {
+      const wrap = node('label', '', 'studio-research-field'), item = node(tag);
+      Object.assign(item, attrs); if (tag !== 'select') item.value = draft[key];
+      listen(item, tag === 'select' ? 'change' : 'input', () => { draft[key] = item.value; sync(); });
+      wrap.append(node('span', label), item); return { wrap, item };
+    }
+    let sync = () => {};
+    function factForm(locked) {
+      const box = node('fieldset', '', 'studio-card studio-research-form'); box.appendChild(node('legend', 'Add a fact'));
+      const what = control('select', 'What is it?', 'what'), subject = control('select', 'Who is it about?', 'subject');
+      for (const f of HAND_FACTS) { const option = node('option', f.label); option.value = f.id; what.item.appendChild(option); }
+      const yes = control('select', 'Yes or no', 'yes'), value = control('input', 'Number', 'value', { type: 'number', min: 0, step: 'any' });
+      for (const [v, t] of [['yes', 'Yes'], ['no', 'No']]) { const option = node('option', t); option.value = v; yes.item.appendChild(option); }
+      const placeId = control('input', 'Google place ID', 'placeId'), rank = control('input', 'Rank in the local search', 'rank', { type: 'number', min: 1, step: 1 });
+      const label = control('input', 'Source name', 'label', { maxLength: 120 }), url = control('input', 'Source link (https://…)', 'url', { type: 'url' });
+      const fields = [what, subject, yes, value, placeId, rank, label, url];
+      for (const f of fields) f.item.disabled = locked;
+      sync = () => {
+        const kind = HAND_FACTS.find(f => f.id === draft.what) || HAND_FACTS[0];
+        if (!kind.subjects.includes(draft.subject)) draft.subject = kind.subjects[0];
+        subject.item.replaceChildren(...kind.subjects.map(s => { const o = node('option', SUBJECTS[s]); o.value = s; return o; }));
+        what.item.value = kind.id; subject.item.value = draft.subject; yes.item.value = draft.yes;
+        yes.wrap.hidden = kind.type !== 'yes-no'; value.wrap.hidden = kind.type !== 'number';
+        value.item.max = kind.field === 'speed' ? 100 : '';
+        placeId.wrap.hidden = !(kind.type === 'place' || draft.subject === 'competitor'); rank.wrap.hidden = kind.type !== 'place';
+      };
+      sync();
+      box.append(...fields.map(f => f.wrap), button('Add fact', () => void model.addFact({ ...draft },
+        () => Object.assign(draft, { value: '', placeId: '', rank: '' })), true, locked));
+      return box;
+    }
+    function namesForm(view, locked) {
+      const box = node('section', '', 'studio-card'), ul = node('ul', '', 'studio-research-list');
+      box.append(node('h2', 'Competitor names'), node('p', 'Type each name as it shows on Google. Google names aren\'t saved, so the deck uses yours.'), ul);
+      for (const c of view.competitors) {
+        const li = node('li'), field = node('label', '', 'studio-research-field'), input = node('input');
+        input.value = view.names[c.placeId] || ''; input.maxLength = 60; input.disabled = locked;
+        listen(input, 'input', () => model.setName(c.placeId, input.value));
+        field.append(node('span', `Competitor at rank ${c.rank || '?'}`), input); li.appendChild(field); ul.appendChild(li);
+      }
+      return box;
     }
     const model = createResearch({ service: studio.service, spaceId, jobId,
       report(view) {
@@ -107,10 +188,11 @@
         input.value = category || r.category || ''; input.disabled = locked; input.placeholder = 'roofer';
         listen(input, 'input', () => { category = input.value; });
         field.append(node('span', 'What kind of business?'), input);
-        form.append(field, button(r.status === 'not-started' ? 'Run research' : 'Run again', () => void model.run(input.value), true, locked));
+        form.append(field, button(['not-started', 'by-hand'].includes(r.status) ? 'Run research' : 'Run again', () => void model.run(input.value), true, locked));
         root.appendChild(form);
         const status = node('p', { 'not-started': 'Research hasn\'t run yet.', running: 'Research is running…',
           'needs-match': 'More than one business could match. Pick the right one.', done: 'Research is done.',
+          'by-hand': 'Type in the facts you found. Add the business\'s own Google place to confirm it.',
           failed: 'Research couldn\'t finish. Check the category and run it again.' }[r.status] || '');
         status.setAttribute('role', r.status === 'failed' ? 'alert' : 'status'); root.appendChild(status);
         if (r.status === 'needs-match') {
@@ -125,9 +207,16 @@
             link.href = row.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
             li.append(node('strong', row.label), node('span', row.value), node('span', row.method, 'studio-chip'), link);
             if (row.live) li.appendChild(node('span', 'Google Maps', 'studio-research-credit'));
+            if (row.removable) {   // only facts a person typed in; the agent's stay
+              const remove = button('Remove', () => void model.removeFact(row.id), false, view.busy || view.finished);
+              remove.setAttribute('aria-label', `Remove ${row.label}`); li.appendChild(remove);
+            }
             return li;
           }));
         }
+        const handLocked = view.busy || view.finished || ['running', 'needs-match'].includes(r.status);
+        root.appendChild(factForm(handLocked));
+        if (view.competitors.length) root.appendChild(namesForm(view, view.busy || view.finished));
         if (r.score) {
           const score = list(`Score: ${r.score.value} of 100${r.score.band ? ` (${r.score.band})` : ''}`, r.score.parts || [],
             part => node('li', `${part.name}: ${part.points} of ${part.max}`));
