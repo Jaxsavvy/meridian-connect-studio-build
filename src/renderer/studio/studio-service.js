@@ -8,7 +8,7 @@
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
-  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229):
+  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -18,10 +18,11 @@
     node ? require('./website/site-check.js') : root && root.MeridianSiteCheck,
     node ? require('./website/look-frames.js') : root && root.MeridianLookFrames,
     node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit,
-    node ? require('./website/concept.js') : root && root.MeridianConcept);
+    node ? require('./website/concept.js') : root && root.MeridianConcept,
+    node ? require('./website/storyboard-frames.js') : root && root.MeridianStoryboardFrames);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -60,6 +61,7 @@
   ].map(([id, name, size, questions]) => Object.freeze({ id, toolId: 'image-gen', name, size, questions: Object.freeze(questions) }));
   // Internal: a full-page website design from ChatGPT images (#202). Not in Image gen's list; only the Website pipeline uses it.
   const LOOK_PRESET = Object.freeze({ id: 'look-frame', toolId: 'image-gen', name: 'Website look frame', size: '2:3', questions: Object.freeze([]) });
+  const FRAME_PRESET = Object.freeze({ id: 'storyboard-frame', toolId: 'image-gen', name: 'Website storyboard frame', size: '3:2', questions: Object.freeze([]) });   // #231
   const SAMPLE_DNA = Object.freeze({ status: 'draft', brief: 'Sample brief', colors: Object.freeze(['#0b1f3a', '#2bb3a3']), fonts: Object.freeze(['Source Serif 4', 'Inter']),
     voice: 'Confident, plain-spoken', audience: 'Local homeowners' });
 
@@ -81,7 +83,7 @@
         STAGE('concept', 'Concept', 'The big idea in one line, named as a place or feeling, plus the audience, one goal, 3 reference sites and mood words.', ['concept'], ['Concept line', 'Audience and one goal', '3 reference sites', 'Mood words'], 'Jax approves the concept', 'jax'),
         STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter', 'chapter-cards'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
         STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter', 'chapter-cards'], ['Headline and body for every chapter'], 'No placeholder text'),
-        STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
+        STAGE('storyboard', 'Storyboard', 'Fill every chapter card (layout, shots, motion, phone note) and keep one ChatGPT frame per chapter.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes', 'A kept frame for every chapter'], 'Every card complete, and the frames read start to finish', 'jax'),
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
@@ -188,7 +190,7 @@
   const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => st.id !== 'concept' }) });   // v2 had no Concept (#229)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
-    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'look', 'site', 'review', 'siteFilesSaved']),
+    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'site', 'review', 'siteFilesSaved']),
   });
 
   function sampleImage(label, hue) {
@@ -299,7 +301,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, review: null, concept: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229)
+        story: null, look: null, review: null, concept: null, storyboard: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -592,6 +594,34 @@
       async getStoryGaps(spaceId, jobId, stageId) {
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
+      },
+      /** Storyboard frames (#231): one entry per chapter, in the cards' order, with its frames, the kept one and its prompt. */
+      async getStoryboard(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        return clone(storyboardOf(space, job));
+      },
+      /** Meridian asks ChatGPT images for one more frame of a chapter (old ones are kept). Until Storyboard goes to Jax. */
+      async makeStoryboardFrame(spaceId, jobId, { pageId, chapterId } = {}) {
+        const { space, job } = boardJob(spaceId, jobId);
+        const { page, chapter } = chapterOf(job, pageId, chapterId);
+        const prompt = Frames.framePrompt(job.concept, page, chapter, { name: space.name, dna: frameDna(space), tier: job.tier });
+        const out = await self.generateImage({ spaceId: space.id, presetId: FRAME_PRESET.id, description: prompt, count: 1, jobId: job.id, stageId: 'storyboard' });
+        await self.keepAsset(space.id, out.results[0].assetId);
+        const board = job.storyboard || { frames: [] };
+        board.frames.push({ id: nextId('frame'), pageId: page.id, chapterId: chapter.id, assetId: out.results[0].assetId, prompt, kept: false });
+        job.storyboard = board;
+        emit('storyboard-changed', { spaceId: space.id, jobId: job.id });
+        return clone(storyboardOf(space, job));
+      },
+      /** The one frame a chapter keeps (replaces the last one kept). Until Storyboard goes to Jax. */
+      async keepStoryboardFrame(spaceId, jobId, { pageId, chapterId, frameId } = {}) {
+        const { space, job } = boardJob(spaceId, jobId);
+        const { page, chapter } = chapterOf(job, pageId, chapterId);
+        const mine = ((job.storyboard || {}).frames || []).filter(f => f.pageId === page.id && f.chapterId === chapter.id);
+        if (!mine.some(f => f.id === frameId)) throw new Error('That frame is not on this chapter.');
+        for (const f of mine) f.kept = f.id === frameId;
+        emit('storyboard-changed', { spaceId: space.id, jobId: job.id });
+        return clone(storyboardOf(space, job));
       },
       /** Look frames (#202): ChatGPT's full-page designs for this Website Job, and which one Jax picked. */
       async getLook(spaceId, jobId) {
@@ -1020,7 +1050,7 @@
        *  jobId/stageId (from the Work view inside a Job) tag the results so the Job page can list them. */
       async generateImage(request) {
         const space = requireSpace(request && request.spaceId);
-        const preset = PRESETS.find(p => p.id === request.presetId) || (request.presetId === LOOK_PRESET.id ? LOOK_PRESET : PRESETS[0]);
+        const preset = [...PRESETS, LOOK_PRESET, FRAME_PRESET].find(p => p.id === request.presetId) || PRESETS[0];
         const description = String(request.description || '').trim();
         if (!description) throw new Error('Describe the image first.');
         const count = [1, 2, 4].includes(request.count) ? request.count : 4;
@@ -1138,7 +1168,12 @@
         resolved: x.resolved && ['fixed', 'keep'].includes(x.resolved.kind) && str(x.resolved.note)
           ? { kind: x.resolved.kind, note: str(x.resolved.note), at: str(x.resolved.at, 40) } : null }));
       const concept = s.concept ? tryOr(() => Concept.cleanConcept(s.concept), null) : null;
-      return { ...common, notes, locked: false, template: null, concept, story, look, site, review: comments.length ? { comments } : null,
+      const keptOnce = new Set(), boardFrames = entries(obj(s.storyboard).frames)
+        .filter(f => SAFE_ID.test(String(f.id)) && part(f.pageId) && part(f.chapterId) && SAFE_ID.test(String(f.assetId)))
+        .map(f => ({ id: f.id, pageId: f.pageId, chapterId: f.chapterId, assetId: f.assetId, prompt: str(f.prompt, Frames.MAX_PROMPT), kept: f.kept === true }));
+      for (const f of boardFrames) { const k = `${f.pageId}/${f.chapterId}`; if (f.kept && keptOnce.has(k)) f.kept = false; else if (f.kept) keptOnce.add(k); }   // one kept per chapter
+      const storyboard = boardFrames.length ? { frames: boardFrames } : null;
+      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, site, review: comments.length ? { comments } : null,
         ...(typeof s.siteFilesSaved === 'boolean' ? { siteFilesSaved: s.siteFilesSaved } : {}) };
     }
 
@@ -1223,8 +1258,36 @@
     function gapsFor(space, job, stageId) {
       const gaps = Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
       if (stageId === 'look' && !(job.look && job.look.chosenId)) gaps.unshift({ where: 'Look frame', message: 'Pick a look frame (Meridian designs them with ChatGPT).' });
+      // Only Storyboard's own gate: the cards stay open until Look is done, and a chapter added then can't get a frame (#231).
+      if (stageId === 'storyboard') for (const c of storyboardOf(space, job).chapters) {
+        const kept = c.frames.find(f => f.id === c.keptId);   // like a shot at Look: the kept image must still be in the Space
+        if (!kept || !hasAsset(space.id, kept.assetId)) gaps.push({ where: c.where, message: 'Keep a storyboard frame for this chapter.' });
+      }
       return gaps;
     }
+    // Storyboard frames (#231): the view follows the cards' order; a frame for a chapter no longer on the cards drops out.
+    function storyboardOf(space, job) {
+      const frames = (job.storyboard || {}).frames || [];
+      const chapters = storyOf(job).pages.flatMap(p => p.chapters.map((c, i) => {
+        const mine = frames.filter(f => f.pageId === p.id && f.chapterId === c.id), kept = mine.find(f => f.kept);
+        return { pageId: p.id, pageName: p.name, chapterId: c.id, chapterName: c.name, job: c.job, where: `${p.name || 'Untitled page'} · ${c.name || `Chapter ${i + 1}`}`,
+          prompt: Frames.framePrompt(job.concept, p, c, { name: space.name, dna: frameDna(space), tier: job.tier }),
+          frames: mine.map(f => ({ id: f.id, assetId: f.assetId })), keptId: kept ? kept.id : null };
+      }));
+      return { chapters, kept: chapters.filter(c => c.keptId).length, total: chapters.length };
+    }
+    function boardJob(spaceId, jobId) {
+      const { space, job } = websiteJob(spaceId, jobId);
+      if (job.done.includes('storyboard') || job.stageId === null || (job.stageId === 'storyboard' && job.waitingOnJax)) throw new Error('The storyboard is locked once it goes to Jax.');
+      return { space, job };
+    }
+    function chapterOf(job, pageId, chapterId) {
+      const page = storyOf(job).pages.find(p => p.id === pageId), chapter = page && page.chapters.find(c => c.id === chapterId);
+      if (!chapter) throw new Error('That chapter is not on the cards.');
+      return { page, chapter };
+    }
+    // Real sign-in never sends the sample brand to ChatGPT; the project's real DNA comes with the server.
+    function frameDna(space) { return practice ? sampleDna(space) : null; }
     function lookOf(job) { return job.look || { frames: [], chosenId: null, tokens: null, layouts: {} }; }
     function storyReady(space, job, stageId) {
       const gaps = gapsFor(space, job, stageId);
@@ -1577,6 +1640,9 @@
       setStageNeed: saved('setStageNeed'),
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
+      getStoryboard: loaded('getStoryboard'),
+      keepStoryboardFrame: saved('keepStoryboardFrame'),
+      makeStoryboardFrame: async () => notOnServerYet(),   // ChatGPT images come with the server, like look frames
       getConcept: loaded('getConcept'),
       saveConcept: saved('saveConcept'),
       // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.

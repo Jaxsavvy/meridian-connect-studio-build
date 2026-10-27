@@ -34,7 +34,7 @@ test('sample Job page shows ordered stages, safe stage images, progress, statuse
   await service.completeStage(job.spaceId, job.id); await service.approveStage(job.spaceId, job.id);   // Concept (Core #229)
   await service.completeStage(job.spaceId, job.id); await service.completeStage(job.spaceId, job.id); await tick();
   const generated = await service.generateImage({ ...params, stageId: 'look', description: 'Synthetic hero', count: 1 });
-  await tick(); const images = walk(el).filter(n => n.tag === 'img'); assert.equal(images.length, 2); // + the look frame (#202)
+  await tick(); const images = walk(el).filter(n => n.tag === 'img'); assert.equal(images.length, 3); // + the look frame (#202) and the storyboard frame (Core #231)
   const assets = await service.listJobAssets(job.spaceId, job.id);
   const made = assets.look.find(a => a.url === generated.results[0].url);
   assert.ok(images.some(i => i.alt === made.name && i.src === made.url));
