@@ -10,3 +10,9 @@
 .studio-research-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .studio-research :is(input, button, a):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .studio-research a { color: var(--studio-sky); text-underline-offset: 2px; }
+.studio-research-form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; min-width: 0; }
+.studio-research-form legend { font-weight: 600; }
+.studio-research-field { display: grid; gap: .35rem; flex: 1 1 13rem; max-width: 26rem; }
+.studio-research-field[hidden] { display: none; }
+.studio-research-field :is(input, select) { min-height: 2.25rem; padding-inline: .5rem; }
+.studio-research :is(select):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
