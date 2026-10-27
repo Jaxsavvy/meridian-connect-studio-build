@@ -221,7 +221,7 @@
 
   const hasMotion = node => !('text' in node) && ((node.attrs && node.attrs['data-motion']) || (node.children || []).some(hasMotion));
 
-  function renderPage(site, pageId, { assets = {}, preview = false } = {}) {
+  function renderPage(site, pageId, { assets = {}, preview = false, still = false } = {}) {
     const check = validateSite(site);
     if (!check.ok) throw new Error(`Site has problems: ${check.errors.slice(0, 3).map(e => `${e.path} ${e.message}`).join('; ')}`);
     const page = site.pages.find(p => p.id === pageId);
@@ -229,7 +229,8 @@
     const { colors = {}, fonts } = site.theme;
     const vars = Object.entries(colors).map(([k, v]) => `--c-${k}:${v}`).concat(`--f-heading:"${fonts.heading}"`, `--f-body:"${fonts.body}"`).join(';');
     const families = [...new Set([fonts.heading, fonts.body])].map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;600;800`).join('&');
-    const motion = page.sections.some(s => hasMotion(s.tree));
+    // still: no motion at all (Connect's phone check runs with scripts off, so faded-in sections would stay hidden).
+    const motion = !still && page.sections.some(s => hasMotion(s.tree));
     // Each section's id doubles as its anchor, so a button can link to "#booking" (ids are checked: lowercase, digits, dashes).
     const body = page.sections.map(s => `<div id="${s.id}" data-s="${s.id}" data-section="${esc(s.label)}">${renderNode(s.tree, assets)}</div>`).join('\n');
     const concept = site.concept ? `<p class="concept-note">Concept for discussion, not affiliated with ${esc(site.name)}.</p>` : '';
