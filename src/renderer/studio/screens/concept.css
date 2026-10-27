@@ -1,0 +1,26 @@
+.studio-concept { display: grid; gap: .9rem; min-width: 0; max-width: var(--studio-content-max); overflow-wrap: anywhere; }
+.studio-concept :is(h2, h3, p) { margin: 0; }
+.studio-concept > button { justify-self: start; }
+.studio-concept-field { display: grid; gap: .3rem; min-width: 0; }
+.studio-concept-field input { min-height: 2.25rem; padding-inline: .5rem; min-width: 0; }
+.studio-concept-hint { color: var(--studio-muted); font-size: var(--studio-text-small); }
+.studio-concept fieldset { display: grid; gap: .6rem; margin: 0; padding: .75rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); min-width: 0; }
+.studio-concept legend { padding-inline: .25rem; font-weight: var(--studio-weight-strong); }
+.studio-concept-ref { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .6rem; }
+.studio-concept-mood ul { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.studio-concept-mood li { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .25rem .2rem .6rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius-pill); }
+#studioCenter .studio-concept-needed { color: var(--studio-gold); font-size: var(--studio-text-small); }
+#studioCenter .studio-concept-ready, #studioCenter .studio-concept-locked { color: var(--studio-teal); font-weight: var(--studio-weight-strong); }
+#studioCenter .studio-concept-gaps { border-color: var(--studio-gold); }
+.studio-concept-gaps ul { margin: 0; padding-inline-start: 1.1rem; }
+.studio-concept-note { color: var(--studio-muted); }
+.studio-concept-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.studio-concept-status { color: var(--studio-gold); }
+.studio-concept-read { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .9rem; margin: 0; }
+.studio-concept-read dt { color: var(--studio-muted); }
+.studio-concept-read dd { margin: 0; }
+.studio-concept-read ul { margin: 0; padding-inline-start: 1.1rem; }
+.studio-concept-read li { display: grid; gap: .1rem; }
+.studio-concept-url { font-family: ui-monospace, monospace; font-size: var(--studio-text-small); }
+.studio-concept :is(input, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media (max-width: 40rem) { .studio-concept-read { grid-template-columns: minmax(0, 1fr); } }
