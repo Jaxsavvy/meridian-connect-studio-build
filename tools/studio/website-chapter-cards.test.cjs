@@ -70,7 +70,7 @@ test('gates block finishing a stage until its cards are filled', async () => {
   assert.deepEqual(saved.gaps, []);
   for (const want of ['words', 'storyboard']) assert.equal((await s.completeStage('client-a', job.id)).stageId, want);
   await s.completeStage('client-a', job.id); await s.approveStage('client-a', job.id);    // Storyboard: Jax OKs it
-  assert.equal((await s.completeStage('client-a', job.id)).stageId, 'build');
+  assert.equal((await s.completeStage('client-a', job.id)).stageId, 'lock');   // Design lock (#238), then Build
   await assert.rejects(s.saveStory('client-a', job.id, { pages: [] }), /locked/);
 });
 

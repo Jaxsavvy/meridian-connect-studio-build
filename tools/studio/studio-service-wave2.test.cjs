@@ -15,8 +15,8 @@ test('website workflow: tiers and stages; Motion only in Cinematic; unknown work
   const s = service();
   const wf = await s.getWorkflow('website');
   assert.deepEqual(wf.tiers.map(t => t.id), ['standard', 'cinematic']);
-  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'concept', 'plan', 'words', 'storyboard', 'look', 'motion', 'build', 'check', 'review', 'launch']);
-  assert.equal(wf.version, 3);
+  assert.deepEqual(wf.stages.map(st => st.id), ['brief', 'concept', 'plan', 'words', 'storyboard', 'look', 'motion', 'lock', 'build', 'check', 'review', 'launch']);
+  assert.equal(wf.version, 4);
   assert.equal(await s.getWorkflow('seo'), null);
   const std = await s.startJob('client-a', 'website', 'standard');
   const cin = await s.startJob('client-a', 'website', 'cinematic');

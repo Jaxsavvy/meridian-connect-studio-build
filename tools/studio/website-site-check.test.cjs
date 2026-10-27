@@ -16,6 +16,7 @@ async function toBuild(s = createSampleService()) {
   await s.completeStage(ID, job.id); await s.completeStage(ID, job.id);
   await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);
   await s.completeStage(ID, job.id);
+  await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);   // Design lock: Jax approves for the client (#238)
   return { s, job };
 }
 const el = (tag, attrs, ...children) => ({ tag, ...(attrs ? { attrs } : {}), ...(children.length ? { children } : {}) });

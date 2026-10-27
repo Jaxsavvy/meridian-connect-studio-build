@@ -14,6 +14,7 @@ async function toReview(s = createSampleService()) {
   await s.completeStage(ID, job.id); await s.completeStage(ID, job.id);   // Story and sitemap, Words
   await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);   // Storyboard
   await s.completeStage(ID, job.id);                                      // Look and assets
+  await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);   // Design lock: Jax approves for the client (#238)
   await s.startSite(ID, job.id, { from: 'cards' });
   const atCheck = await s.completeStage(ID, job.id);                      // Build
   return { s, job, atCheck };

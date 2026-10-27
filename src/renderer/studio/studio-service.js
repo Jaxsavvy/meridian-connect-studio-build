@@ -8,7 +8,7 @@
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
-  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231):
+  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231), design bundle (#238):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -19,10 +19,11 @@
     node ? require('./website/look-frames.js') : root && root.MeridianLookFrames,
     node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit,
     node ? require('./website/concept.js') : root && root.MeridianConcept,
-    node ? require('./website/storyboard-frames.js') : root && root.MeridianStoryboardFrames);
+    node ? require('./website/storyboard-frames.js') : root && root.MeridianStoryboardFrames,
+    node ? require('./website/design-bundle.js') : root && root.MeridianDesignBundle);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames, Bundle) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -35,6 +36,7 @@
     ['look-frames', 'Look frames', 'tool', 'available'],     // pick ChatGPT's look for the site (#202, screen: Tyler)
     ['site-review', 'Site review', 'tool', 'available'],     // team comments on the site in Review (#216, screen: Tyler)
     ['concept', 'Concept', 'tool', 'available'],             // the big idea, before Story (#229, screen: Tyler)
+    ['design-lock', 'Design lock', 'tool', 'available'],     // the bundle and the client's approval (#238, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -73,7 +75,7 @@
   const WORKFLOWS = Object.freeze({
     // The one website pipeline (Website Build Pipeline doc, #186). Chapter cards carry the work from Story to Look.
     website: Object.freeze({
-      id: 'website', name: 'Website', version: 3,   // 3: Concept before Story (#229)
+      id: 'website', name: 'Website', version: 4,   // 3: Concept before Story (#229); 4: Design lock before Build (#238)
       tiers: Object.freeze([
         Object.freeze({ id: 'standard', name: 'Standard', description: 'Clean, fast site. Strong photos, clear pages, no motion.' }),
         Object.freeze({ id: 'cinematic', name: 'Cinematic', description: 'Everything in Standard plus video and scroll motion, planned on the chapter cards.' }),
@@ -86,6 +88,7 @@
         STAGE('storyboard', 'Storyboard', 'Fill every chapter card (layout, shots, motion, phone note) and keep one ChatGPT frame per chapter.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes', 'A kept frame for every chapter'], 'Every card complete, and the frames read start to finish', 'jax'),
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
+        STAGE('lock', 'Design lock', 'One bundle: concept, cards, storyboard, chosen look, assets and style numbers. Jax sends it to the client, who approves the design.', ['design-lock'], ['Bundle checked', 'Sent to the client', 'Client approved'], 'The client approves the design', 'jax'),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review', 'website'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
@@ -187,10 +190,10 @@
   // What a Job keeps in the project's save file (pitch deck #171, website #226); the stages always come from the current template.
   const COMMON_FIELDS = ['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs', 'assignees', 'timing', 'checks', 'checkLog'];
   // Older templates a saved Job can still be on, as a filter over today's stages: running Jobs keep the stages they started with.
-  const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => st.id !== 'concept' }) });   // v2 had no Concept (#229)
+  const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => !['concept', 'lock'].includes(st.id), 3: st => st.id !== 'lock' }) });   // v2: no Concept (#229); v3: no Design lock (#238)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
-    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'site', 'review', 'siteFilesSaved']),
+    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'design', 'site', 'review', 'siteFilesSaved']),
   });
 
   function sampleImage(label, hue) {
@@ -301,7 +304,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, review: null, concept: null, storyboard: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231)
+        story: null, look: null, review: null, concept: null, storyboard: null, design: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231), design lock (#238)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -450,6 +453,15 @@
           if (gaps.length) throw new Error(`The concept isn't ready: ${gaps[0].message}`);
         }
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
+        if (job.workflowId === 'website' && target === 'lock') {   // sending freezes the bundle (#238)
+          if (job.waitingOnJax) throw new Error('The design is already with Jax.');
+          const gaps = designGaps(space, job, designBundle(space, job, frameDna(space)));
+          if (gaps.length) throw new Error(`The design isn't ready to lock: ${gaps[0].where}: ${gaps[0].message}`);
+          const d = job.design || { history: [] }, dna = frameDna(space) || {};
+          job.design = { ...d, answer: null, sent: { version: (d.sent ? d.sent.version : 0) + 1, at: new Date(now()).toISOString(),
+            dna: { colors: [...(dna.colors || [])], fonts: [...(dna.fonts || [])] } } };
+          emit('design-changed', { spaceId: space.id, jobId: job.id });
+        }
         if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
         if (job.workflowId === 'website' && target === 'review') {
           const open = reviewOf(job).comments.filter(c => !c.resolved).length;
@@ -458,7 +470,8 @@
         }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
-          later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
+          // The stand-in leaves Design lock for the client: in practice, the approval screen answers as the client (#238).
+          later(() => { if (job.waitingOnJax && job.stageId !== 'lock') { jaxApproves(job); emit('jobs-changed', { spaceId }); } });
           return clone(jobView(job));
         }
         advance(job, target);
@@ -472,7 +485,7 @@
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
         if (!job.waitingOnJax) throw new Error('This stage is not waiting on Jax.');
-        job.waitingOnJax = false; advance(job);
+        jaxApproves(job);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -594,6 +607,44 @@
       async getStoryGaps(spaceId, jobId, stageId) {
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
+      },
+      /** Design lock (#238): the bundle (frozen once sent), what's missing, the version sent and the client's answers. */
+      async getDesignLock(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        return clone(designView(space, job));
+      },
+      /** The client's answer: approve, or ask for changes with a note. Only while the design waits on the client.
+       *  Practice: Tyler's approval screen answers as the client. Real sign-in: the client answers through the server's link. */
+      async answerDesign(spaceId, jobId, { approved, note } = {}) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.stageId !== 'lock' || !job.waitingOnJax || !job.design || !job.design.sent) throw new Error('The design isn\'t waiting on the client.');
+        const text = typeof note === 'string' ? note.trim() : '';
+        if (text.length > 1000) throw new Error('The note is too long (max 1000 characters).');
+        if (approved !== true && !text) throw new Error('Say what the client wants changed.');
+        const answer = { approved: approved === true, note: text, at: new Date(now()).toISOString(), by: 'client' };
+        job.design.answer = answer;
+        job.design.history = [...(job.design.history || []), { version: job.design.sent.version, ...answer }];
+        job.waitingOnJax = false;
+        if (answer.approved) advance(job);   // approved: on to Build; changes: back with the team
+        emit('design-changed', { spaceId: space.id, jobId: job.id });
+        emit('jobs-changed', { spaceId: space.id });
+        return clone(designView(space, job));
+      },
+      /** Reopens an earlier stage, and every stage after it, so the team can make the client's changes; their gates run
+       *  again on the way forward. From Design lock only, while it's with the team. */
+      async sendBack(spaceId, jobId, stageId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.stageId !== 'lock' || job.waitingOnJax) throw new Error('A Job goes back only from Design lock, while it\'s with the team.');
+        const at = job.stageIds.indexOf(stageId);
+        if (at < 0 || at >= job.stageIds.indexOf('lock')) throw new Error('Pick an earlier stage to send it back to.');
+        const reopened = job.stageIds.slice(at);
+        job.done = job.done.filter(id => !reopened.includes(id));
+        for (const id of reopened) if (job.timing[id]) delete job.timing[id].doneAt;
+        job.stageId = job.stageIds.find(id => !job.done.includes(id));
+        stampOpened(job);
+        emit('design-changed', { spaceId: space.id, jobId: job.id });
+        emit('jobs-changed', { spaceId: space.id });
+        return clone(jobView(job));
       },
       /** Storyboard frames (#231): one entry per chapter, in the cards' order, with its frames, the kept one and its prompt. */
       async getStoryboard(spaceId, jobId) {
@@ -1173,7 +1224,14 @@
         .map(f => ({ id: f.id, pageId: f.pageId, chapterId: f.chapterId, assetId: f.assetId, prompt: str(f.prompt, Frames.MAX_PROMPT), kept: f.kept === true }));
       for (const f of boardFrames) { const k = `${f.pageId}/${f.chapterId}`; if (f.kept && keptOnce.has(k)) f.kept = false; else if (f.kept) keptOnce.add(k); }   // one kept per chapter
       const storyboard = boardFrames.length ? { frames: boardFrames } : null;
-      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, site, review: comments.length ? { comments } : null,
+      const dz = obj(s.design), sent = obj(dz.sent), dnaIn = obj(sent.dna);
+      const strs = (v, n) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(0, n).map(x => x.slice(0, 60)) : []);
+      const answerOf = a => (a && typeof a === 'object' && typeof a.approved === 'boolean' && ['client', 'jax'].includes(a.by)
+        ? { approved: a.approved, note: str(a.note, 1000), at: str(a.at, 40), by: a.by } : null);
+      const design = Number.isInteger(sent.version) && sent.version > 0 ? { answer: answerOf(dz.answer),
+        sent: { version: sent.version, at: str(sent.at, 40), dna: { colors: strs(dnaIn.colors, 10), fonts: strs(dnaIn.fonts, 4) } },
+        history: entries(dz.history).map(h => (answerOf(h) ? { version: Number.isInteger(h.version) ? h.version : 0, ...answerOf(h) } : null)).filter(Boolean) } : null;
+      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, design, site, review: comments.length ? { comments } : null,
         ...(typeof s.siteFilesSaved === 'boolean' ? { siteFilesSaved: s.siteFilesSaved } : {}) };
     }
 
@@ -1288,6 +1346,38 @@
     }
     // Real sign-in never sends the sample brand to ChatGPT; the project's real DNA comes with the server.
     function frameDna(space) { return practice ? sampleDna(space) : null; }
+    // Design lock (#238). While it waits on the client, or once approved, everything upstream is locked, so the bundle is
+    // rebuilt from it the same way every time; only the DNA could drift, so sending keeps the DNA it was sent with.
+    function designBundle(space, job, dna) {
+      const frames = {}, look = lookOf(job), chosen = look.frames.find(f => f.id === look.chosenId);
+      for (const c of storyboardOf(space, job).chapters) {
+        const kept = c.frames.find(f => f.id === c.keptId);
+        if (kept) frames[`${c.pageId}/${c.chapterId}`] = kept.assetId;
+      }
+      return Bundle.buildBundle({ name: space.name, tier: job.tier, concept: job.concept, story: storyOf(job), frames,
+        look: chosen ? { direction: chosen.direction, assetId: chosen.assetId } : null, style: Library.tokensFromDna(dna) });
+    }
+    function designGaps(space, job, bundle) {
+      const has = id => hasAsset(space.id, id), seen = new Set();
+      return [...Concept.conceptGaps(job.concept).map(g => ({ where: 'Concept', message: g.message })),
+        ...Cards.stageGaps(storyOf(job), 'look', { tier: job.tier, hasAsset: has }), ...Bundle.bundleGaps(bundle, { hasAsset: has })]
+        .filter(g => { const k = `${g.where}\n${g.message}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+    function designView(space, job) {
+      const d = job.design || {}, frozen = !!d.sent && (job.done.includes('lock') || (job.stageId === 'lock' && job.waitingOnJax));
+      const bundle = designBundle(space, job, frozen ? d.sent.dna : frameDna(space));
+      return { bundle, gaps: frozen ? [] : designGaps(space, job, bundle), sent: d.sent ? { version: d.sent.version, at: d.sent.at } : null,
+        answer: d.answer || null, history: d.history || [] };
+    }
+    // Jax approving Design lock means the client said yes (through the link, or to Jax himself); it's recorded as his.
+    function jaxApproves(job) {
+      const d = job.design;
+      if (job.stageId === 'lock' && d && d.sent && !(d.answer && d.answer.approved)) {
+        d.answer = { approved: true, note: 'Jax approved it for the client.', at: new Date(now()).toISOString(), by: 'jax' };
+        d.history = [...(d.history || []), { version: d.sent.version, ...d.answer }];
+      }
+      job.waitingOnJax = false; advance(job);
+    }
     function lookOf(job) { return job.look || { frames: [], chosenId: null, tokens: null, layouts: {} }; }
     function storyReady(space, job, stageId) {
       const gaps = gapsFor(space, job, stageId);
@@ -1640,6 +1730,9 @@
       setStageNeed: saved('setStageNeed'),
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
+      getDesignLock: loaded('getDesignLock'),
+      sendBack: saved('sendBack'),
+      answerDesign: async () => notOnServerYet(),   // the client answers through a link the server hosts
       getStoryboard: loaded('getStoryboard'),
       keepStoryboardFrame: saved('keepStoryboardFrame'),
       makeStoryboardFrame: async () => notOnServerYet(),   // ChatGPT images come with the server, like look frames
