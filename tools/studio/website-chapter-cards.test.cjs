@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Cards = require('../../src/renderer/studio/website/chapter-cards.js');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
-const { fillStory } = require('./helpers/website-story.cjs');
+const { fillConcept, fillStory } = require('./helpers/website-story.cjs');
 
 const messages = (story, stage, opts) => Cards.stageGaps(Cards.cleanStory(story), stage, opts).map(g => g.message);
 const card = extra => ({ name: 'Hero', job: 'Get calls', words: { headline: 'Roofs done right', body: 'Licensed crews.' },
@@ -62,6 +62,9 @@ test('a Website Job starts its story from the Kickoff pages, Home first at /', a
 test('gates block finishing a stage until its cards are filled', async () => {
   const { s, job } = await setup();
   await s.completeStage('client-a', job.id); await s.approveStage('client-a', job.id);    // Kickoff
+  await assert.rejects(s.completeStage('client-a', job.id), /The concept isn't ready/);
+  await fillConcept(s, 'client-a', job.id);
+  await s.completeStage('client-a', job.id); await s.approveStage('client-a', job.id);    // Concept (#229)
   await assert.rejects(s.completeStage('client-a', job.id), /Not ready yet: \d+ things? to finish/);
   const saved = await fillStory(s, 'client-a', job.id);
   assert.deepEqual(saved.gaps, []);

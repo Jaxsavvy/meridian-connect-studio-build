@@ -23,6 +23,7 @@ const alerts = el => walk(el).filter(n => n.attrs.role === 'alert').map(text);
 // A Website Job at Look and assets with a finished storyboard and no look frame yet.
 async function atLook() {
   const service = createSampleService(), job = await service.startJob('sample-client', 'website', 'standard'), sp = job.spaceId;
+  await require('./helpers/website-story.cjs').fillConcept(service, sp, job.id);   // Core #229: the Concept gate
   await service.saveStory(sp, job.id, { pages: [{ id: 'home', name: 'Home', path: '/', purpose: 'Get estimate calls', chapters: [{ id: 'hero', name: 'Hero',
     job: 'Make the visitor call', words: { headline: 'Roofs done right', body: 'Licensed crews across the valley.', button: 'Call now' },
     layout: 'hero-photo', motion: 'none', phone: 'Photo above the headline', shots: [{ what: 'Crew on a finished roof', prompt: 'Roofing crew', size: 'wide', tool: 'image' }] }] }] });
