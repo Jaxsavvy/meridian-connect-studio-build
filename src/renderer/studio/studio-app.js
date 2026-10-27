@@ -42,6 +42,7 @@
     'studio/screens/stage-bar.js', 'studio/screens/stage-bar.css',
     'studio/screens/job.js', 'studio/screens/job.css',
     'studio/screens/move-to-client.js', 'studio/screens/move-to-client.css',
+    'studio/screens/chapter-cards.js', 'studio/screens/chapter-cards.css',
     'studio/screens/pitch-deck.js', 'studio/screens/pitch-deck.css',
     'studio/screens/research.js', 'studio/screens/research.css',
     'studio/tools/pitch-deck/niche-styles.js',

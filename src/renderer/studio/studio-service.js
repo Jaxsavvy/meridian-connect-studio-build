@@ -7,12 +7,13 @@
 
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
-  // Pitch deck format (#114) and research model (#124): index.html loads them before this file.
+  // Pitch deck format (#114), research model (#124), chapter cards (#186): index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
-    node ? require('./decks/research-model.js') : root && root.MeridianResearchModel);
+    node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
+    node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -20,6 +21,7 @@
     ['storyboard', 'Storyboard', 'tool', 'available'],
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'available'],
+    ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -51,22 +53,24 @@
   // Stages in a group are open at the same time; the stage after the group opens when all of them are done.
   const GROUP = (group, groupName, stage) => Object.freeze({ ...stage, group, groupName });
   const WORKFLOWS = Object.freeze({
+    // The one website pipeline (Website Build Pipeline doc, #186). Chapter cards carry the work from Story to Look.
     website: Object.freeze({
-      id: 'website', name: 'Website', version: 1,
+      id: 'website', name: 'Website', version: 2,
       tiers: Object.freeze([
-        Object.freeze({ id: 'standard', name: 'Standard', description: 'Clean, fast site. Strong photos, clear pages, no motion pieces.' }),
-        Object.freeze({ id: 'cinematic', name: 'Cinematic', description: 'Everything in Standard plus scroll motion and video moments.' }),
+        Object.freeze({ id: 'standard', name: 'Standard', description: 'Clean, fast site. Strong photos, clear pages, no motion.' }),
+        Object.freeze({ id: 'cinematic', name: 'Cinematic', description: 'Everything in Standard plus video and scroll motion, planned on the chapter cards.' }),
       ]),
       stages: Object.freeze([
-        STAGE('brief', 'Brief', 'Agree what the site must do and for whom.', ['copywriter'], ['Goals', 'Audience', 'Pages wanted', 'Must-have content'], 'Brief matches Project DNA', 'jax'),
-        STAGE('plan', 'Plan', 'Map every page and section.', ['copywriter'], ['Sitemap', 'Sections per page'], 'Every page has a purpose'),
-        STAGE('storyboard', 'Storyboard', 'Sketch each page top to bottom.', ['storyboard', 'image-gen'], ['Frame per section'], 'Flows in order, nothing missing'),
-        STAGE('look', 'Look', 'Make the images and visual style.', ['image-gen', 'asset-library'], ['Hero image', 'Section images', 'Style sample'], 'On-brand colors and fonts', 'jax'),
-        STAGE('motion', 'Motion', 'Add scroll motion and video moments.', ['video'], ['Motion plan', 'Video clips'], 'Smooth, not distracting', 'team', ['cinematic']),
-        STAGE('build', 'Build', 'Meridian builds the site from the plan.', ['website'], ['All assets kept'], 'Every page renders'),
-        STAGE('check', 'Check', 'Test speed, mobile, links and spelling.', ['seo'], ['Mobile check', 'Speed check', 'Link check'], 'All checks pass'),
-        STAGE('review', 'Review', 'Jax reviews before the client sees it.', [], ['Share link for Jax'], 'Jax approves', 'jax'),
-        STAGE('launch', 'Launch', 'Publish the site.', [], ['Domain ready'], 'Live and checked', 'jax'),
+        STAGE('brief', 'Kickoff', 'Agree the goal, audience, main call to action and tier, from Project DNA and the pitch deck.', ['copywriter'], ['Goal', 'Audience', 'Main call to action', 'Pages wanted'], 'Jax approves the DNA and the goal', 'jax'),
+        STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter', 'chapter-cards'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
+        STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter', 'chapter-cards'], ['Headline and body for every chapter'], 'No placeholder text'),
+        STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
+        STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
+        STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
+        STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
+        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['seo'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
+        STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', [], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
+        STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
     }),
     // Pitch deck (docs/PLAN.md): started inside a client project; the Job is locked (stages never change).
@@ -96,7 +100,6 @@
   const stagesFor = (workflow, tier) => workflow.stages.filter(st => st.tiers.includes(tier));
 
   // Stage notes: what the Brief, Plan and Storyboard stages decided, saved per Job. Plain text only.
-  const SECTION_KINDS = Object.freeze(['hero', 'services', 'proof', 'reviews', 'about', 'faq', 'contact', 'other']);
   const text = (value, field, max = 2000) => {
     if (value === undefined || value === null) return '';
     if (typeof value !== 'string') throw new Error(`${field} must be text.`);
@@ -112,14 +115,6 @@
   const NOTES = Object.freeze({
     brief: n => ({ goal: text(n.goal, 'Goal'), audience: text(n.audience, 'Audience'), callToAction: text(n.callToAction, 'Main call to action', 200),
       pages: list(n.pages, 'Pages wanted', 20).map(p => text(p, 'Page name', 80)).filter(Boolean), mustHave: text(n.mustHave, 'Must-have content') }),
-    plan: n => ({ pages: list(n.pages, 'Pages', 20).map(p => ({ name: text(p?.name, 'Page name', 80), purpose: text(p?.purpose, 'Page purpose', 300),
-      sections: list(p?.sections, 'Sections', 12).map(sec => {
-        const kind = SECTION_KINDS.includes(sec?.kind) ? sec.kind : 'other';
-        return { kind, heading: text(sec?.heading, 'Section heading', 200), copy: text(sec?.copy, 'Section copy', 4000) };
-      }) })) }),
-    storyboard: n => ({ frames: list(n.frames, 'Frames', 120).map(f => ({ page: text(f?.page, 'Frame page', 80),
-      section: Number.isInteger(f?.section) && f.section >= 0 && f.section < 12 ? f.section : 0,
-      sketch: text(f?.sketch, 'Frame sketch'), assetId: typeof f?.assetId === 'string' && f.assetId ? f.assetId : null })) }),
   });
 
   // Sample team; the server supplies the real list.
@@ -270,7 +265,8 @@
       const job = { id: nextId('job'), spaceId: space.id, workflowId, tier, name: `${workflow.name} v${n}`,
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
-        deck: null, evidence: [], research: null, checks: null, checkLog: [], ...extra }; // Pitch deck only (#119, #125, #131)
+        deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
+        story: null, ...extra }; // Website only: chapter cards (#186)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -398,6 +394,7 @@
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
         if (job.workflowId === 'pitch-deck' && target === 'check') checksClear(job);
+        if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -430,14 +427,14 @@
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
-      /** What a stage decided: 'brief' | 'plan' | 'storyboard'. Empty notes until someone saves. */
+      /** What Kickoff decided ('brief'). Empty notes until someone saves. Later Website stages use the chapter cards (getStory). */
       async getStageNotes(spaceId, jobId, stageId) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
         if (!NOTES[stageId] || !job.stageIds.includes(stageId)) throw new Error('This stage has no notes.');
         return clone(job.notes[stageId] || NOTES[stageId]({}));
       },
-      /** Saves a stage's notes (replaces them). Storyboard frames may only point at this Space's assets. */
+      /** Saves a stage's notes (replaces them). */
       async saveStageNotes(spaceId, jobId, stageId, notes) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
@@ -445,11 +442,6 @@
         if (!notes || typeof notes !== 'object' || Array.isArray(notes)) throw new Error('Notes must be an object.');
         if (job.done.includes(stageId) || (job.stageId === stageId && job.waitingOnJax)) throw new Error('This stage is finished; its notes are locked.');
         const clean = NOTES[stageId](notes);
-        if (stageId === 'storyboard') {
-          for (const frame of clean.frames) {
-            if (frame.assetId && !spaceAssets(spaceId).some(a => a.id === frame.assetId && !a.trashed)) throw new Error('A frame points at an asset that is not in this Space.');
-          }
-        }
         job.notes[stageId] = clean;
         emit('stage-notes-changed', { spaceId, jobId: job.id, stageId });
         return clone(clean);
@@ -487,6 +479,29 @@
       },
       /** Files saved to the project folder in this session (the Files tab shows the real folder). */
       async listProjectFiles(spaceId) { requireSpace(spaceId); return clone(projectFiles.get(spaceId) || []); },
+      /** Website Job's chapter cards (#186): the saved story, or one page per page named at Kickoff. */
+      async getStory(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return clone(storyOf(job));
+      },
+      /** Saves the whole story (replaces it) and returns { story, gaps } for the stage the Job is on.
+       *  Locked once Look and assets is done: Build reads the cards from then on. Shots may only use this Space's assets. */
+      async saveStory(spaceId, jobId, story) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('look') || job.stageId === null) throw new Error('The chapter cards are locked once Look and assets is done.');
+        const clean = Cards.cleanStory(story);
+        for (const p of clean.pages) for (const c of p.chapters) for (const sh of c.shots) {
+          if (sh.assetId && !hasAsset(space.id, sh.assetId)) throw new Error('A shot points at an asset that is not in this Space.');
+        }
+        job.story = clean;
+        emit('story-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ story: clean, gaps: gapsFor(space, job, job.stageId) });
+      },
+      /** What a Website stage's gate still needs: [{ where, message }]. Empty = ready to finish. Default: the current stage. */
+      async getStoryGaps(spaceId, jobId, stageId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        return clone(gapsFor(space, job, stageId || job.stageId));
+      },
       /** The Job's pitch deck: the saved one, or a blank deck with the project name until someone saves. */
       async getDeck(spaceId, jobId) {
         const { space, job } = deckJob(spaceId, jobId);
@@ -860,6 +875,21 @@
     }
 
     // Pitch deck data (#119): each Job keeps its own deck and the evidence its numbers come from.
+    function websiteJob(spaceId, jobId) {
+      const space = requireSpace(spaceId);
+      const job = requireJob(space.id, jobId);
+      if (job.workflowId !== 'website') throw new Error('Only Website Jobs have chapter cards.');
+      return { space, job };
+    }
+    function storyOf(job) { return job.story || Cards.storyFromPages(job.notes.brief ? job.notes.brief.pages : []); }
+    function hasAsset(spaceId, assetId) { return spaceAssets(spaceId).some(a => a.id === assetId && !a.trashed); }
+    function gapsFor(space, job, stageId) {
+      return Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
+    }
+    function storyReady(space, job, stageId) {
+      const gaps = gapsFor(space, job, stageId);
+      if (gaps.length) throw new Error(`Not ready yet: ${gaps.length} thing${gaps.length === 1 ? '' : 's'} to finish. First: ${gaps[0].where}: ${gaps[0].message}`);
+    }
     function deckJob(spaceId, jobId) {
       const space = requireSpace(spaceId);
       const job = requireJob(space.id, jobId);
@@ -1141,6 +1171,10 @@
       },
       setStageNeed: saved('setStageNeed', true),
       getStageNotes: (...a) => local.getStageNotes(...a),
+      // Website Jobs (and their chapter cards) stay local until the server has Jobs.
+      getStory: (...a) => local.getStory(...a),
+      saveStory: (...a) => local.saveStory(...a),
+      getStoryGaps: (...a) => local.getStoryGaps(...a),
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
       getDeck: loaded('getDeck'),

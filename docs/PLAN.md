@@ -41,7 +41,8 @@ Every screen handles: loading, empty, offline, no access, failed, unsaved change
 The person describes the image in their own words. Meridian picks the preset, asks only what's missing, suggests a sharper description, and generates after the person confirms. It checks results against the preset and brand, retries weak ones (max 3 rounds), then shows the best with notes. Per result: Keep, Variations, Edit part, Send to. OpenAI images via the server router. Starter presets: Website hero, Page header, Service in action, Before/after, Team/crew portrait, Clean product shot, Social promo, Ad creative, Seasonal promo.
 
 ## Website workflow (Wave 2)
-Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Motion (Cinematic only) -> Build (Claude on the cloud) -> Check -> Review -> Launch (Cloudflare Pages). Employees change the site by clicking an element and telling Meridian; no code editing.
+One pipeline for every site (Website Build Pipeline doc, 2026-10-26; #186). Tiers: Standard or Cinematic. Stages: **Kickoff** (Jax approves) -> **Story and sitemap** -> **Words** -> **Storyboard** (Jax OKs) -> **Look and assets** -> **Motion test** (Cinematic only: motion tried on a real phone) -> **Build** -> **Check** -> **Review** (one round: team, Jax, client link) -> **Launch** (Cloudflare Pages). Targets: Standard in 5 working days, Cinematic in 10.
+**Chapter cards** carry the work: a story is pages, each page is chapters in order, and each card (name, job, words, layout, shots, motion, phone note, proof with source) becomes exactly one section of the site. A stage's gate refuses to finish until its card fields are filled (`stageGaps`). Build is assembly from the cards, style numbers and section library, through the site engine (#157); no new decisions. Employees change the site by clicking an element and telling Meridian; no code editing.
 
 ## Waves
 - **Wave 0** (now): clean slate, new rules, labels, Wave 1 issues.

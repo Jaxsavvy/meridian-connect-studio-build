@@ -1,5 +1,5 @@
 'use strict';
-// Core: stage notes (Brief, Plan, Storyboard), the "This stage needs" checklist and draftCopy (Wave 2 prep).
+// Core: Kickoff notes (brief; later stages use chapter cards, #186), the "This stage needs" checklist and draftCopy (Wave 2 prep).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
@@ -26,26 +26,6 @@ test('brief notes start empty, save cleaned text, and emit stage-notes-changed',
   assert.deepEqual(await s.getStageNotes('client-a', job.id, 'brief'), saved);
   assert.deepEqual(events.at(-1), ['stage-notes-changed', { spaceId: 'client-a', jobId: job.id, stageId: 'brief' }]);
   assert.equal((await s.getJob('client-a', job.id)).stages.find(st => st.id === 'brief').hasNotes, true);
-});
-
-test('plan pages keep sections in order; unknown section kinds become other; limits are enforced', async () => {
-  const { s, job } = await setup();
-  const plan = await s.saveStageNotes('client-a', job.id, 'plan', { pages: [{ name: 'Home', purpose: 'Get calls',
-    sections: [{ kind: 'hero', heading: 'Roofs done right', copy: 'Copy' }, { kind: 'banner', heading: 'Odd' }] }] });
-  assert.deepEqual(plan.pages[0].sections.map(sec => sec.kind), ['hero', 'other']);
-  await assert.rejects(s.saveStageNotes('client-a', job.id, 'plan', { pages: Array.from({ length: 21 }, () => ({})) }), /at most 20/);
-  await assert.rejects(s.saveStageNotes('client-a', job.id, 'plan', { pages: [{ name: 'x'.repeat(81) }] }), /too long/);
-  await assert.rejects(s.saveStageNotes('client-a', job.id, 'plan', { pages: [{ name: 5 }] }), /must be text/);
-  await assert.rejects(s.saveStageNotes('client-a', job.id, 'plan', ['nope']), /must be an object/);
-});
-
-test('storyboard frames may only point at this Space\'s assets', async () => {
-  const { s, job } = await setup();
-  const own = (await s.generateImage({ spaceId: 'client-a', description: 'Synthetic hero', count: 1 })).results[0].assetId;
-  const other = (await s.generateImage({ spaceId: 'client-b', description: 'Synthetic hero', count: 1 })).results[0].assetId;
-  const saved = await s.saveStageNotes('client-a', job.id, 'storyboard', { frames: [{ page: 'Home', section: 0, sketch: 'Big photo, call button', assetId: own }, { page: 'Home', section: 99 }] });
-  assert.deepEqual(saved.frames.map(f => [f.section, f.assetId]), [[0, own], [0, null]]);
-  await assert.rejects(s.saveStageNotes('client-a', job.id, 'storyboard', { frames: [{ page: 'Home', assetId: other }] }), /not in this Space/);
 });
 
 test('notes are scoped to the Job and Space, and lock once the stage is finished or waiting on Jax', async () => {
