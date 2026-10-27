@@ -1,0 +1,24 @@
+.studio-design-lock { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.studio-design-lock :is(h2, h3, h4, p, figure) { margin: 0; }
+.studio-design-lock-status { font-weight: var(--studio-weight-strong); }
+.studio-design-lock-part { display: grid; gap: .6rem; min-width: 0; }
+.studio-design-lock-part > ol { margin: 0; padding-inline-start: 1.3rem; }
+#studioCenter .studio-design-lock-part.is-needed { border-color: var(--studio-gold); }
+.studio-design-lock-part.is-needed ul { margin: 0; padding-inline-start: 1.1rem; color: var(--studio-gold); }
+#studioCenter .studio-design-lock-ready { color: var(--studio-teal); font-weight: var(--studio-weight-strong); }
+#studioCenter .studio-design-lock-changes { display: grid; gap: .6rem; border-color: var(--studio-gold); }
+.studio-design-lock-line { font-size: var(--studio-text-large); font-weight: var(--studio-weight-strong); }
+.studio-design-lock-pages { display: grid; gap: .75rem; }
+.studio-design-lock-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.studio-design-lock-figure { display: grid; gap: .3rem; max-width: 28rem; }
+.studio-design-lock-figure img, .studio-design-lock-missing { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 2; object-fit: cover;
+  border-radius: var(--studio-radius); background: var(--studio-night); color: var(--studio-muted); }
+.studio-design-lock-swatches { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin: 0; padding: 0; list-style: none; }
+.studio-design-lock-swatches li { display: inline-flex; align-items: center; gap: .4rem; }
+.studio-design-lock-swatch { inline-size: 1.5rem; block-size: 1.5rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); }
+.studio-design-lock-field { display: grid; gap: .35rem; }
+.studio-design-lock-field select { min-height: 2.25rem; padding-inline: .5rem; justify-self: start; }
+.studio-design-lock-field textarea { min-height: 4.5rem; padding: .4rem .5rem; resize: vertical; }
+.studio-design-lock-tools { display: flex; flex-wrap: wrap; gap: .5rem; }
+.studio-design-lock-changes > button { justify-self: start; }
+.studio-design-lock :is(button, select, textarea):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
