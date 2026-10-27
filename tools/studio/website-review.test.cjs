@@ -68,5 +68,5 @@ test('only Website Jobs have a review, and real sign-in keeps it with the rest o
   await server.addReviewComment(ID, job.id, { pageId: 'home', sectionId: 'hero', text: 'Bigger photo' });
   assert.equal((await server.getReview(ID, job.id)).open, 1);
   const wf = await s.getWorkflow('website');
-  assert.deepEqual(wf.stages.find(st => st.id === 'review').tools, ['site-review']);
+  assert.deepEqual(wf.stages.find(st => st.id === 'review').tools, ['site-review', 'website']);   // the builder, for fixes (#219)
 });
