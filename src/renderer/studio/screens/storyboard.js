@@ -146,8 +146,10 @@
         const keep = want && marked.get(want);
         if (keep && !keep.disabled) keep.focus?.(); else restore();
       } });
+    // Sending to Jax fires jobs-changed (the stage stays at Storyboard, waiting on Jax): reloading then locks the strip.
     const off = studio.service.on((event, detail) => {
-      if ((['storyboard-changed', 'story-changed'].includes(event) && detail?.jobId === ctx.jobId) || (event === 'assets-changed' && detail?.spaceId === ctx.spaceId)) void model.load();
+      if ((['storyboard-changed', 'story-changed'].includes(event) && detail?.jobId === ctx.jobId)
+        || (['assets-changed', 'jobs-changed'].includes(event) && detail?.spaceId === ctx.spaceId)) void model.load();
     });
     void model.load();
     return () => { disposed = true; off(); model.dispose(); unlisten(); root.remove(); };
