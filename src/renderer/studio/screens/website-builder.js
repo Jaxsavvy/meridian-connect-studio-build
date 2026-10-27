@@ -6,7 +6,7 @@
 })(typeof window === 'undefined' ? null : window, function () {
   // Website builder: start the site from the chapter cards and preview each page (#199);
   // select, edit text, move and remove sections in an unsaved draft, then Save site (#200);
-  // page details, remove a page, and Finish to the project folder (#201).
+  // page details, remove a page, and Finish to the project folder (#201); opens at Review too, for fixes (#221).
   const WIDTHS = Object.freeze({ desktop: 1280, phone: 390 });
   const ID = /^[a-z0-9][a-z0-9-]{0,39}$/, NAV = 'site-nav';
   const KINDS = { h1: 'Heading', h2: 'Heading', h3: 'Heading', h4: 'Heading', a: 'Link', button: 'Button', li: 'List item' };
@@ -18,12 +18,14 @@
   function createBuilder({ service, edit, spaceId, jobId, stageId, report, onDirty = () => {} }) {
     let disposed = false, revision = 0, previewTurn = 0, site = null, draft = null, dirty = false, selected = null;
     let pageId = null, html = '', preview = 'loading', mode = 'desktop', busy = false, warnings = null, done = false, notice = '';
+    let retry = false;   // Review: the site saved but some project files didn't, so Save stays available
+    const review = stageId === 'review';
     const setDirty = value => { if (value !== dirty) { dirty = value; onDirty(value); } };
     const items = () => (draft ? edit.editableList(draft, pageId) : []);
     const open = () => !disposed && !busy && !done && !!draft;   // can the draft change right now?
     const show = (error = '') => {
       const list = items();
-      report({ state: 'ready', site: draft, pageId, html, preview, mode, busy, warnings, error, dirty, done, notice, items: list, selected: list.find(i => i.key === selected) || null });
+      report({ state: 'ready', site: draft, pageId, html, preview, mode, busy, warnings, error, dirty, done, notice, review, canSave: dirty || retry, items: list, selected: list.find(i => i.key === selected) || null });
     };
     async function loadPreview() {
       if (disposed || !draft) return;
@@ -38,7 +40,7 @@
     function change(result) {
       if (disposed) return false;
       if (!result?.ok) { show(messages(result) || 'That change didn\'t work.'); return false; }
-      draft = result.site; setDirty(true);
+      draft = result.site; setDirty(true); notice = '';
       if (!draft.pages.some(p => p.id === pageId)) pageId = draft.pages[0]?.id || null;
       if (!items().some(i => i.key === selected)) selected = null;
       void loadPreview(); return true;
@@ -46,7 +48,7 @@
     async function load() {
       if (disposed || dirty) return;   // never replace unsaved work
       const request = ++revision; if (!site) report({ state: 'loading' });
-      if (stageId !== 'build') { report({ state: 'empty', message: 'The Website builder opens at the Build stage.' }); return; }
+      if (stageId !== 'build' && !review) { report({ state: 'empty', message: 'The Website builder opens at the Build stage, and at Review for fixes.' }); return; }
       try {
         const job = await service.getJob(spaceId, jobId);
         if (disposed || request !== revision) return;
@@ -54,8 +56,11 @@
         if (job.workflowId !== 'website') { report({ state: 'empty', message: 'Only Website Jobs have a site to build.' }); return; }
         const next = await service.getSite(spaceId, jobId);
         if (disposed || request !== revision || dirty) return;
-        done = (job.stages || []).some(st => st.id === 'build' && st.status === 'done');
+        // Read-only once Build is done; at Review, once it's with Jax (or done).
+        done = review ? !!job.waitingOnJax || (job.stages || []).some(st => st.id === 'review' && st.status === 'done')
+          : (job.stages || []).some(st => st.id === 'build' && st.status === 'done');
         site = draft = next && Array.isArray(next.pages) ? next : null;
+        if (!site && review) { report({ state: 'empty', message: 'Build the site first.' }); return; }
         if (!site) { show(); return; }
         if (!site.pages.some(p => p.id === pageId)) pageId = site.pages[0]?.id || null;
         if (!items().some(i => i.key === selected)) selected = null;
@@ -69,7 +74,7 @@
     return { load,
       // Works once: the service refuses a second start, and the button is gone once there is a site.
       async start() {
-        if (disposed || busy || site || done) return;
+        if (disposed || busy || site || done || review) return;
         busy = true; show();
         try {
           const result = await service.startSite(spaceId, jobId, { from: 'cards' });
@@ -93,19 +98,29 @@
       pageInfo(fields) { return open() && change(edit.setPageInfo(draft, pageId, fields)); },
       removePage(id) { return open() && change(edit.removePage(draft, id)); },
       async save() {
-        if (!open() || !dirty) return;
-        busy = true; show();
+        if (!open() || (!dirty && !retry)) return;
+        busy = true; notice = ''; show();
         try {
           const result = await service.saveSite(spaceId, jobId, draft);
           if (disposed) return;
           busy = false;
           if (!result?.ok) { show(messages(result) || 'The site could not be saved. Try again.'); return; }
-          site = draft = result.site; setDirty(false); show();
+          site = draft = result.site; setDirty(false); retry = false;
+          // At Review the service also saves the project folder's site files again: { saved, failed }.
+          if (review && result.files) {
+            const failed = (Array.isArray(result.files.failed) ? result.files.failed : []).map(f => (typeof f === 'string' ? f : f?.name)).filter(Boolean);
+            if (failed.length || result.files.failed?.length) {
+              retry = true;
+              show(`Saved, but these files didn't save to the project folder: ${failed.join(', ') || 'some files'}. Save again before sending Review to Jax.`); return;
+            }
+            notice = 'Saved. The site files in the project folder are up to date.';
+          }
+          show();
         } catch (error) { if (!disposed) { busy = false; show(error?.message || 'The site could not be saved. Try again.'); } }
       },
       // Finish, in order: save the draft (if unsaved), save the files, then complete Build. Any refusal stops it there.
       async finish() {
-        if (!open()) return false;
+        if (!open() || review) return false;
         busy = true; notice = ''; show();
         const stop = message => { busy = false; show(message); return false; };
         try {
@@ -245,6 +260,10 @@
       return parts;
     }
     function finishBox(view) {
+      if (view.review) {   // Build is done; at Review there's no Finish, only the waiting line once it's with Jax
+        if (!view.done) return [];
+        const line = mark(node('p', 'With Jax for review.', 'studio-website-done'), 'done'); line.tabIndex = -1; return [line];
+      }
       if (view.done) {
         const line = mark(node('p', 'Build is done.', 'studio-website-done'), 'done'); line.tabIndex = -1;
         const parts = [line];
@@ -276,20 +295,24 @@
         const l = shell(), w = view.warnings, notes = [];
         if (w?.custom?.length) notes.push(`${plural(w.custom.length, 'chapter', 'chapters')} still marked custom`);
         for (const s of w?.short || []) notes.push(`${s.chapter} is short on images (needs ${s.needs})`);
+        const top = view.review && !view.done
+          ? [node('p', 'Fixing during Review: every save is checked again, and anything the check finds shows up as a Review comment.', 'studio-website-review-line')] : [];
         if (notes.length) {
           const box = node('div', '', 'studio-card studio-website-notes'); box.setAttribute('role', 'status');
           const list = node('ul'); for (const n of notes) list.appendChild(node('li', n));
-          box.append(node('h3', 'Worth a look (not errors)'), list); l.notes.replaceChildren(box);
-        } else l.notes.replaceChildren();
+          box.append(node('h3', 'Worth a look (not errors)'), list); top.push(box);
+        }
+        l.notes.replaceChildren(...top);
         const pagesHead = mark(node('h3', 'Pages'), 'pages'); pagesHead.tabIndex = -1; l.pages.replaceChildren(pagesHead);
         for (const p of view.site.pages) l.pages.appendChild(button(`${pageName(p)} ${p.path || ''}`.trim(), () => model.selectPage(p.id), { pressed: p.id === view.pageId }));
-        const status = node('span', view.busy ? 'Saving…' : view.dirty ? 'Unsaved changes' : '', 'studio-website-status'); status.setAttribute('role', 'status');
+        const status = node('span', view.busy ? 'Saving…' : view.dirty ? 'Unsaved changes' : view.notice || '', 'studio-website-status'); status.setAttribute('role', 'status');
         l.bar.replaceChildren(button('Desktop', () => model.setMode('desktop'), { pressed: view.mode === 'desktop' }),
           button('Phone', () => model.setMode('phone'), { pressed: view.mode === 'phone' }),
           button('Reload preview', () => void model.reload(), { disabled: view.preview === 'loading' }),
-          ...(view.done ? [] : [button('Save site', () => void model.save(), { primary: true, focus: 'save', disabled: view.busy || !view.dirty }), status]));
+          ...(view.done ? [] : [button('Save site', () => void model.save(), { primary: true, focus: 'save', disabled: view.busy || !view.canSave }), status]));
         const page = view.site.pages.find(p => p.id === view.pageId);
-        showPreview(l, view, page); l.details.replaceChildren(...pageDetails(view, page)); l.finish.replaceChildren(...finishBox(view));
+        showPreview(l, view, page); l.details.replaceChildren(...pageDetails(view, page));
+        l.finish.hidden = view.review && !view.done; l.finish.replaceChildren(...finishBox(view));
         l.panel.hidden = !!view.done; l.panel.replaceChildren(...(view.done ? [] : editPanel(view, page)));
         if (view.error) { const e = node('p', view.error); e.setAttribute('role', 'alert'); l.alerts.replaceChildren(e); } else l.alerts.replaceChildren();
         // Focus stays on what was used; a removed section's controls hand focus to the section list.
