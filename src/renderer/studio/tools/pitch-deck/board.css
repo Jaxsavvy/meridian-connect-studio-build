@@ -1,0 +1,2 @@
+/* The board page carries its own styles (inlined by renderDeck in board.js); these only frame a preview of it in Studio. */
+.studio-board-preview { width: 100%; min-height: 40rem; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); background: #050b16; }
