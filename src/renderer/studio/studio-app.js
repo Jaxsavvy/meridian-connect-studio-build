@@ -42,6 +42,7 @@
     'studio/screens/stage-bar.js', 'studio/screens/stage-bar.css',
     'studio/screens/job.js', 'studio/screens/job.css',
     'studio/screens/move-to-client.js', 'studio/screens/move-to-client.css',
+    'studio/website/site-engine.js',
     'studio/screens/pitch-deck.js', 'studio/screens/pitch-deck.css',
     'studio/screens/research.js', 'studio/screens/research.css',
     'studio/tools/pitch-deck/homepage-builder.js', 'studio/tools/pitch-deck/homepage-builder.css',

@@ -43,6 +43,8 @@ The person describes the image in their own words. Meridian picks the preset, as
 ## Website workflow (Wave 2)
 Tiers: Standard or Cinematic. Stages: Brief -> Plan -> Storyboard -> Look -> Motion (Cinematic only) -> Build (Claude on the cloud) -> Check -> Review -> Launch (Cloudflare Pages). Employees change the site by clicking an element and telling Meridian; no code editing.
 
+**Site engine (2026-10-26, #157):** every site Meridian builds is pages of **custom sections**. Each section has its own design written by Meridian, as a JSON element tree plus scoped CSS rules, with no raw HTML and no AI-written code. Motion comes only from named effects. Two builders share it: the **Pitch deck home page builder** (one concept page per tier, Tyler) and the **full Website builder** (Jax + Claude, the Build stage). When a client picks a tier, that home page becomes page one of their site (`fromHomePage`), and the full builder adds the other pages in the same look. Click-to-edit finds the element by its `data-edit` key and rewrites only that section.
+
 ## Waves
 - **Wave 0** (now): clean slate, new rules, labels, Wave 1 issues.
 - **Wave 1**: cloud server + router/keys/log/budgets (Jax+Claude); Studio frame and Space home (Tyler); Project DNA; Meridian Studio panel; Asset Library + Image gen (Cassy).
