@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
-const { fillStory } = require('./helpers/website-story.cjs');
+const { fillFrames, fillStory } = require('./helpers/website-story.cjs');
 const { mountCanvas } = require('../../src/renderer/studio/screens/website-builder.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const settle = async () => { for (let i = 0; i < 10; i++) await tick(); };
@@ -27,6 +27,7 @@ async function atBuild({ pages = false } = {}) {
     story.pages.push({ id: 'services', name: 'Services', path: '/services', purpose: 'List the work',
       chapters: [{ ...home.chapters[0], id: 'list', name: 'List', words: { ...home.chapters[0].words, headline: 'What we fix' } }] });
     await service.saveStory(job.spaceId, job.id, story);
+    await fillFrames(service, job.spaceId, job.id);   // the new chapter's storyboard frame (Core #231)
   }
   for (let guard = 0; guard < 12; guard++) {
     const j = await service.getJob(job.spaceId, job.id); if (j.stageId === 'build') break;

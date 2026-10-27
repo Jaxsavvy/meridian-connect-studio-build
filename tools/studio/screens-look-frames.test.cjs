@@ -27,6 +27,7 @@ async function atLook() {
   await service.saveStory(sp, job.id, { pages: [{ id: 'home', name: 'Home', path: '/', purpose: 'Get estimate calls', chapters: [{ id: 'hero', name: 'Hero',
     job: 'Make the visitor call', words: { headline: 'Roofs done right', body: 'Licensed crews across the valley.', button: 'Call now' },
     layout: 'hero-photo', motion: 'none', phone: 'Photo above the headline', shots: [{ what: 'Crew on a finished roof', prompt: 'Roofing crew', size: 'wide', tool: 'image' }] }] }] });
+  await require('./helpers/website-story.cjs').fillFrames(service, sp, job.id);   // Core #231: the Storyboard gate
   for (let guard = 0; guard < 8; guard++) {
     const j = await service.getJob(sp, job.id); if (j.stageId === 'look') break;
     if (j.waitingOnJax) await service.approveStage(sp, job.id); else await service.completeStage(sp, job.id);
