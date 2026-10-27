@@ -39,7 +39,7 @@ test('every section has its stable id, and the privacy line is at the bottom', a
   const html = renderDeck(await sampleDeck());
   const ids = ['s-score', 's-market', 's-demand', 's-saturation', 's-competitors', 's-reputation', 's-visibility', 's-gaps', 's-homepages', 's-plan'];
   assert.deepEqual([...html.matchAll(/<section id="([^"]+)"/g)].map(m => m[1]), ids);
-  assert.match(html, /<footer class="close">.*This page counts views so we know it was helpful\. No third-party trackers\.<\/p><\/div><\/footer>/s);
+  assert.match(html, /<footer class="close">.*No third-party trackers\.<\/p><\/div><\/footer>/s);
 });
 
 test('no tracking code: no scripts, beacons or third-party trackers on the board', async () => {
