@@ -114,3 +114,18 @@ test('once sent to Jax it is read-only; cleanup removes listeners and ignores la
   const shown = text(m.el); m.cleanup(); release(); await settle();
   assert.equal(text(m.el), shown); assert.ok(controls.every(n => !n.events.click && !n.events.keydown));
 });
+
+test('sending to Jax locks the open strip at once, without a manual reload (#242)', async () => {
+  const s = await atStoryboard(), sp = s.job.spaceId, id = s.job.id;
+  for (const [pageId, chapterId] of [['home', 'services'], ['about', 'story']]) {
+    const b = await s.service.makeStoryboardFrame(sp, id, { pageId, chapterId });
+    await s.service.keepStoryboardFrame(sp, id, { pageId, chapterId, frameId: b.chapters.find(x => x.chapterId === chapterId).frames[0].id });
+  }
+  const { el, cleanup } = await mount(s); tiles(el)[1].click();
+  assert.ok(btn(el, 'Make a frame'));
+  await s.service.completeStage(sp, id); await settle();   // the stage bar sends it: jobs-changed
+  assert.match(text(el), /With Jax: the storyboard is locked\./);
+  assert.equal(btn(el, 'Make a frame'), undefined); assert.equal(walk(el).some(n => n.tag === 'button' && /^Keep frame/.test(n.attrs['aria-label'] || '')), false);
+  assert.match(text(el), /Home · Services/);   // the open chapter stays open, read-only
+  cleanup();
+});
