@@ -1,0 +1,13 @@
+.studio-build-kit { display: grid; gap: 1rem; min-width: 0; max-width: var(--studio-content-max); overflow-wrap: anywhere; }
+.studio-build-kit :is(h2, h3, h4, p) { margin: 0; }
+#studioCenter .studio-build-kit-saved.is-saved { color: var(--studio-teal); font-weight: var(--studio-weight-strong); }
+.studio-build-kit-saved { color: var(--studio-muted); }
+.studio-build-kit-part { display: grid; gap: .6rem; min-width: 0; }
+.studio-build-kit-part ul { margin: 0; padding-inline-start: 1.1rem; }
+.studio-build-kit-code, .studio-build-kit-prompt { font-family: ui-monospace, monospace; font-size: var(--studio-text-small); }
+.studio-build-kit-prompt { margin: 0; max-height: 24rem; overflow: auto; padding: .75rem; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--studio-night); border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); }
+.studio-build-kit-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.studio-build-kit-help { color: var(--studio-muted); }
+.studio-build-kit-part > button { justify-self: start; }
+.studio-build-kit :is(button, pre):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
