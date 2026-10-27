@@ -7,16 +7,18 @@
 
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
-  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189):
+  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
+  // site checker (#206):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
     node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards,
     node ? require('./website/site-engine.js') : root && root.MeridianSiteEngine,
-    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary);
+    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary,
+    node ? require('./website/site-check.js') : root && root.MeridianSiteCheck);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -25,6 +27,7 @@
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'available'],
     ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
+    ['site-check', 'Site check', 'tool', 'available'],       // Website Check stage results (#206, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -71,7 +74,7 @@
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
-        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['seo'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
+        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', [], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
@@ -130,6 +133,7 @@
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
   const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
   const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
+  const CHECKED = Object.freeze(['pitch-deck', 'website']);      // workflows with an automatic Check stage (#131, #206)
   // Every link on the board, with the deck field it's in, for the live link check.
   const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
   // Every text field in a deck as [path, key, text].
@@ -422,8 +426,9 @@
         if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
-        if (job.workflowId === 'pitch-deck' && target === 'check') checksClear(job);
+        if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
+        if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -431,6 +436,7 @@
         }
         advance(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'assemble') runDeckChecks(space, job);   // Auto check runs by itself
+        if (job.workflowId === 'website' && target === 'build') runSiteChecks(space, job);         // so does the site Check
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -569,6 +575,15 @@
       },
       /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
       async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
+      /** Core only (#206): each page as a still page (no motion) for Connect's phone check, plus the site's outside links. */
+      async getCheckPages(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!job.site) throw new Error('Build the site first.');
+        const assets = assetUrls(space.id);
+        return clone({ links: SiteCheck.siteLinks(job.site), pages: job.site.pages.map(p => ({ label: SiteCheck.pageLabel(p),
+          html: Engine.renderPage(job.site, p.id, { assets, still: true }),
+          fileName: `${job.name} - Site ${p.path === '/' ? 'home' : p.path.slice(1).replace(/\//g, '-')} on a phone.png` })) });
+      },
       /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
       async finishSite(spaceId, jobId) {
         const files = siteFiles(spaceId, jobId);
@@ -725,22 +740,23 @@
       },
       /** Auto check: runs every check on the deck by itself; a person only reviews what gets flagged. Returns the
        *  flags [{ id, check, message, where, resolved }]; check is 'deck' | 'evidence' | 'links' | 'internal-words'.
-       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board. */
+       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board.
+       *  Website Jobs (#206): runs when Build finishes; check is 'seo' | 'accessibility' | 'links' | 'speed' (site-check.js). */
       async runChecks(spaceId, jobId) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
-        return clone(runDeckChecks(space, job).flags.map(flagView));
+        return clone((job.workflowId === 'website' ? runSiteChecks(space, job) : runDeckChecks(space, job)).flags.map(flagView));
       },
       /** The last Auto check: { ranAt, flags, notRun, log } (log: every flag a person resolved, with their note). */
       async getChecks(spaceId, jobId) {
-        const { job } = deckJob(spaceId, jobId);
+        const { job } = checkedJob(spaceId, jobId);
         const last = job.checks || { ranAt: null, flags: [] };
         return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: last.notRun || CHECKS_NOT_RUN, log: job.checkLog });
       },
       /** Core only: what Connect found on the finished board ({ flags, ran }: phone width, live links). Replaces the last
        *  board flags; one a person resolved stays resolved when the same thing is found again. */
       addBoardChecks(spaceId, jobId, result) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object') return null;
         const ran = (Array.isArray(result.ran) ? result.ran : []).filter(x => CHECKS_NOT_RUN.includes(x));
         const before = new Map(job.checks.flags.map(f => [f.key, f]));
@@ -756,7 +772,7 @@
       },
       /** A person marks a flag OK with a note saying why; the note is logged. It stays resolved when checks re-run. */
       async resolveFlag(spaceId, jobId, flagId, note) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
         const flag = job.checks && job.checks.flags.find(f => f.id === flagId);
         if (!flag) throw new Error('Flag not found.');
@@ -991,6 +1007,12 @@
       const gaps = gapsFor(space, job, stageId);
       if (gaps.length) throw new Error(`Not ready yet: ${gaps.length} thing${gaps.length === 1 ? '' : 's'} to finish. First: ${gaps[0].where}: ${gaps[0].message}`);
     }
+    function checkedJob(spaceId, jobId) {
+      const space = requireSpace(spaceId);
+      const job = requireJob(space.id, jobId);
+      if (!CHECKED.includes(job.workflowId)) throw new Error('Only Pitch deck and Website Jobs have an automatic check.');
+      return { space, job };
+    }
     function deckJob(spaceId, jobId) {
       const space = requireSpace(spaceId);
       const job = requireJob(space.id, jobId);
@@ -1032,6 +1054,16 @@
       }
       // A flag a person already resolved stays resolved when the same thing is found again. The board checks
       // (phone, live links) keep their last result until Connect runs them again (addBoardChecks).
+      return storeChecks(space, job, found);
+    }
+    // Website Check (#206): the site checker on the finished site. Connect adds the phone and live-link checks.
+    function runSiteChecks(space, job) {
+      if (!job.site) throw new Error('Build the site first.');
+      const assets = assetUrls(space.id);
+      const sizes = Object.fromEntries(job.site.pages.map(p => [p.id, new TextEncoder().encode(Engine.renderPage(job.site, p.id, { assets })).length]));
+      return storeChecks(space, job, SiteCheck.checkSite(job.site, { sizes }));
+    }
+    function storeChecks(space, job, found) {
       const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
       const before = new Map(last.flags.map(f => [f.key, f]));
       job.checks = { ranAt: new Date(now()).toISOString(), notRun: last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
@@ -1203,6 +1235,23 @@
         if (res && res.success) local.addBoardChecks(spaceId, jobId, res);
       } catch (_) { /* the deck checker already flags a deck that can't render */ }
     }
+    // Website Check (#206): Connect checks every page at phone width (a screenshot of each goes to Docs) and every
+    // outside link once. The phone check counts as run only when every page ran.
+    async function siteBoardChecks(spaceId, jobId) {
+      if (typeof checkBoard !== 'function') return;
+      try {
+        const { pages, links } = await local.getCheckPages(spaceId, jobId);
+        const flags = [], phoneRan = [];
+        for (const [i, page] of pages.entries()) {
+          const res = await checkBoard({ projectId: spaceId, html: page.html, links: i === 0 ? links : [], fileName: page.fileName });
+          if (!res || !res.success) { phoneRan.push(false); continue; }
+          phoneRan.push((res.ran || []).includes('phone-screenshot'));
+          for (const f of res.flags || []) flags.push(f.check === 'phone' ? { ...f, where: page.label, message: String(f.message || '').replace('the board is', 'the page is') } : f);
+        }
+        const ran = [...(phoneRan.length && phoneRan.every(Boolean) ? ['phone-screenshot'] : []), ...(phoneRan[0] !== false ? ['links-open'] : [])];
+        local.addBoardChecks(spaceId, jobId, { flags, ran });
+      } catch (_) { /* the phone and link checks stay "not run" */ }
+    }
 
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
@@ -1282,6 +1331,7 @@
           if (out.stageId === 'check') await boardChecks(spaceId, jobId);   // Assemble board just finished
           await saveJobs(spaceId);
         }
+        if (out && out.workflowId === 'website' && out.stageId === 'check') await siteBoardChecks(spaceId, jobId);   // Build just finished
         return out;
       },
       setStageNeed: saved('setStageNeed', true),
@@ -1323,8 +1373,8 @@
       async runChecks(spaceId, jobId) {
         await loadSaved(spaceId);
         await local.runChecks(spaceId, jobId);
-        await boardChecks(spaceId, jobId);
-        await saveJobs(spaceId);
+        if ((await local.getJob(spaceId, jobId)).workflowId === 'website') await siteBoardChecks(spaceId, jobId);
+        else { await boardChecks(spaceId, jobId); await saveJobs(spaceId); }
         return (await local.getChecks(spaceId, jobId)).flags;
       },
       getChecks: loaded('getChecks'),

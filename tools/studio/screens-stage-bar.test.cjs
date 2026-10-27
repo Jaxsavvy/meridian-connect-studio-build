@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
-const { fillStory } = require('./helpers/website-story.cjs'); // chapter cards so Website gates pass (#186)
+const { fillStory, startSiteAtBuild } = require('./helpers/website-story.cjs'); // chapter cards and the site, so Website gates pass (#186, #206)
 const { createStageBar, mount } = require('../../src/renderer/studio/screens/stage-bar.js');
 const { createWork, render } = require('../../src/renderer/studio/screens/work.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -22,6 +22,7 @@ test('current, waiting, done and finished follow service; employees cannot appro
   assert.equal(s.views.at(-1).job.stageId, 'plan');
   await s.model.complete(); assert.equal(s.views.at(-1).job.stageId, 'words');
   while (!s.views.at(-1).job.finished) {
+    await startSiteAtBuild(s.service, s.job.spaceId, s.job.id);
     await s.model.complete();
     if (s.views.at(-1).job.waitingOnJax) { await s.service.approveStage(s.job.spaceId, s.job.id); await tick(); }
   }

@@ -85,6 +85,7 @@
     rule('h1, h2, h3', { 'font-family': 'var(--f-heading), system-ui, sans-serif', color: 'inherit', margin: '0' }),
     rule('h1', { 'font-size': 'clamp(2.75rem, 6.4vw, 5.6rem)', 'font-weight': '800', 'letter-spacing': '-0.03em', 'line-height': '1.02', 'max-width': '13ch' }),
     rule('h2', { 'font-size': 'clamp(2rem, 4.2vw, 3.4rem)', 'font-weight': '800', 'letter-spacing': '-0.025em', 'line-height': '1.05', 'max-width': '18ch' }),
+    rule('h1.as-h2', { 'font-size': 'clamp(2rem, 4.2vw, 3.4rem)', 'letter-spacing': '-0.025em', 'line-height': '1.05', 'max-width': '18ch' }),
     rule('h3', { 'font-size': '1.25rem', 'font-weight': '700', 'letter-spacing': '-0.01em', 'line-height': '1.25' }),
     rule('p', { margin: '0', 'font-size': '1.0625rem', 'line-height': '1.65' }),
     rule('.eyebrow', { 'font-size': '0.78rem', 'font-weight': '700', 'letter-spacing': '0.16em', 'text-transform': 'uppercase', color: 'var(--c-accent)', 'margin-bottom': '16px' }),
@@ -224,6 +225,16 @@
         rule('.btn', { padding: '8px 14px', 'font-size': '.875rem', 'white-space': 'nowrap' }, PHONE)] };
   }
 
+  // Every page gets one main heading, for Google and screen readers (#206): on a page without a hero the first
+  // headline becomes it, keeping its look.
+  function oneMainHeading(page) {
+    const all = [];
+    const walk = n => { if (n && !('text' in n)) { all.push(n); (n.children || []).forEach(walk); } };
+    page.sections.forEach(s => walk(s.tree));
+    const first = all.some(n => n.tag === 'h1') ? null : all.find(n => n.tag === 'h2');
+    if (first) { first.tag = 'h1'; first.attrs = { ...first.attrs, class: [first.attrs && first.attrs.class, 'as-h2'].filter(Boolean).join(' ') }; }
+  }
+
   /** Turns a finished story (chapter cards) into a site. options: { name, tokens, phone?, concept?, year? }.
    *  Returns { ok, errors, site, custom: [chapter ids Meridian must still write], short: [{ chapter, needs }] }. */
   function assembleSite(story, { name, tokens = DEFAULT_TOKENS, phone, concept = false, year = new Date().getFullYear() } = {}) {
@@ -243,6 +254,7 @@
           if (images(c).length < want) short.push({ chapter: c.id, needs: `${want} kept image${want === 1 ? '' : 's'}` });
           return BUILD[layout]({ ...c, layout }, x);
         })] })) };
+    site.pages.forEach(oneMainHeading);
     const check = Engine.validateSite(site);
     return { ...check, site, custom, short };
   }
