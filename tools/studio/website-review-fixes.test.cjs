@@ -62,8 +62,14 @@ test('real sign-in: Connect saves the site files on every Review save, and a fai
   const { job } = await toReview(local);
   let fail = true;
   const written = [];
-  const server = createServerService({ local, request: async () => ({ success: true, data: [] }), readSave: async () => ({ success: false, missing: true }),
-    saveFile: async (spaceId, name) => { written.push(name); return fail ? { success: false, error: 'Folder is offline' } : { success: true }; } });
+  const folder = new Map();   // the project folder: Studio's save file sticks, a failing disk refuses the site files
+  const server = createServerService({ local, request: async () => ({ success: true, data: [] }),
+    readSave: async (spaceId, name) => (folder.has(name) ? { success: true, content: folder.get(name) } : { success: false, missing: true }),
+    saveFile: async (spaceId, name, content) => {
+      written.push(name);
+      if (fail && !name.endsWith('Studio save.json')) return { success: false, error: 'Disk full' };
+      folder.set(name, content); return { success: true };
+    } });
   const site = await server.getSite(ID, job.id);
   const first = await server.saveSite(ID, job.id, site);
   assert.equal(first.files.failed.length > 0, true);

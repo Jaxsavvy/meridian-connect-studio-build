@@ -762,11 +762,14 @@ if (!gotTheLock) {
       if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > 5 * 1024 * 1024) return { success: false, error: 'File must be text, 5 MB at most.' };
       return api.uploadProjectBytes(projectId, Buffer.from(content, 'utf8'), name, 'Docs');
     });
-    // Studio's pitch deck save file read back from the project's folder (Docs): only that one file; Team Hub checks access.
+    // Studio's save files read back from the project's folder (Docs): only these two (pitch deck #171, website #226); Team Hub checks access.
+    const STUDIO_SAVES = ['Pitch deck - Studio save.json', 'Website - Studio save.json'];
     ipcMain.handle('studio:read-project-save', async (e, req) => {
       const projectId = String((req && req.projectId) || '');
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) return { success: false, error: 'Unknown project.' };
-      const res = await api.downloadProjectFile(projectId, 'Pitch deck - Studio save.json', 'Docs');
+      const name = req && req.name !== undefined ? req.name : STUDIO_SAVES[0];
+      if (!STUDIO_SAVES.includes(name)) return { success: false, error: 'Studio only reads its own save files.' };
+      const res = await api.downloadProjectFile(projectId, name, 'Docs');
       if (!res.success) return { success: false, missing: res.error === 'HTTP 404', offline: !!res.offline, error: res.error };
       if (res.bytes.length > 5 * 1024 * 1024) return { success: false, error: 'The save file is too big.' };
       return { success: true, content: res.bytes.toString('utf8') };
