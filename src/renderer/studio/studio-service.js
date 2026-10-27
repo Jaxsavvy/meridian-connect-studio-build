@@ -21,6 +21,7 @@
     ['storyboard', 'Storyboard', 'tool', 'available'],
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'available'],
+    ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -61,10 +62,10 @@
       ]),
       stages: Object.freeze([
         STAGE('brief', 'Kickoff', 'Agree the goal, audience, main call to action and tier, from Project DNA and the pitch deck.', ['copywriter'], ['Goal', 'Audience', 'Main call to action', 'Pages wanted'], 'Jax approves the DNA and the goal', 'jax'),
-        STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
-        STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter'], ['Headline and body for every chapter'], 'No placeholder text'),
-        STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
-        STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
+        STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter', 'chapter-cards'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
+        STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter', 'chapter-cards'], ['Headline and body for every chapter'], 'No placeholder text'),
+        STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
+        STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['seo'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
