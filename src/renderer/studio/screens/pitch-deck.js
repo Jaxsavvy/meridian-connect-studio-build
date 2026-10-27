@@ -7,6 +7,11 @@
   // Pitch Deck page: the locked stage list with builders, timing and actions; the workspace shows the open tool.
   const STATUS = Object.freeze({ done: 'Done', current: 'Open', 'waiting-on-jax': 'Waiting on Jax', upcoming: 'Not open yet' });
   const HOME = Object.freeze(['home-t1', 'home-t2', 'home-t3']);
+  // Deck form helpers: the form is built from the deck itself (decks/deck-data.js), so it always matches the format.
+  const LONG = new Set(['text', 'problem', 'build', 'effect', 'detail', 'description', 'basis']);
+  const NAMES = Object.freeze({ url: 'Link', placeId: 'Google place ID', bookingUrl: 'Booking link' });
+  const nameOf = key => NAMES[key] || (/^\d+$/.test(key) ? `#${Number(key) + 1}` : String(key).replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()));
+  function setAt(obj, path, value) { const keys = path.split('.'), last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; }
 
   function createPitchDeck({ service, spaceId, jobId, report }) {
     let disposed = false, revision = 0, job = null, people = [], checks = null, busy = false;
@@ -75,7 +80,75 @@
       const slot = node('div'); workspace.append(node('h2', `Home page: Tier ${HOME.indexOf(open) + 1}`), slot);
       studio.mountInto(slot, 'tool', 'homepage-builder', { spaceId, jobId, stageId: open });
     } else {
-      workspace.append(node('h2', 'Workspace'), node('p', 'Open a stage to work on it.'));
+      workspace.className += ' studio-pitch-deck-deck';   // the deck form and preview fill it once the deck loads
+    }
+    // Deck form (Research + write) and live preview. Its listeners are its own, so stage-list redraws keep them.
+    const deck = { value: null, errors: [], saving: false, message: '', locked: false, dirty: false };
+    let deckListeners = [], closed = false;
+    const board = () => doc.defaultView?.MeridianPitchBoard || require('../tools/pitch-deck/board.js');
+    const dirty = value => { if (deck.dirty !== value) { deck.dirty = value; studio.setDirty?.(value); } };
+    async function loadDeck(message = '') {
+      try { deck.value = await studio.service.getDeck(spaceId, jobId); deck.message = message; } catch (error) { deck.message = error?.message || 'Unable to load the deck.'; }
+      if (!closed) drawDeck();
+    }
+    async function saveDeck() {
+      if (deck.saving || !deck.value || deck.locked) return;
+      deck.saving = true; drawDeck();
+      try {
+        const result = await studio.service.saveDeck(spaceId, jobId, deck.value);
+        deck.value = result.deck; deck.errors = Array.isArray(result.errors) ? result.errors : []; dirty(false);
+        deck.message = result.ok ? 'Saved. The deck passes the checker.' : `Saved. ${deck.errors.length} thing(s) still to fix.`;
+      } catch (error) {
+        deck.message = error?.message || 'Unable to save. Try again.';
+        // Someone else saved a moment ago: the service loaded their version, so show it and keep the message as-is.
+        if (/someone else saved/i.test(deck.message)) { dirty(false); deck.saving = false; await loadDeck(deck.message); return; }
+      }
+      deck.saving = false; if (!closed) drawDeck();
+    }
+    function drawDeck() {
+      for (const [item, type, fn] of deckListeners) item.removeEventListener?.(type, fn); deckListeners = [];
+      const active = doc.activeElement?.getAttribute?.('data-path'), byPath = {}, shown = new Set(), inputs = {};
+      for (const e of deck.errors) (byPath[e.path] = byPath[e.path] || []).push(e.message);
+      const errorsFor = (path, el) => { for (const m of byPath[path] || []) { shown.add(path); const p = node('p', m, 'studio-pitch-deck-error'); el.appendChild(p); } };
+      function field(path, key, value) {
+        const wrap = node('label', '', 'studio-pitch-deck-field'), numbers = Array.isArray(value);
+        const input = node(typeof value === 'string' && LONG.has(key) ? 'textarea' : 'input');
+        if (typeof value === 'boolean') { input.type = 'checkbox'; input.checked = value; }
+        else if (typeof value === 'number') { input.type = 'number'; input.step = 'any'; input.value = String(value); }
+        else input.value = numbers ? value.join(', ') : String(value ?? '');
+        input.setAttribute('data-path', path); input.disabled = deck.locked || deck.saving; inputs[path] = input;
+        if (byPath[path]) input.setAttribute('aria-invalid', 'true');
+        const read = () => typeof value === 'boolean' ? input.checked : typeof value === 'number' ? (input.value === '' ? null : Number(input.value))
+          : numbers ? input.value.split(',').map(s => s.trim()).filter(Boolean).map(Number) : input.value;
+        const fn = () => { setAt(deck.value, path, read()); dirty(true); };
+        input.addEventListener(typeof value === 'boolean' ? 'change' : 'input', fn); deckListeners.push([input, typeof value === 'boolean' ? 'change' : 'input', fn]);
+        wrap.append(node('span', numbers ? `${nameOf(key)} (numbers, commas between)` : nameOf(key)), input); errorsFor(path, wrap); return wrap;
+      }
+      function group(path, key, value) {
+        if (value === null || typeof value !== 'object' || (Array.isArray(value) && value.every(v => typeof v === 'number'))) return field(path, key, value);
+        const box = node('fieldset', '', 'studio-pitch-deck-group'); box.appendChild(node('legend', nameOf(key))); errorsFor(path, box);
+        for (const [k, v] of Object.entries(value)) if (k !== 'version') box.appendChild(group(path ? `${path}.${k}` : k, k, v));
+        return box;
+      }
+      const form = node('div', '', 'studio-pitch-deck-form'), preview = node('div', '', 'studio-pitch-deck-preview');
+      form.appendChild(node('h2', 'Deck words and numbers'));
+      if (deck.locked) form.appendChild(node('p', 'Research + write is done, so the deck is locked.'));
+      const status = node('p', deck.message); status.setAttribute('role', /unable|someone else|locked|try again/i.test(deck.message) ? 'alert' : 'status');
+      if (deck.value) {
+        const sections = Object.entries(deck.value).filter(([k]) => k !== 'version').map(([k, v]) => group(k, k, v));
+        const extra = deck.errors.filter(e => !shown.has(e.path));
+        if (extra.length) { const list = node('ul', '', 'studio-pitch-deck-error'); for (const e of extra) list.appendChild(node('li', `${e.path}: ${e.message}`)); form.appendChild(list); }
+        const save = node('button', deck.saving ? 'Saving…' : 'Save deck', 'studio-button is-primary'); save.type = 'button';
+        save.disabled = deck.saving || deck.locked; save.setAttribute('data-path', '(save)'); inputs['(save)'] = save;
+        save.addEventListener('click', saveDeck); deckListeners.push([save, 'click', saveDeck]);
+        form.append(status, ...sections, save);
+        const frame = node('iframe', '', 'studio-pitch-deck-board');
+        frame.setAttribute('sandbox', 'allow-scripts'); frame.setAttribute('title', 'Board preview');   // never allow-same-origin
+        try { frame.srcdoc = board().renderDeck(deck.value); preview.append(node('h2', 'Live preview'), frame); }
+        catch (_) { preview.append(node('h2', 'Live preview'), node('p', 'The preview shows once the deck passes the checker.')); }
+      } else form.appendChild(status);
+      workspace.replaceChildren(form, preview);
+      if (active && inputs[active] && !inputs[active].disabled) inputs[active].focus?.();
     }
     function builder(st, view) {
       const label = node('label', '', 'studio-pitch-deck-builder'), select = node('select'), jax = st.approver === 'jax';
@@ -118,6 +191,8 @@
     const model = createPitchDeck({ service: studio.service, spaceId, jobId,
       report(view) {
         unlisten(); const restore = focus();
+        const locked = view.job?.stages.find(st => st.id === 'research')?.status === 'done';
+        if (view.state === 'ready' && locked !== deck.locked) { deck.locked = locked; if (deck.value) drawDeck(); }
         root.setAttribute('aria-busy', String(view.state === 'loading' || !!view.busy));
         header.replaceChildren(button('Back to Space', () => studio.navigate('space', { spaceId })), node('h1', view.job?.name || 'Pitch deck'));
         if (view.state !== 'ready') {
@@ -141,7 +216,8 @@
     const off = studio.service.on((event, detail) => {
       if (['jobs-changed', 'deck-changed'].includes(event) && detail?.spaceId === spaceId) void model.load();
     });
-    void model.load(); return () => { off(); model.dispose(); unlisten(); root.remove(); };
+    void model.load(); if (!HOME.includes(open)) void loadDeck();
+    return () => { closed = true; off(); model.dispose(); unlisten(); for (const [i, ty, fn] of deckListeners) i.removeEventListener?.(ty, fn); dirty(false); root.remove(); };
   }
   return { createPitchDeck, render };
 });

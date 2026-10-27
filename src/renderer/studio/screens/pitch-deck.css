@@ -16,3 +16,16 @@
 .studio-pitch-deck-flags li { display: grid; gap: .35rem; }
 .studio-pitch-deck :is(select, input, button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 @media (max-width: 56rem) { .studio-pitch-deck-body { grid-template-columns: minmax(0, 1fr); } }
+.studio-pitch-deck-deck { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.studio-pitch-deck-form { display: grid; gap: .6rem; min-width: 0; }
+.studio-pitch-deck-group { display: grid; gap: .5rem; min-width: 0; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); padding: .6rem .8rem; }
+.studio-pitch-deck-group legend { font-weight: 600; padding-inline: .3rem; }
+.studio-pitch-deck-field { display: grid; gap: .25rem; min-width: 0; }
+.studio-pitch-deck-field input[type="checkbox"] { justify-self: start; min-height: 1.25rem; }
+.studio-pitch-deck textarea { min-height: 4.5rem; padding: .4rem .5rem; resize: vertical; }
+.studio-pitch-deck-error { margin: 0; color: var(--studio-danger); font-size: .9rem; }
+.studio-pitch-deck-field [aria-invalid="true"] { border-color: var(--studio-danger); }
+.studio-pitch-deck-preview { position: sticky; top: 0; display: grid; gap: .5rem; min-width: 0; }
+.studio-pitch-deck-board { width: 100%; height: 75vh; border: var(--studio-border) solid var(--studio-line); border-radius: var(--studio-radius); background: #050b16; }
+.studio-pitch-deck textarea:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media (max-width: 80rem) { .studio-pitch-deck-deck { grid-template-columns: minmax(0, 1fr); } .studio-pitch-deck-preview { position: static; } }

@@ -121,3 +121,76 @@ test('a Job that isn\'t a pitch deck shows a message; cleanup removes listeners 
   const before = reads; await service.assignStage('client-a', job.id, 'research', 'jax'); await settle();
   assert.equal(reads, before);
 });
+
+// Part 2: deck form, live preview, and the Space screen opening this page.
+const spaceScreen = require('../../src/renderer/studio/screens/space.js');
+const byPath = (el, path) => walk(el).find(n => n.attrs['data-path'] === path);
+const typeIn = (el, path, value) => { const i = byPath(el, path); i.value = value; i.events.input(); };
+async function withDeck(prep = async () => {}, override = s => s) {
+  const service = createSampleService(); service.setProjects([{ id: 'client-a', name: 'Client A' }]);
+  const job = await service.startJob('client-a', 'pitch-deck', 'deck'); await prep(service, job);
+  const el = dom(), dirty = [];
+  const cleanup = render(el, { spaceId: 'client-a', jobId: job.id }, { service: override(service), navigate() {}, mountInto() {}, setDirty: v => dirty.push(v) });
+  await settle(); return { service, job, el, dirty, cleanup };
+}
+
+test('the deck form edits mark unsaved work; Save shows each error next to its field', async () => {
+  const { el, dirty, service, job, cleanup } = await withDeck(async (s, j) => { await s.useSampleResearch('client-a', j.id); });
+  assert.match(text(el), /Deck words and numbers/);
+  assert.equal(byPath(el, 'bottomLine.headline').value, (await service.getDeck('client-a', job.id)).bottomLine.headline);
+  assert.equal(byPath(el, 'demand.series').value.split(', ').length > 5, true);   // number lists as "1, 2, 3"
+  typeIn(el, 'market.stats.0.source.url', ''); assert.deepEqual(dirty, [true]);
+  byPath(el, '(save)').click(); await settle();
+  assert.deepEqual(dirty, [true, false]);
+  const url = byPath(el, 'market.stats.0.source.url'), wrap = walk(el).find(n => n.children?.includes(url));
+  assert.equal(url.attrs['aria-invalid'], 'true');
+  assert.ok(wrap.children.some(n => n.className === 'studio-pitch-deck-error' && /Required|web link/.test(text(n))));
+  assert.match(text(el), /Saved\. \d+ thing\(s\) still to fix/);
+  cleanup();
+});
+
+test('the live preview is sandboxed without same-origin and waits for a passing deck', async () => {
+  const blank = await withDeck();
+  assert.match(text(blank.el), /preview shows once the deck passes/); blank.cleanup();
+  const { el, cleanup } = await withDeck(async (s, j) => { await s.useSampleResearch('client-a', j.id); });
+  const frame = walk(el).find(n => n.tag === 'iframe');
+  assert.equal(frame.attrs.sandbox, 'allow-scripts'); assert.doesNotMatch(frame.attrs.sandbox, /same-origin/);
+  assert.match(frame.srcdoc, /<section id="s-score"/); assert.match(frame.srcdoc, /Client A/);
+  cleanup();
+});
+
+test('the deck locks once Research + write is done', async () => {
+  const { el, cleanup } = await withDeck(async (s, j) => { await s.useSampleResearch('client-a', j.id); await s.completeStage('client-a', j.id, 'research'); });
+  assert.match(text(el), /deck is locked/); assert.equal(byPath(el, 'bottomLine.headline').disabled, true); assert.equal(byPath(el, '(save)').disabled, true);
+  cleanup();
+});
+
+test('"Someone else saved this deck" shows as-is and loads their version', async () => {
+  let reads = 0; const msg = 'Someone else saved this deck a moment ago. Studio loaded their version; please do your last change again.';
+  const { el, dirty, cleanup } = await withDeck(async () => {}, s => ({ ...s, getDeck: (...a) => { reads++; return s.getDeck(...a); },
+    saveDeck: async () => { throw Error(msg); } }));
+  typeIn(el, 'bottomLine.headline', 'Mine'); byPath(el, '(save)').click(); await settle();
+  assert.ok(walk(el).some(n => n.attrs.role === 'alert' && text(n) === msg)); assert.equal(reads, 2); assert.equal(dirty.at(-1), false);
+  assert.notEqual(byPath(el, 'bottomLine.headline').value, 'Mine');
+  cleanup();
+});
+
+test('the Space screen opens Pitch deck Jobs on this page and Website Jobs on the Job screen', async () => {
+  const service = createSampleService(); service.setProjects([{ id: 'client-a', name: 'Client A' }]);
+  const deckJob = await service.startJob('client-a', 'pitch-deck', 'deck'), siteJob = await service.startJob('client-a', 'website', 'standard');
+  const el = dom(), routes = [];
+  const cleanup = spaceScreen.render(el, { spaceId: 'client-a' }, { service, navigate: (...r) => routes.push(r) }); await settle();
+  walk(el).find(n => n.tag === 'button' && text(n) === 'Pitch deck v1').click();
+  walk(el).find(n => n.tag === 'button' && text(n) === 'Website v1').click();
+  assert.deepEqual(routes, [['pitch-deck', { spaceId: 'client-a', jobId: deckJob.id }], ['job', { spaceId: 'client-a', jobId: siteJob.id }]]);
+  cleanup();
+});
+
+test('cleanup removes the deck form listeners too', async () => {
+  const { el, dirty, cleanup } = await withDeck();
+  typeIn(el, 'bottomLine.text', 'Draft');
+  const controls = walk(el).filter(n => n.events.input || n.events.click || n.events.change);
+  assert.ok(controls.some(n => n.attrs['data-path'])); cleanup();
+  assert.ok(controls.every(n => !n.events.input && !n.events.click && !n.events.change));
+  assert.equal(dirty.at(-1), false);   // leaving the page clears this page's unsaved mark
+});

@@ -45,8 +45,10 @@
           tool.kind === 'workflow' ? { spaceId, workflowId: toolId } : { spaceId, toolId }); return true;
       },
       openJob(jobId) {
-        if (disposed || !jobs.some(job => job.id === jobId && job.workflowId)) return false;
-        navigate('job', { spaceId, jobId }); return true;
+        const job = jobs.find(item => item.id === jobId && item.workflowId);
+        if (disposed || !job) return false;
+        // Pitch deck Jobs open the Pitch Deck page; every other Job keeps the Job screen.
+        navigate(job.workflowId === 'pitch-deck' ? 'pitch-deck' : 'job', { spaceId, jobId }); return true;
       },
       dispose() { disposed = true; revision++; tools = []; jobs = []; off(); },
     };
