@@ -60,7 +60,7 @@
     const shotIds = new Set();
     return {
       id: uniqueId(c.id, `ch-${j + 1}`, used), name: text(c.name, 'Chapter name', 80), job: text(c.job, 'Chapter job', 300),
-      words: { headline: text(w.headline, 'Headline', 200), body: text(w.body, 'Body', 4000), button: text(w.button, 'Button text', 60) },
+      words: { eyebrow: text(w.eyebrow, 'Eyebrow', 60), headline: text(w.headline, 'Headline', 200), body: text(w.body, 'Body', 4000), button: text(w.button, 'Button text', 60) },
       layout: pick(c.layout, LAYOUTS), motion: pick(c.motion, MOTION), phone: text(c.phone, 'Phone note', 300),
       shots: list(c.shots, 'Shots', LIMITS.shots).map((s, k) => ({ id: uniqueId(s && s.id, `shot-${k + 1}`, shotIds),
         what: text(s && s.what, 'Shot', 200), prompt: text(s && s.prompt, 'Shot prompt', 2000), size: pick(s && s.size, SIZES),
@@ -103,7 +103,7 @@
         if (at('words')) {
           if (!c.words.headline) need(cw, 'Write the headline.');
           if (!c.words.body) need(cw, 'Write the body text.');
-          const all = `${c.words.headline} ${c.words.body} ${c.words.button}`;
+          const all = `${c.words.eyebrow} ${c.words.headline} ${c.words.body} ${c.words.button}`;
           if (PLACEHOLDER.test(all)) need(cw, 'Replace the placeholder text.');
         }
         if (at('storyboard')) {
