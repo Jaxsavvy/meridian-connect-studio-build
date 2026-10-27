@@ -29,12 +29,13 @@ After updating to `main`, `git status` may show untracked files left on this PC 
 All of these are saved in the `archive/2026-10-18/*` tags, so moving them loses nothing.
 
 ## Reviews and merging (so nobody waits on Jax)
-- Claude reviews open PRs twice a day (about 11am and 6pm Pacific) and merges only finalized PRs: marked ready for review (not draft), checks green, only the issue's files changed, matches the issue's "Done when", 3-line update posted. Anything else gets review comments, and the author fixes them before starting anything new.
+- Claude reviews open PRs twice a day (about 11am and 6pm Pacific) and merges only finalized PRs: marked ready for review (not draft), checks green, `node --test` passes with the PR merged onto the latest `main`, only the issue's files changed, matches the issue's "Done when", 3-line update posted. Anything else gets review comments, and the author fixes them before starting anything new.
+- **Tyler's AI may merge Tyler's own in-lane PRs** (Jax, 2026-10-27) once all of these are true on the PR's latest commit: an approving review from Claude or a teammate, no review still asking for changes, checks green, `node --test` passes after merging the latest `main` into the branch, and only the issue's lane files changed. Merge with a merge commit. It never merges Core-lane or shared-file PRs, or anyone else's PR.
 - Tyler and Cassy may review each other's PRs too; a teammate approval plus green checks is enough to merge in-lane work.
-- Only these need Jax: anything in the Core lane or shared files, anything a client will see, new paid tools or spending, and marking a wave complete.
+- Core-lane and shared-file PRs: Jax has asked Claude to merge them once they pass the same checks (2026-10-27). Jax still decides anything a client will see going live (publishing, sending), new paid tools or spending, and marking a wave complete.
 
 ## Hard rules
-- Never push to `main`. Never force-push. Never merge your own PR.
+- Never push to `main`. Never force-push. Never merge your own PR, except where "Reviews and merging" above allows it.
 - No evidence documents, handoff files, audit reports, screenshots folders or long write-ups in the repo. Evidence goes in the PR description, short.
 - Never add secrets, API keys, tokens, `.env` files, personal paths (`C:\Users\...`), logs, databases, installers or customer data.
 - No paid APIs or live customer systems in tests. Use small synthetic data.
