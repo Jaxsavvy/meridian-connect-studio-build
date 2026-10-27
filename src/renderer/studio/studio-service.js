@@ -8,7 +8,8 @@
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
-  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231), design bundle (#238):
+  // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231), design bundle (#238),
+  // build prompt (#246):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -20,10 +21,11 @@
     node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit,
     node ? require('./website/concept.js') : root && root.MeridianConcept,
     node ? require('./website/storyboard-frames.js') : root && root.MeridianStoryboardFrames,
-    node ? require('./website/design-bundle.js') : root && root.MeridianDesignBundle);
+    node ? require('./website/design-bundle.js') : root && root.MeridianDesignBundle,
+    node ? require('./website/build-prompt.js') : root && root.MeridianBuildPrompt);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames, Bundle) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames, Bundle, BuildPrompt) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -37,6 +39,7 @@
     ['site-review', 'Site review', 'tool', 'available'],     // team comments on the site in Review (#216, screen: Tyler)
     ['concept', 'Concept', 'tool', 'available'],             // the big idea, before Story (#229, screen: Tyler)
     ['design-lock', 'Design lock', 'tool', 'available'],     // the bundle and the client's approval (#238, screen: Tyler)
+    ['build-kit', 'Build kit', 'tool', 'available'],         // the approved bundle + Claude Code prompt (#246, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -89,7 +92,7 @@
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('lock', 'Design lock', 'One bundle: concept, cards, storyboard, chosen look, assets and style numbers. Jax sends it to the client, who approves the design.', ['design-lock'], ['Bundle checked', 'Sent to the client', 'Client approved'], 'The client approves the design', 'jax'),
-        STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
+        STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website', 'build-kit'], ['Every page renders'], 'Runs on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review', 'website'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
@@ -193,7 +196,7 @@
   const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => !['concept', 'lock'].includes(st.id), 3: st => st.id !== 'lock' }) });   // v2: no Concept (#229); v3: no Design lock (#238)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
-    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'design', 'site', 'review', 'siteFilesSaved']),
+    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'design', 'buildKit', 'site', 'review', 'siteFilesSaved']),
   });
 
   function sampleImage(label, hue) {
@@ -304,7 +307,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, review: null, concept: null, storyboard: null, design: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231), design lock (#238)
+        story: null, look: null, review: null, concept: null, storyboard: null, design: null, buildKit: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231), design lock (#238), build kit (#246)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -607,6 +610,27 @@
       async getStoryGaps(spaceId, jobId, stageId) {
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
+      },
+      /** Build runner, part 1 (#246): the approved bundle, its images and the Claude Code prompt that builds the client's
+       *  site from the house starter kit: { repo, bundle, images, prompt, files, saved }. Once Design lock is done. */
+      async getBuildKit(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        return clone(buildKitOf(space, job));
+      },
+      /** Saves the build kit's two files to the project folder: { saved, failed }. */
+      async saveBuildKit(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        const out = await saveProjectFiles(space.id, job.id, buildKitOf(space, job).files);
+        self.markBuildKit(space.id, job.id, out);
+        return out;
+      },
+      /** Core only: how saving the build kit went (real sign-in saves it through Connect). Records the design version on success. */
+      markBuildKit(spaceId, jobId, result) {
+        const { job } = websiteJob(spaceId, jobId);
+        if (result && Array.isArray(result.failed) && !result.failed.length && job.design && job.design.sent) {
+          job.buildKit = { version: job.design.sent.version, at: new Date(now()).toISOString() };
+        }
+        return clone(job.buildKit || null);
       },
       /** Design lock (#238): the bundle (frozen once sent), what's missing, the version sent and the client's answers. */
       async getDesignLock(spaceId, jobId) {
@@ -1231,7 +1255,8 @@
       const design = Number.isInteger(sent.version) && sent.version > 0 ? { answer: answerOf(dz.answer),
         sent: { version: sent.version, at: str(sent.at, 40), dna: { colors: strs(dnaIn.colors, 10), fonts: strs(dnaIn.fonts, 4) } },
         history: entries(dz.history).map(h => (answerOf(h) ? { version: Number.isInteger(h.version) ? h.version : 0, ...answerOf(h) } : null)).filter(Boolean) } : null;
-      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, design, site, review: comments.length ? { comments } : null,
+      const bk = obj(s.buildKit), buildKit = Number.isInteger(bk.version) && bk.version > 0 ? { version: bk.version, at: str(bk.at, 40) } : null;
+      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, design, buildKit, site, review: comments.length ? { comments } : null,
         ...(typeof s.siteFilesSaved === 'boolean' ? { siteFilesSaved: s.siteFilesSaved } : {}) };
     }
 
@@ -1368,6 +1393,21 @@
       const bundle = designBundle(space, job, frozen ? d.sent.dna : frameDna(space));
       return { bundle, gaps: frozen ? [] : designGaps(space, job, bundle), sent: d.sent ? { version: d.sent.version, at: d.sent.at } : null,
         answer: d.answer || null, history: d.history || [] };
+    }
+    function buildKitOf(space, job) {
+      if (!job.done.includes('lock') || !job.design || !job.design.sent) throw new Error('The build kit is ready once the client approves the design at Design lock.');
+      const view = designView(space, job), { bundle } = view, uses = {};
+      const use = (id, what) => { if (id && !uses[id]) uses[id] = what; };
+      if (bundle.look) use(bundle.look.frame, 'look frame');
+      for (const p of bundle.pages) for (const c of p.chapters) {
+        use(c.frame, `storyboard frame, ${p.name} · ${c.name}`);
+        for (const s of c.shots) use(s.assetId, `${s.tool === 'video' ? 'video' : 'photo'}, ${p.name} · ${c.name}: ${s.what}`);
+      }
+      const images = bundle.assets.map(id => ({ id, name: ((spaceAssets(space.id).find(a => a.id === id) || {}).name) || '', use: uses[id] || '' }));
+      const design = { version: view.sent.version, approvedAt: view.answer ? view.answer.at : '', approvedBy: view.answer ? view.answer.by : '' };
+      const prompt = BuildPrompt.buildPrompt(bundle, { bundleFile: `${job.name} - site bundle.json`, images, version: design.version });
+      return { repo: BuildPrompt.repoName(space.name), bundle, images, prompt, saved: job.buildKit || null,
+        files: [{ name: 'site bundle.json', content: `${JSON.stringify({ ...bundle, design, images }, null, 2)}\n` }, { name: 'build prompt.md', content: `${prompt}\n` }] };
     }
     // Jax approving Design lock means the client said yes (through the link, or to Jax himself); it's recorded as his.
     function jaxApproves(job) {
@@ -1730,6 +1770,16 @@
       setStageNeed: saved('setStageNeed'),
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
+      getBuildKit: loaded('getBuildKit'),
+      async saveBuildKit(spaceId, jobId) {   // Connect writes the files; the Job remembers which design version went out (#246)
+        await loadSaved(spaceId);
+        const kit = await local.getBuildKit(spaceId, jobId);
+        let files;
+        try { files = await saveProjectFiles(spaceId, jobId, kit.files); } catch (error) { files = { saved: [], failed: [{ name: 'build kit', error: error.message }] }; }
+        local.markBuildKit(spaceId, jobId, files);
+        await saveJobs(spaceId, 'website');
+        return files;
+      },
       getDesignLock: loaded('getDesignLock'),
       sendBack: saved('sendBack'),
       answerDesign: async () => notOnServerYet(),   // the client answers through a link the server hosts
