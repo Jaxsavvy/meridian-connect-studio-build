@@ -7,16 +7,19 @@
 
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
-  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189):
+  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
+  // site checker (#206), look frames (#202):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
     node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards,
     node ? require('./website/site-engine.js') : root && root.MeridianSiteEngine,
-    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary);
+    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary,
+    node ? require('./website/site-check.js') : root && root.MeridianSiteCheck,
+    node ? require('./website/look-frames.js') : root && root.MeridianLookFrames);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -25,6 +28,8 @@
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'available'],
     ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
+    ['site-check', 'Site check', 'tool', 'available'],       // Website Check stage results (#206, screen: Tyler)
+    ['look-frames', 'Look frames', 'tool', 'available'],     // pick ChatGPT's look for the site (#202, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -49,6 +54,10 @@
     ['ad-creative', 'Ad creative', '1:1', ['What is the offer?', 'Where does the headline go?']],
     ['seasonal', 'Seasonal promo', '4:5', ['Which season or holiday?']],
   ].map(([id, name, size, questions]) => Object.freeze({ id, toolId: 'image-gen', name, size, questions: Object.freeze(questions) }));
+  // Internal: a full-page website design from ChatGPT images (#202). Not in Image gen's list; only the Website pipeline uses it.
+  const LOOK_PRESET = Object.freeze({ id: 'look-frame', toolId: 'image-gen', name: 'Website look frame', size: '2:3', questions: Object.freeze([]) });
+  const SAMPLE_DNA = Object.freeze({ status: 'draft', brief: 'Sample brief', colors: Object.freeze(['#0b1f3a', '#2bb3a3']), fonts: Object.freeze(['Source Serif 4', 'Inter']),
+    voice: 'Confident, plain-spoken', audience: 'Local homeowners' });
 
   // Website workflow (docs/PLAN.md). approver 'jax' means the stage waits on Jax; the team can't mark it done.
   const STAGE = (id, name, goal, tools, needs, check, approver = 'team', tiers = ['standard', 'cinematic']) =>
@@ -68,10 +77,10 @@
         STAGE('plan', 'Story and sitemap', 'List the pages and the chapters on each, in order, each with one job.', ['copywriter', 'chapter-cards'], ['Every page has a purpose', 'Every chapter has one job'], 'Nothing is there "just because"'),
         STAGE('words', 'Words', 'Write final-draft words for every chapter.', ['copywriter', 'chapter-cards'], ['Headline and body for every chapter'], 'No placeholder text'),
         STAGE('storyboard', 'Storyboard', 'Fill every chapter card: layout, shots, motion and phone note.', ['storyboard', 'image-gen', 'chapter-cards'], ['Layout for every chapter', 'Shot list', 'Phone notes'], 'Every card complete', 'jax'),
-        STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
+        STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
-        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['seo'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
+        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', [], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
@@ -130,6 +139,7 @@
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
   const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
   const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
+  const CHECKED = Object.freeze(['pitch-deck', 'website']);      // workflows with an automatic Check stage (#131, #206)
   // Every link on the board, with the deck field it's in, for the live link check.
   const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
   // Every text field in a deck as [path, key, text].
@@ -157,9 +167,7 @@
     });
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const sampleDna = space => (space.type === 'client'
-    ? { status: 'draft', brief: 'Sample brief', colors: ['#0b1f3a', '#2bb3a3'], fonts: ['Source Serif 4', 'Inter'], voice: 'Confident, plain-spoken', audience: 'Local homeowners' }
-    : null);
+  const sampleDna = space => (space.type === 'client' ? clone(SAMPLE_DNA) : null);
   // Finish saves a whole site; the project folder takes up to 10 files per save.
   async function saveInBatches(save, files) {
     const saved = [], failed = [];
@@ -281,7 +289,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, ...extra }; // Website only: chapter cards (#186)
+        story: null, look: null, ...extra }; // Website only: chapter cards (#186), look frames (#202)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -333,7 +341,7 @@
       return clone({ saved: list.map(f => f.name), failed: [] });
     }
 
-    return Object.freeze({
+    const self = Object.freeze({
       mode: 'sample',
       /** Called by Connect with the projects the signed-in person is assigned to. */
       setProjects(list) {
@@ -422,8 +430,9 @@
         if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
-        if (job.workflowId === 'pitch-deck' && target === 'check') checksClear(job);
+        if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
+        if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -431,6 +440,7 @@
         }
         advance(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'assemble') runDeckChecks(space, job);   // Auto check runs by itself
+        if (job.workflowId === 'website' && target === 'build') runSiteChecks(space, job);         // so does the site Check
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -532,6 +542,50 @@
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
       },
+      /** Look frames (#202): ChatGPT's full-page designs for this Website Job, and which one Jax picked. */
+      async getLook(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return clone(lookOf(job));
+      },
+      /** Meridian asks ChatGPT images for one full-page look frame per direction (default all three), from the finished
+       *  storyboard and Project DNA. Needs a complete storyboard; making new frames keeps the old ones. */
+      async makeLookFrames(spaceId, jobId, { directions } = {}) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('look') || job.stageId === null) throw new Error('The look is locked once Look and assets is done.');
+        const missing = Cards.stageGaps(storyOf(job), 'storyboard', { tier: job.tier });
+        if (missing.length) throw new Error(`Finish the storyboard first: ${missing[0].where}: ${missing[0].message}`);
+        const wanted = Array.isArray(directions) && directions.length ? directions : Look.DIRECTIONS.map(d => d.id);
+        const look = lookOf(job);
+        for (const direction of wanted) {
+          if (!Look.DIRECTIONS.some(d => d.id === direction)) throw new Error('Unknown design direction.');
+          const prompt = Look.framePrompt(storyOf(job), { name: space.name, dna: SAMPLE_DNA, tier: job.tier, direction });
+          const out = await self.generateImage({ spaceId: space.id, presetId: LOOK_PRESET.id, description: prompt, count: 1, jobId: job.id, stageId: 'look' });
+          await self.keepAsset(space.id, out.results[0].assetId);
+          look.frames.push({ id: nextId('frame'), direction, assetId: out.results[0].assetId, prompt });
+        }
+        job.look = look;
+        emit('look-changed', { spaceId: space.id, jobId: job.id });
+        return clone(look);
+      },
+      /** Jax picks the look. Locked once Look and assets is done. */
+      async chooseLookFrame(spaceId, jobId, frameId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('look') || job.stageId === null) throw new Error('The look is locked once Look and assets is done.');
+        const look = lookOf(job);
+        if (!look.frames.some(f => f.id === frameId)) throw new Error('That look frame is not on this Job.');
+        look.chosenId = frameId;
+        job.look = look;
+        emit('look-changed', { spaceId: space.id, jobId: job.id });
+        return clone(look);
+      },
+      /** One ChatGPT prompt per shot on the cards, written to match the chosen frame, for Image gen to make. */
+      async getShotPrompts(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        const look = lookOf(job), frame = look.frames.find(f => f.id === look.chosenId);
+        if (!frame) throw new Error('Pick a look frame first.');
+        return clone(storyOf(job).pages.flatMap(p => p.chapters.flatMap(c => c.shots.map(sh => ({ pageId: p.id, chapterId: c.id, shotId: sh.id, what: sh.what,
+          made: !!sh.assetId, prompt: Look.shotPrompt(sh, { direction: frame.direction, dna: SAMPLE_DNA, tier: job.tier }) })))));
+      },
       /** Website builder (#198): the Job's site (site engine format), or null until Build starts it. */
       async getSite(spaceId, jobId) {
         const { job } = websiteJob(spaceId, jobId);
@@ -569,6 +623,15 @@
       },
       /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
       async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
+      /** Core only (#206): each page as a still page (no motion) for Connect's phone check, plus the site's outside links. */
+      async getCheckPages(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!job.site) throw new Error('Build the site first.');
+        const assets = assetUrls(space.id);
+        return clone({ links: SiteCheck.siteLinks(job.site), pages: job.site.pages.map(p => ({ label: SiteCheck.pageLabel(p),
+          html: Engine.renderPage(job.site, p.id, { assets, still: true }),
+          fileName: `${job.name} - Site ${p.path === '/' ? 'home' : p.path.slice(1).replace(/\//g, '-')} on a phone.png` })) });
+      },
       /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
       async finishSite(spaceId, jobId) {
         const files = siteFiles(spaceId, jobId);
@@ -725,22 +788,23 @@
       },
       /** Auto check: runs every check on the deck by itself; a person only reviews what gets flagged. Returns the
        *  flags [{ id, check, message, where, resolved }]; check is 'deck' | 'evidence' | 'links' | 'internal-words'.
-       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board. */
+       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board.
+       *  Website Jobs (#206): runs when Build finishes; check is 'seo' | 'accessibility' | 'links' | 'speed' (site-check.js). */
       async runChecks(spaceId, jobId) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
-        return clone(runDeckChecks(space, job).flags.map(flagView));
+        return clone((job.workflowId === 'website' ? runSiteChecks(space, job) : runDeckChecks(space, job)).flags.map(flagView));
       },
       /** The last Auto check: { ranAt, flags, notRun, log } (log: every flag a person resolved, with their note). */
       async getChecks(spaceId, jobId) {
-        const { job } = deckJob(spaceId, jobId);
+        const { job } = checkedJob(spaceId, jobId);
         const last = job.checks || { ranAt: null, flags: [] };
         return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: last.notRun || CHECKS_NOT_RUN, log: job.checkLog });
       },
       /** Core only: what Connect found on the finished board ({ flags, ran }: phone width, live links). Replaces the last
        *  board flags; one a person resolved stays resolved when the same thing is found again. */
       addBoardChecks(spaceId, jobId, result) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object') return null;
         const ran = (Array.isArray(result.ran) ? result.ran : []).filter(x => CHECKS_NOT_RUN.includes(x));
         const before = new Map(job.checks.flags.map(f => [f.key, f]));
@@ -756,7 +820,7 @@
       },
       /** A person marks a flag OK with a note saying why; the note is logged. It stays resolved when checks re-run. */
       async resolveFlag(spaceId, jobId, flagId, note) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
         const flag = job.checks && job.checks.flags.find(f => f.id === flagId);
         if (!flag) throw new Error('Flag not found.');
@@ -849,7 +913,7 @@
        *  jobId/stageId (from the Work view inside a Job) tag the results so the Job page can list them. */
       async generateImage(request) {
         const space = requireSpace(request && request.spaceId);
-        const preset = PRESETS.find(p => p.id === request.presetId) || PRESETS[0];
+        const preset = PRESETS.find(p => p.id === request.presetId) || (request.presetId === LOOK_PRESET.id ? LOOK_PRESET : PRESETS[0]);
         const description = String(request.description || '').trim();
         if (!description) throw new Error('Describe the image first.');
         const count = [1, 2, 4].includes(request.count) ? request.count : 4;
@@ -901,6 +965,7 @@
         return () => listeners.delete(listener);
       },
     });
+    return self;
 
     function spaceJobs(spaceId) {
       if (!jobs.has(spaceId)) jobs.set(spaceId, []);
@@ -985,11 +1050,20 @@
     function storyOf(job) { return job.story || Cards.storyFromPages(job.notes.brief ? job.notes.brief.pages : []); }
     function hasAsset(spaceId, assetId) { return spaceAssets(spaceId).some(a => a.id === assetId && !a.trashed); }
     function gapsFor(space, job, stageId) {
-      return Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
+      const gaps = Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
+      if (stageId === 'look' && !(job.look && job.look.chosenId)) gaps.unshift({ where: 'Look frame', message: 'Pick a look frame (Meridian designs them with ChatGPT).' });
+      return gaps;
     }
+    function lookOf(job) { return job.look || { frames: [], chosenId: null, tokens: null, layouts: {} }; }
     function storyReady(space, job, stageId) {
       const gaps = gapsFor(space, job, stageId);
       if (gaps.length) throw new Error(`Not ready yet: ${gaps.length} thing${gaps.length === 1 ? '' : 's'} to finish. First: ${gaps[0].where}: ${gaps[0].message}`);
+    }
+    function checkedJob(spaceId, jobId) {
+      const space = requireSpace(spaceId);
+      const job = requireJob(space.id, jobId);
+      if (!CHECKED.includes(job.workflowId)) throw new Error('Only Pitch deck and Website Jobs have an automatic check.');
+      return { space, job };
     }
     function deckJob(spaceId, jobId) {
       const space = requireSpace(spaceId);
@@ -1032,6 +1106,16 @@
       }
       // A flag a person already resolved stays resolved when the same thing is found again. The board checks
       // (phone, live links) keep their last result until Connect runs them again (addBoardChecks).
+      return storeChecks(space, job, found);
+    }
+    // Website Check (#206): the site checker on the finished site. Connect adds the phone and live-link checks.
+    function runSiteChecks(space, job) {
+      if (!job.site) throw new Error('Build the site first.');
+      const assets = assetUrls(space.id);
+      const sizes = Object.fromEntries(job.site.pages.map(p => [p.id, new TextEncoder().encode(Engine.renderPage(job.site, p.id, { assets })).length]));
+      return storeChecks(space, job, SiteCheck.checkSite(job.site, { sizes }));
+    }
+    function storeChecks(space, job, found) {
       const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
       const before = new Map(last.flags.map(f => [f.key, f]));
       job.checks = { ranAt: new Date(now()).toISOString(), notRun: last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
@@ -1203,6 +1287,23 @@
         if (res && res.success) local.addBoardChecks(spaceId, jobId, res);
       } catch (_) { /* the deck checker already flags a deck that can't render */ }
     }
+    // Website Check (#206): Connect checks every page at phone width (a screenshot of each goes to Docs) and every
+    // outside link once. The phone check counts as run only when every page ran.
+    async function siteBoardChecks(spaceId, jobId) {
+      if (typeof checkBoard !== 'function') return;
+      try {
+        const { pages, links } = await local.getCheckPages(spaceId, jobId);
+        const flags = [], phoneRan = [];
+        for (const [i, page] of pages.entries()) {
+          const res = await checkBoard({ projectId: spaceId, html: page.html, links: i === 0 ? links : [], fileName: page.fileName });
+          if (!res || !res.success) { phoneRan.push(false); continue; }
+          phoneRan.push((res.ran || []).includes('phone-screenshot'));
+          for (const f of res.flags || []) flags.push(f.check === 'phone' ? { ...f, where: page.label, message: String(f.message || '').replace('the board is', 'the page is') } : f);
+        }
+        const ran = [...(phoneRan.length && phoneRan.every(Boolean) ? ['phone-screenshot'] : []), ...(phoneRan[0] !== false ? ['links-open'] : [])];
+        local.addBoardChecks(spaceId, jobId, { flags, ran });
+      } catch (_) { /* the phone and link checks stay "not run" */ }
+    }
 
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
@@ -1282,6 +1383,7 @@
           if (out.stageId === 'check') await boardChecks(spaceId, jobId);   // Assemble board just finished
           await saveJobs(spaceId);
         }
+        if (out && out.workflowId === 'website' && out.stageId === 'check') await siteBoardChecks(spaceId, jobId);   // Build just finished
         return out;
       },
       setStageNeed: saved('setStageNeed', true),
@@ -1290,6 +1392,11 @@
       getStory: (...a) => local.getStory(...a),
       saveStory: (...a) => local.saveStory(...a),
       getStoryGaps: (...a) => local.getStoryGaps(...a),
+      getLook: (...a) => local.getLook(...a),
+      getShotPrompts: (...a) => local.getShotPrompts(...a),
+      // Real look frames need Website Jobs on the server (their images live there); until then, say so.
+      makeLookFrames: async () => notOnServerYet(),
+      chooseLookFrame: async () => notOnServerYet(),
       // The builder's site stays local with the cards (#198); it starts from the project's real DNA, never the sample one.
       getSite: (...a) => local.getSite(...a),
       async startSite(spaceId, jobId, options = {}) {
@@ -1323,8 +1430,8 @@
       async runChecks(spaceId, jobId) {
         await loadSaved(spaceId);
         await local.runChecks(spaceId, jobId);
-        await boardChecks(spaceId, jobId);
-        await saveJobs(spaceId);
+        if ((await local.getJob(spaceId, jobId)).workflowId === 'website') await siteBoardChecks(spaceId, jobId);
+        else { await boardChecks(spaceId, jobId); await saveJobs(spaceId); }
         return (await local.getChecks(spaceId, jobId)).flags;
       },
       getChecks: loaded('getChecks'),
