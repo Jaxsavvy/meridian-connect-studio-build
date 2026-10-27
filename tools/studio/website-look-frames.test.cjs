@@ -71,3 +71,12 @@ test('without a pick, the Look gate says so first', async () => {
   assert.equal((await s.getStoryGaps('client-a', fresh.id, 'look'))[0].where, 'Look frame');
   await assert.rejects(s.makeLookFrames('client-a', job.id, { directions: ['neon'] }), /Unknown design direction/);
 });
+
+test('the Look stage offers the look frame picker, and Check offers the site check (#209, #206)', async () => {
+  const s = createSampleService();
+  const wf = await s.getWorkflow('website');
+  assert.ok(wf.stages.find(st => st.id === 'look').tools.includes('look-frames'));
+  assert.deepEqual(wf.stages.find(st => st.id === 'check').tools, ['site-check']);
+  const tools = (await s.listTools()).map(t => t.id);
+  assert.ok(tools.includes('look-frames') && tools.includes('site-check'));
+});
