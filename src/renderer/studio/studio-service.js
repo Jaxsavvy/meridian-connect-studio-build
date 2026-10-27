@@ -8,7 +8,7 @@
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
-  // site checker (#206), look frames (#202):
+  // site checker (#206), look frames (#202), site edit helpers (#198):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -16,10 +16,11 @@
     node ? require('./website/site-engine.js') : root && root.MeridianSiteEngine,
     node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary,
     node ? require('./website/site-check.js') : root && root.MeridianSiteCheck,
-    node ? require('./website/look-frames.js') : root && root.MeridianLookFrames);
+    node ? require('./website/look-frames.js') : root && root.MeridianLookFrames,
+    node ? require('./website/site-edit.js') : root && root.MeridianSiteEdit);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -30,6 +31,7 @@
     ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
     ['site-check', 'Site check', 'tool', 'available'],       // Website Check stage results (#206, screen: Tyler)
     ['look-frames', 'Look frames', 'tool', 'available'],     // pick ChatGPT's look for the site (#202, screen: Tyler)
+    ['site-review', 'Site review', 'tool', 'available'],     // team comments on the site in Review (#216, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -81,7 +83,7 @@
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
-        STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', [], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
+        STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
     }),
@@ -289,7 +291,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, ...extra }; // Website only: chapter cards (#186), look frames (#202)
+        story: null, look: null, review: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -433,6 +435,10 @@
         if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
         if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
+        if (job.workflowId === 'website' && target === 'review') {
+          const open = reviewOf(job).comments.filter(c => !c.resolved).length;
+          if (open) throw new Error(`Review isn't done: ${open} ${open === 1 ? 'comment needs' : 'comments need'} an answer.`);
+        }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -623,6 +629,44 @@
       },
       /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
       async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
+      /** Review (#216): the team's comments on the site: { comments: [{ id, pageId, sectionId, key, where, text, at, resolved }], open }. */
+      async getReview(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        const comments = reviewOf(job).comments;
+        return clone({ comments, open: comments.filter(c => !c.resolved).length });
+      },
+      /** A team comment on one part of the site, while Review is open: { pageId, sectionId, key?, text }. */
+      async addReviewComment(spaceId, jobId, comment) {
+        const { space, job } = reviewJob(spaceId, jobId);
+        const c = comment && typeof comment === 'object' ? comment : {};
+        const page = job.site.pages.find(p => p.id === c.pageId);
+        const section = page && page.sections.find(s => s.id === c.sectionId);
+        if (!section) throw new Error('That part of the site isn\'t on this page.');
+        const key = c.key === undefined || c.key === null || c.key === '' ? null : c.key;
+        if (key !== null && !SiteEdit.editableList(job.site, page.id).some(i => i.key === key && i.sectionId === section.id)) throw new Error('That item isn\'t in this section.');
+        const words = text(c.text, 'Comment', 1000);
+        if (!words) throw new Error('Write the comment first.');
+        const review = reviewOf(job);
+        const added = { id: nextId('comment'), pageId: page.id, sectionId: section.id, key, where: `${SiteCheck.pageLabel(page)} · ${section.label}`,
+          text: words, at: new Date(now()).toISOString(), resolved: null };
+        review.comments.push(added);
+        job.review = review;
+        emit('review-changed', { spaceId: space.id, jobId: job.id });
+        return clone(added);
+      },
+      /** Answers a comment: { kind: 'fixed' | 'keep', note } (the note says what changed, or why it stays). */
+      async resolveReviewComment(spaceId, jobId, commentId, { kind, note } = {}) {
+        const { space, job } = reviewJob(spaceId, jobId);
+        const found = reviewOf(job).comments.find(c => c.id === commentId);
+        if (!found) throw new Error('Comment not found.');
+        if (found.resolved) throw new Error('This comment already has an answer.');
+        if (!['fixed', 'keep'].includes(kind)) throw new Error('Answer with fixed or keep.');
+        const why = text(note, 'Note', 500);
+        if (!why) throw new Error(kind === 'fixed' ? 'Say what changed.' : 'Say why it stays.');
+        found.resolved = { kind, note: why, at: new Date(now()).toISOString() };
+        emit('review-changed', { spaceId: space.id, jobId: job.id });
+        return clone(found);
+      },
       /** Core only (#206): each page as a still page (no motion) for Connect's phone check, plus the site's outside links. */
       async getCheckPages(spaceId, jobId) {
         const { space, job } = websiteJob(spaceId, jobId);
@@ -1018,6 +1062,13 @@
       if (job.workflowId !== 'website') throw new Error('Only Website Jobs have chapter cards.');
       return { space, job };
     }
+    function reviewOf(job) { return job.review || { comments: [] }; }
+    function reviewJob(spaceId, jobId) {
+      const found = websiteJob(spaceId, jobId);
+      if (!openStages(found.job).includes('review') || found.job.waitingOnJax) throw new Error('Comments can only be added while Review is open.');
+      if (!found.job.site) throw new Error('Build the site first.');
+      return found;
+    }
     function buildJob(spaceId, jobId) {
       const found = websiteJob(spaceId, jobId);
       if (!openStages(found.job).includes('build')) throw new Error('The site can only change while Build is open.');
@@ -1406,6 +1457,9 @@
       saveSite: (...a) => local.saveSite(...a),
       previewPage: (...a) => local.previewPage(...a),
       getSiteFiles: (...a) => local.getSiteFiles(...a),
+      getReview: (...a) => local.getReview(...a),
+      addReviewComment: (...a) => local.addReviewComment(...a),
+      resolveReviewComment: (...a) => local.resolveReviewComment(...a),
       async finishSite(spaceId, jobId) {
         const files = await local.getSiteFiles(spaceId, jobId);
         return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);

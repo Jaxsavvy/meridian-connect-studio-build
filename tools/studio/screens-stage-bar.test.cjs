@@ -103,7 +103,7 @@ test('selected tool stays in current stage; invalid selection resets; no-tools s
   }
   const el = dom(), mounts = [];
   const cleanup = render(el, { spaceId: job.spaceId, jobId: job.id }, { service: { ...s.service,
-    getJob: async () => ({ ...job, stageId: 'review' }) }, navigate() {}, mountInto: (_, kind, id) => mounts.push({ kind, id }) });
+    getJob: async () => ({ ...job, stageId: 'launch' }) }, navigate() {}, mountInto: (_, kind, id) => mounts.push({ kind, id }) });   // Launch has no tools (Review has site-review, #216)
   await tick(); assert.match(text(el), /Nothing to make in this stage/); assert.equal(mounts.some(m => m.kind === 'tool'), false);
   cleanup(); s.model.dispose();
 });
