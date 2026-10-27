@@ -5,7 +5,8 @@
   if (root) root.MeridianStudio.registerTool('website', { mountCanvas: api.mountCanvas });
 })(typeof window === 'undefined' ? null : window, function () {
   // Website builder: start the site from the chapter cards and preview each page (#199);
-  // select, edit text, move and remove sections in an unsaved draft, then Save site (#200).
+  // select, edit text, move and remove sections in an unsaved draft, then Save site (#200);
+  // page details, remove a page, and Finish to the project folder (#201).
   const WIDTHS = Object.freeze({ desktop: 1280, phone: 390 });
   const ID = /^[a-z0-9][a-z0-9-]{0,39}$/, NAV = 'site-nav';
   const KINDS = { h1: 'Heading', h2: 'Heading', h3: 'Heading', h4: 'Heading', a: 'Link', button: 'Button', li: 'List item' };
@@ -16,12 +17,13 @@
 
   function createBuilder({ service, edit, spaceId, jobId, stageId, report, onDirty = () => {} }) {
     let disposed = false, revision = 0, previewTurn = 0, site = null, draft = null, dirty = false, selected = null;
-    let pageId = null, html = '', preview = 'loading', mode = 'desktop', busy = false, warnings = null;
+    let pageId = null, html = '', preview = 'loading', mode = 'desktop', busy = false, warnings = null, done = false, notice = '';
     const setDirty = value => { if (value !== dirty) { dirty = value; onDirty(value); } };
     const items = () => (draft ? edit.editableList(draft, pageId) : []);
+    const open = () => !disposed && !busy && !done && !!draft;   // can the draft change right now?
     const show = (error = '') => {
       const list = items();
-      report({ state: 'ready', site: draft, pageId, html, preview, mode, busy, warnings, error, dirty, items: list, selected: list.find(i => i.key === selected) || null });
+      report({ state: 'ready', site: draft, pageId, html, preview, mode, busy, warnings, error, dirty, done, notice, items: list, selected: list.find(i => i.key === selected) || null });
     };
     async function loadPreview() {
       if (disposed || !draft) return;
@@ -37,6 +39,7 @@
       if (disposed) return false;
       if (!result?.ok) { show(messages(result) || 'That change didn\'t work.'); return false; }
       draft = result.site; setDirty(true);
+      if (!draft.pages.some(p => p.id === pageId)) pageId = draft.pages[0]?.id || null;
       if (!items().some(i => i.key === selected)) selected = null;
       void loadPreview(); return true;
     }
@@ -51,6 +54,7 @@
         if (job.workflowId !== 'website') { report({ state: 'empty', message: 'Only Website Jobs have a site to build.' }); return; }
         const next = await service.getSite(spaceId, jobId);
         if (disposed || request !== revision || dirty) return;
+        done = (job.stages || []).some(st => st.id === 'build' && st.status === 'done');
         site = draft = next && Array.isArray(next.pages) ? next : null;
         if (!site) { show(); return; }
         if (!site.pages.some(p => p.id === pageId)) pageId = site.pages[0]?.id || null;
@@ -65,7 +69,7 @@
     return { load,
       // Works once: the service refuses a second start, and the button is gone once there is a site.
       async start() {
-        if (disposed || busy || site) return;
+        if (disposed || busy || site || done) return;
         busy = true; show();
         try {
           const result = await service.startSite(spaceId, jobId, { from: 'cards' });
@@ -80,14 +84,16 @@
       },
       /** Selects an editable item on this page; anything else is ignored. */
       select(key, sectionId) {
-        if (disposed || !items().some(i => i.key === key && i.sectionId === sectionId)) return false;
+        if (disposed || done || !items().some(i => i.key === key && i.sectionId === sectionId)) return false;
         selected = key; show(); return true;
       },
-      apply(text) { return !disposed && !busy && !!selected && change(edit.setText(draft, pageId, selected, text)); },
-      move(sectionId, by) { return !disposed && !busy && change(edit.moveSection(draft, pageId, sectionId, by)); },
-      remove(sectionId) { return !disposed && !busy && change(edit.removeSection(draft, pageId, sectionId)); },
+      apply(text) { return open() && !!selected && change(edit.setText(draft, pageId, selected, text)); },
+      move(sectionId, by) { return open() && change(edit.moveSection(draft, pageId, sectionId, by)); },
+      remove(sectionId) { return open() && change(edit.removeSection(draft, pageId, sectionId)); },
+      pageInfo(fields) { return open() && change(edit.setPageInfo(draft, pageId, fields)); },
+      removePage(id) { return open() && change(edit.removePage(draft, id)); },
       async save() {
-        if (disposed || busy || !dirty) return;
+        if (!open() || !dirty) return;
         busy = true; show();
         try {
           const result = await service.saveSite(spaceId, jobId, draft);
@@ -96,6 +102,28 @@
           if (!result?.ok) { show(messages(result) || 'The site could not be saved. Try again.'); return; }
           site = draft = result.site; setDirty(false); show();
         } catch (error) { if (!disposed) { busy = false; show(error?.message || 'The site could not be saved. Try again.'); } }
+      },
+      // Finish, in order: save the draft (if unsaved), save the files, then complete Build. Any refusal stops it there.
+      async finish() {
+        if (!open()) return false;
+        busy = true; notice = ''; show();
+        const stop = message => { busy = false; show(message); return false; };
+        try {
+          if (dirty) {
+            const result = await service.saveSite(spaceId, jobId, draft);
+            if (disposed) return false;
+            if (!result?.ok) return stop(messages(result) || 'The site could not be saved, so Finish stopped. Try again.');
+            site = draft = result.site; setDirty(false);
+          }
+          const out = await service.finishSite(spaceId, jobId);
+          if (disposed) return false;
+          const failed = (Array.isArray(out?.failed) ? out.failed : []).map(f => (typeof f === 'string' ? f : f?.name)).filter(Boolean);
+          if (failed.length || out?.failed?.length) return stop(`These files didn't save, so Build isn't done yet: ${failed.join(', ') || 'unknown files'}. Try Finish again.`);
+          await service.completeStage(spaceId, jobId, 'build');
+          if (disposed) return false;
+          const n = Array.isArray(out?.saved) ? out.saved.length : 0;
+          busy = false; done = true; selected = null; notice = `Saved to the project folder: ${n} ${n === 1 ? 'file' : 'files'}`; show(); return true;
+        } catch (error) { return disposed ? false : stop(error?.message || 'Finish didn\'t work. Try again.'); }
       },
       setMode(next) { if (!disposed && WIDTHS[next] && next !== mode) { mode = next; show(); } },
       reload: () => loadPreview(),
@@ -110,7 +138,7 @@
     const edit = win?.MeridianSiteEdit || require('../website/site-edit.js');
     const ask = message => typeof win?.confirm === 'function' && win.confirm(message);
     const focus = states.focus(root), marked = new Map();
-    let listeners = [], layout = null, typed = null, focusNext = null;
+    let listeners = [], layout = null, typed = null, pageTyped = null, focusNext = null;
     const listen = (item, type, fn) => { item.addEventListener(type, fn); listeners.push([item, type, fn]); };
     const unlisten = () => { for (const [item, type, fn] of listeners) item.removeEventListener?.(type, fn); listeners = []; };
     function node(tag, text, className) {
@@ -132,10 +160,12 @@
       const l = { title: node('h2', 'Website builder'), notes: node('div'), body: node('div', '', 'studio-website-body'),
         pages: node('nav', '', 'studio-card studio-website-pages'), middle: node('div', '', 'studio-website-preview'),
         bar: node('div', '', 'studio-website-bar'), slot: node('div'), panel: node('aside', '', 'studio-card studio-website-edit'),
-        alerts: node('div'), frame: null, html: null };
+        foot: node('div', '', 'studio-website-foot'), details: node('section', '', 'studio-card studio-website-details'),
+        finish: node('section', '', 'studio-card studio-website-finish'), alerts: node('div'), frame: null, html: null };
       l.pages.setAttribute('aria-label', 'Pages'); l.panel.setAttribute('aria-label', 'Edit');
-      l.middle.append(l.bar, l.slot); l.body.append(l.pages, l.middle, l.panel);
-      root.replaceChildren(l.title, l.notes, l.body, l.alerts); return (layout = l);
+      l.details.setAttribute('aria-label', 'Page details'); l.finish.setAttribute('aria-label', 'Finish');
+      l.middle.append(l.bar, l.slot); l.body.append(l.pages, l.middle, l.panel); l.foot.append(l.details, l.finish);
+      root.replaceChildren(l.title, l.notes, l.body, l.alerts, l.foot); return (layout = l);
     }
     function showPreview(l, view, page) {
       if (view.preview === 'failed') {
@@ -189,6 +219,42 @@
       }
       parts.push(head, list); return parts;
     }
+    // Title and description: the words Google shows. Typed values stay until Apply works or another page opens.
+    function pageDetails(view, page) {
+      const parts = [node('h3', 'Page details')];
+      if (!page) return parts;
+      if (view.done) {
+        parts.push(node('p', `Title: ${page.title || ''}`), node('p', `Description: ${page.description || 'none'}`)); return parts;
+      }
+      if (pageTyped?.pageId !== page.id) pageTyped = { pageId: page.id, title: page.title || '', description: page.description || '' };
+      const fields = [['title', 'Title', 120], ['description', 'Description', 300]].map(([key, name, max]) => {
+        const label = node('label', '', 'studio-website-field'), input = mark(node('input'), `page-${key}`), count = node('span', '', 'studio-website-hint');
+        input.maxLength = max; input.value = pageTyped[key]; input.disabled = view.busy;
+        const counted = () => { count.textContent = `${input.value.length} of ${max} characters`; };
+        listen(input, 'input', () => { pageTyped[key] = input.value; counted(); }); counted();
+        label.append(node('span', name), input, count); return label;
+      });
+      parts.push(...fields, button('Apply page details', () => {
+        focusNext = 'page-apply';
+        if (model.pageInfo({ title: pageTyped.title, description: pageTyped.description })) pageTyped = null;
+      }, { focus: 'page-apply', disabled: view.busy }));
+      if (page.path !== '/') {
+        parts.push(button('Remove this page', () => { if (ask('Remove this page?')) { focusNext = 'pages'; pageTyped = null; model.removePage(page.id); } },
+          { focus: `remove-page:${page.id}`, label: `Remove page: ${pageName(page)}`, disabled: view.busy }));
+      }
+      return parts;
+    }
+    function finishBox(view) {
+      if (view.done) {
+        const line = mark(node('p', 'Build is done.', 'studio-website-done'), 'done'); line.tabIndex = -1;
+        const parts = [line];
+        if (view.notice) { const n = node('p', view.notice); n.setAttribute('role', 'status'); parts.push(n); }
+        return parts;
+      }
+      return [node('h3', 'Finish'), node('p', 'Saves the site to the project folder (site.json and one file per page) and marks Build done. Anything not saved yet is saved first.'),
+        button(view.busy ? 'Working…' : 'Finish', async () => { const ok = await model.finish(); marked.get(ok ? 'done' : 'finish')?.focus?.(); },
+          { primary: true, focus: 'finish', disabled: view.busy })];
+    }
     const model = createBuilder({ service: studio.service, edit, spaceId: ctx.spaceId, jobId: ctx.jobId, stageId: ctx.stageId,
       onDirty: value => studio.setDirty?.(value),
       report(view) {
@@ -215,15 +281,16 @@
           const list = node('ul'); for (const n of notes) list.appendChild(node('li', n));
           box.append(node('h3', 'Worth a look (not errors)'), list); l.notes.replaceChildren(box);
         } else l.notes.replaceChildren();
-        l.pages.replaceChildren(node('h3', 'Pages'));
+        const pagesHead = mark(node('h3', 'Pages'), 'pages'); pagesHead.tabIndex = -1; l.pages.replaceChildren(pagesHead);
         for (const p of view.site.pages) l.pages.appendChild(button(`${pageName(p)} ${p.path || ''}`.trim(), () => model.selectPage(p.id), { pressed: p.id === view.pageId }));
         const status = node('span', view.busy ? 'Saving…' : view.dirty ? 'Unsaved changes' : '', 'studio-website-status'); status.setAttribute('role', 'status');
         l.bar.replaceChildren(button('Desktop', () => model.setMode('desktop'), { pressed: view.mode === 'desktop' }),
           button('Phone', () => model.setMode('phone'), { pressed: view.mode === 'phone' }),
           button('Reload preview', () => void model.reload(), { disabled: view.preview === 'loading' }),
-          button('Save site', () => void model.save(), { primary: true, focus: 'save', disabled: view.busy || !view.dirty }), status);
+          ...(view.done ? [] : [button('Save site', () => void model.save(), { primary: true, focus: 'save', disabled: view.busy || !view.dirty }), status]));
         const page = view.site.pages.find(p => p.id === view.pageId);
-        showPreview(l, view, page); l.panel.replaceChildren(...editPanel(view, page));
+        showPreview(l, view, page); l.details.replaceChildren(...pageDetails(view, page)); l.finish.replaceChildren(...finishBox(view));
+        l.panel.hidden = !!view.done; l.panel.replaceChildren(...(view.done ? [] : editPanel(view, page)));
         if (view.error) { const e = node('p', view.error); e.setAttribute('role', 'alert'); l.alerts.replaceChildren(e); } else l.alerts.replaceChildren();
         // Focus stays on what was used; a removed section's controls hand focus to the section list.
         const usable = id => { const t = marked.get(id); return t && !t.disabled ? t : null; };
