@@ -111,3 +111,13 @@ test('reloads on concept-changed when nothing is unsaved; cleanup removes listen
   m.cleanup(); release(); await settle();
   assert.ok(controls.every(n => !n.events.click && !n.events.input && !n.events.keydown)); assert.equal(m.dirty.at(-1), false);
 });
+
+test('sending to Jax locks the open screen at once, even with unsaved edits (#236)', async () => {
+  const s = await atConcept(), m = await mount(s); await fillAll(m); btn(m.el, 'Save').click(); await settle();
+  type(m.el, 'goal', 'An edit that can no longer be saved'); assert.equal(m.dirty.at(-1), true);
+  await s.service.completeStage(s.job.spaceId, s.job.id); await settle();   // the stage bar sends it: jobs-changed
+  assert.match(text(m.el), /With Jax/); assert.equal(btn(m.el, 'Save'), undefined);
+  assert.equal(walk(m.el).some(n => n.tag === 'input' || n.tag === 'button'), false);
+  assert.match(text(m.el), /Book a roof check/); assert.equal(m.dirty.at(-1), false); assert.doesNotMatch(text(m.el), /Unsaved changes/);
+  m.cleanup();
+});
