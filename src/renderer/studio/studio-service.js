@@ -7,14 +7,19 @@
 
 (function (root, factory) {
   const node = typeof module === 'object' && module.exports;
-  // Pitch deck format (#114), research model (#124), chapter cards (#186): index.html loads them before this file.
+  // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
+  // site checker (#206), look frames (#202):
+  // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
     node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards,
+    node ? require('./website/site-engine.js') : root && root.MeridianSiteEngine,
+    node ? require('./website/section-library.js') : root && root.MeridianSectionLibrary,
+    node ? require('./website/site-check.js') : root && root.MeridianSiteCheck,
     node ? require('./website/look-frames.js') : root && root.MeridianLookFrames);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Look) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -23,6 +28,7 @@
     ['logo', 'Logo', 'tool', 'coming-soon'],
     ['copywriter', 'Copywriter', 'tool', 'available'],
     ['chapter-cards', 'Chapter cards', 'tool', 'available'], // Website pipeline board (#186, screen: Tyler)
+    ['site-check', 'Site check', 'tool', 'available'],       // Website Check stage results (#206, screen: Tyler)
     ['website', 'Website', 'workflow', 'available'],
     ['landing-page', 'Landing page', 'workflow', 'coming-soon'],
     ['seo', 'SEO', 'workflow', 'coming-soon'],
@@ -73,7 +79,7 @@
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
-        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['seo'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
+        STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', [], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
@@ -132,6 +138,7 @@
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
   const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
   const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
+  const CHECKED = Object.freeze(['pitch-deck', 'website']);      // workflows with an automatic Check stage (#131, #206)
   // Every link on the board, with the deck field it's in, for the live link check.
   const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
   // Every text field in a deck as [path, key, text].
@@ -159,6 +166,16 @@
     });
   }
   const clone = value => JSON.parse(JSON.stringify(value));
+  const sampleDna = space => (space.type === 'client' ? clone(SAMPLE_DNA) : null);
+  // Finish saves a whole site; the project folder takes up to 10 files per save.
+  async function saveInBatches(save, files) {
+    const saved = [], failed = [];
+    for (let i = 0; i < files.length; i += 10) {
+      const out = await save(files.slice(i, i + 10));
+      saved.push(...(out.saved || [])); failed.push(...(out.failed || []));
+    }
+    return { saved, failed };
+  }
   // What a pitch deck Job keeps in the project's save file (#171); the stages always come from the current template.
   const SAVED_FIELDS = Object.freeze(['id', 'workflowId', 'tier', 'name', 'templateVersion', 'done', 'stageId', 'waitingOnJax', 'needs',
     'assignees', 'timing', 'deck', 'evidence', 'research', 'checks', 'checkLog']);
@@ -307,6 +324,22 @@
       return assets.get(spaceId);
     }
 
+    async function saveProjectFiles(spaceId, jobId, files) {
+      const space = requireSpace(spaceId);
+      if (space.type !== 'client') throw new Error('Only client projects have a project folder.');
+      const job = requireJob(spaceId, jobId);
+      const list = projectFileList(job.name, files);
+      const saved = projectFiles.get(space.id) || [];
+      for (const f of list) {
+        const i = saved.findIndex(x => x.name === f.name);
+        const row = { name: f.name, section: 'Docs', size: new TextEncoder().encode(f.content).length, jobId: job.id };
+        if (i >= 0) saved[i] = row; else saved.push(row);
+      }
+      projectFiles.set(space.id, saved);
+      emit('project-files-changed', { spaceId: space.id });
+      return clone({ saved: list.map(f => f.name), failed: [] });
+    }
+
     const self = Object.freeze({
       mode: 'sample',
       /** Called by Connect with the projects the signed-in person is assigned to. */
@@ -319,7 +352,7 @@
       async listSpaces() { return clone(spaceList()); },
       async getSpace(spaceId) {
         const space = requireSpace(spaceId);
-        const dna = space.type === 'client' ? clone(SAMPLE_DNA) : null;
+        const dna = sampleDna(space);
         const started = spaceJobs(space.id).map(jobSummary);
         const jobList = space.type === 'client' && !started.length
           ? [{ id: `${space.id}-job-1`, name: 'Website v1', stage: 'Not started', progress: 0 }] : started;
@@ -396,8 +429,9 @@
         if (!openStages(job).includes(target)) throw new Error('That stage isn\'t open yet.');
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
-        if (job.workflowId === 'pitch-deck' && target === 'check') checksClear(job);
+        if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
         if (job.workflowId === 'website' && Cards.GATED.includes(target)) storyReady(space, job, target);
+        if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
           later(() => { if (job.waitingOnJax) { job.waitingOnJax = false; advance(job); emit('jobs-changed', { spaceId }); } });
@@ -405,6 +439,7 @@
         }
         advance(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'assemble') runDeckChecks(space, job);   // Auto check runs by itself
+        if (job.workflowId === 'website' && target === 'build') runSiteChecks(space, job);         // so does the site Check
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -480,21 +515,7 @@
       async listPresets(toolId) { return clone(PRESETS.filter(p => p.toolId === toolId)); },
       /** Saves a Job's outputs into the client project's folder (Files tab, Docs), named "<Job name> - <file>".
        *  files: [{ name: 'Research summary.md', content: '...' }]. Saving the same name again replaces it. */
-      async saveToProjectFiles(spaceId, jobId, files) {
-        const space = requireSpace(spaceId);
-        if (space.type !== 'client') throw new Error('Only client projects have a project folder.');
-        const job = requireJob(spaceId, jobId);
-        const list = projectFileList(job.name, files);
-        const saved = projectFiles.get(space.id) || [];
-        for (const f of list) {
-          const i = saved.findIndex(x => x.name === f.name);
-          const row = { name: f.name, section: 'Docs', size: new TextEncoder().encode(f.content).length, jobId: job.id };
-          if (i >= 0) saved[i] = row; else saved.push(row);
-        }
-        projectFiles.set(space.id, saved);
-        emit('project-files-changed', { spaceId: space.id });
-        return clone({ saved: list.map(f => f.name), failed: [] });
-      },
+      saveToProjectFiles: saveProjectFiles,
       /** Files saved to the project folder in this session (the Files tab shows the real folder). */
       async listProjectFiles(spaceId) { requireSpace(spaceId); return clone(projectFiles.get(spaceId) || []); },
       /** Website Job's chapter cards (#186): the saved story, or one page per page named at Kickoff. */
@@ -563,6 +584,57 @@
         if (!frame) throw new Error('Pick a look frame first.');
         return clone(storyOf(job).pages.flatMap(p => p.chapters.flatMap(c => c.shots.map(sh => ({ pageId: p.id, chapterId: c.id, shotId: sh.id, what: sh.what,
           made: !!sh.assetId, prompt: Look.shotPrompt(sh, { direction: frame.direction, dna: SAMPLE_DNA, tier: job.tier }) })))));
+      },
+      /** Website builder (#198): the Job's site (site engine format), or null until Build starts it. */
+      async getSite(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return job.site ? clone(job.site) : null;
+      },
+      /** Assembles the site from the locked chapter cards, once: { ok, errors, site, report: { custom, short } }.
+       *  Build must be open. options.dna: the project's DNA (real sign-in passes it; practice uses the sample DNA). */
+      async startSite(spaceId, jobId, { from, dna } = {}) {
+        const { space, job } = buildJob(spaceId, jobId);
+        if (from !== 'cards') throw new Error('For now a site starts from the chapter cards.');
+        if (job.site) throw new Error('The site is already started.');
+        const out = Library.assembleSite(storyOf(job), { name: space.name, tokens: Library.tokensFromDna(dna === undefined ? sampleDna(space) : dna) });
+        if (out.ok) { job.site = out.site; emit('site-changed', { spaceId: space.id, jobId: job.id }); }
+        return clone({ ok: out.ok, errors: out.errors, site: out.ok ? out.site : null, report: { custom: out.custom, short: out.short } });
+      },
+      /** Saves the whole site (replaces it) while Build is open: { ok, errors, site }. Refuses anything the engine refuses. */
+      async saveSite(spaceId, jobId, site) {
+        const { space, job } = buildJob(spaceId, jobId);
+        const check = Engine.validateSite(site);
+        if (!check.ok) return clone({ ok: false, errors: check.errors, site: null });
+        if (siteAssetIds(site).some(id => !hasAsset(space.id, id))) {
+          return { ok: false, errors: [{ path: 'site', message: 'An image points at an asset that is not in this Space.' }], site: null };
+        }
+        job.site = clone(site);
+        emit('site-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ ok: true, errors: [], site: job.site });
+      },
+      /** One page as HTML for the builder's sandboxed preview: the saved site, or an unsaved draft (checked, never saved).
+       *  Only this Space's assets resolve, and the preview script reports clicks (site-engine.js). */
+      async previewPage(spaceId, jobId, pageId, { site } = {}) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        const shown = site === undefined ? job.site : site;
+        if (!shown) throw new Error('Start the site first.');
+        return { html: Engine.renderPage(shown, pageId, { assets: assetUrls(space.id), preview: true }) };
+      },
+      /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
+      async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
+      /** Core only (#206): each page as a still page (no motion) for Connect's phone check, plus the site's outside links. */
+      async getCheckPages(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!job.site) throw new Error('Build the site first.');
+        const assets = assetUrls(space.id);
+        return clone({ links: SiteCheck.siteLinks(job.site), pages: job.site.pages.map(p => ({ label: SiteCheck.pageLabel(p),
+          html: Engine.renderPage(job.site, p.id, { assets, still: true }),
+          fileName: `${job.name} - Site ${p.path === '/' ? 'home' : p.path.slice(1).replace(/\//g, '-')} on a phone.png` })) });
+      },
+      /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
+      async finishSite(spaceId, jobId) {
+        const files = siteFiles(spaceId, jobId);
+        return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
       },
       /** The Job's pitch deck: the saved one, or a blank deck with the project name until someone saves. */
       async getDeck(spaceId, jobId) {
@@ -715,22 +787,23 @@
       },
       /** Auto check: runs every check on the deck by itself; a person only reviews what gets flagged. Returns the
        *  flags [{ id, check, message, where, resolved }]; check is 'deck' | 'evidence' | 'links' | 'internal-words'.
-       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board. */
+       *  Runs by itself when Assemble board finishes. The phone screenshot and live link check come with the board.
+       *  Website Jobs (#206): runs when Build finishes; check is 'seo' | 'accessibility' | 'links' | 'speed' (site-check.js). */
       async runChecks(spaceId, jobId) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
-        return clone(runDeckChecks(space, job).flags.map(flagView));
+        return clone((job.workflowId === 'website' ? runSiteChecks(space, job) : runDeckChecks(space, job)).flags.map(flagView));
       },
       /** The last Auto check: { ranAt, flags, notRun, log } (log: every flag a person resolved, with their note). */
       async getChecks(spaceId, jobId) {
-        const { job } = deckJob(spaceId, jobId);
+        const { job } = checkedJob(spaceId, jobId);
         const last = job.checks || { ranAt: null, flags: [] };
         return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: last.notRun || CHECKS_NOT_RUN, log: job.checkLog });
       },
       /** Core only: what Connect found on the finished board ({ flags, ran }: phone width, live links). Replaces the last
        *  board flags; one a person resolved stays resolved when the same thing is found again. */
       addBoardChecks(spaceId, jobId, result) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object') return null;
         const ran = (Array.isArray(result.ran) ? result.ran : []).filter(x => CHECKS_NOT_RUN.includes(x));
         const before = new Map(job.checks.flags.map(f => [f.key, f]));
@@ -746,7 +819,7 @@
       },
       /** A person marks a flag OK with a note saying why; the note is logged. It stays resolved when checks re-run. */
       async resolveFlag(spaceId, jobId, flagId, note) {
-        const { space, job } = deckJob(spaceId, jobId);
+        const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
         const flag = job.checks && job.checks.flags.find(f => f.id === flagId);
         if (!flag) throw new Error('Flag not found.');
@@ -944,6 +1017,35 @@
       if (job.workflowId !== 'website') throw new Error('Only Website Jobs have chapter cards.');
       return { space, job };
     }
+    function buildJob(spaceId, jobId) {
+      const found = websiteJob(spaceId, jobId);
+      if (!openStages(found.job).includes('build')) throw new Error('The site can only change while Build is open.');
+      return found;
+    }
+    // Only this Space's kept images resolve; anything else renders without its src.
+    function assetUrls(spaceId) {
+      return Object.fromEntries(spaceAssets(spaceId).filter(a => !a.trashed && typeof a.url === 'string').map(a => [a.id, a.url]));
+    }
+    function siteAssetIds(site) {
+      const ids = [];
+      const walk = n => {
+        if (!n || 'text' in n) return;
+        for (const v of Object.values(n.attrs || {})) if (typeof v === 'string' && v.startsWith('asset:')) ids.push(v.slice(6));
+        (n.children || []).forEach(walk);
+      };
+      for (const p of site.pages) for (const sec of p.sections) {
+        walk(sec.tree);
+        for (const rule of sec.styles || []) for (const v of Object.values(rule.decl)) for (const m of String(v).matchAll(/asset:([A-Za-z0-9_-]+)/g)) ids.push(m[1]);
+      }
+      return ids;
+    }
+    function siteFiles(spaceId, jobId) {
+      const { space, job } = buildJob(spaceId, jobId);
+      if (!job.site) throw new Error('Start the site first.');
+      const pages = Object.entries(Engine.renderSite(job.site, { assets: assetUrls(space.id) }))
+        .map(([file, html]) => ({ name: `Site - ${file === 'index.html' ? 'home' : file.replace(/\/index\.html$/, '').replace(/\//g, '-')}.html`, content: html }));
+      return [{ name: 'site.json', content: JSON.stringify(job.site, null, 2) }, ...pages];
+    }
     function storyOf(job) { return job.story || Cards.storyFromPages(job.notes.brief ? job.notes.brief.pages : []); }
     function hasAsset(spaceId, assetId) { return spaceAssets(spaceId).some(a => a.id === assetId && !a.trashed); }
     function gapsFor(space, job, stageId) {
@@ -955,6 +1057,12 @@
     function storyReady(space, job, stageId) {
       const gaps = gapsFor(space, job, stageId);
       if (gaps.length) throw new Error(`Not ready yet: ${gaps.length} thing${gaps.length === 1 ? '' : 's'} to finish. First: ${gaps[0].where}: ${gaps[0].message}`);
+    }
+    function checkedJob(spaceId, jobId) {
+      const space = requireSpace(spaceId);
+      const job = requireJob(space.id, jobId);
+      if (!CHECKED.includes(job.workflowId)) throw new Error('Only Pitch deck and Website Jobs have an automatic check.');
+      return { space, job };
     }
     function deckJob(spaceId, jobId) {
       const space = requireSpace(spaceId);
@@ -997,6 +1105,16 @@
       }
       // A flag a person already resolved stays resolved when the same thing is found again. The board checks
       // (phone, live links) keep their last result until Connect runs them again (addBoardChecks).
+      return storeChecks(space, job, found);
+    }
+    // Website Check (#206): the site checker on the finished site. Connect adds the phone and live-link checks.
+    function runSiteChecks(space, job) {
+      if (!job.site) throw new Error('Build the site first.');
+      const assets = assetUrls(space.id);
+      const sizes = Object.fromEntries(job.site.pages.map(p => [p.id, new TextEncoder().encode(Engine.renderPage(job.site, p.id, { assets })).length]));
+      return storeChecks(space, job, SiteCheck.checkSite(job.site, { sizes }));
+    }
+    function storeChecks(space, job, found) {
       const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
       const before = new Map(last.flags.map(f => [f.key, f]));
       job.checks = { ranAt: new Date(now()).toISOString(), notRun: last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
@@ -1168,6 +1286,23 @@
         if (res && res.success) local.addBoardChecks(spaceId, jobId, res);
       } catch (_) { /* the deck checker already flags a deck that can't render */ }
     }
+    // Website Check (#206): Connect checks every page at phone width (a screenshot of each goes to Docs) and every
+    // outside link once. The phone check counts as run only when every page ran.
+    async function siteBoardChecks(spaceId, jobId) {
+      if (typeof checkBoard !== 'function') return;
+      try {
+        const { pages, links } = await local.getCheckPages(spaceId, jobId);
+        const flags = [], phoneRan = [];
+        for (const [i, page] of pages.entries()) {
+          const res = await checkBoard({ projectId: spaceId, html: page.html, links: i === 0 ? links : [], fileName: page.fileName });
+          if (!res || !res.success) { phoneRan.push(false); continue; }
+          phoneRan.push((res.ran || []).includes('phone-screenshot'));
+          for (const f of res.flags || []) flags.push(f.check === 'phone' ? { ...f, where: page.label, message: String(f.message || '').replace('the board is', 'the page is') } : f);
+        }
+        const ran = [...(phoneRan.length && phoneRan.every(Boolean) ? ['phone-screenshot'] : []), ...(phoneRan[0] !== false ? ['links-open'] : [])];
+        local.addBoardChecks(spaceId, jobId, { flags, ran });
+      } catch (_) { /* the phone and link checks stay "not run" */ }
+    }
 
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
@@ -1180,6 +1315,20 @@
       const out = asset(await call('POST', `/api/studio/spaces/${enc(spaceId)}/assets/${enc(assetId)}/${verb}`, body));
       emit('assets-changed', { spaceId });
       return out;
+    }
+
+    async function saveProjectFiles(spaceId, jobId, files) {
+      if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
+      await loadSaved(spaceId);
+      const job = await local.getJob(spaceId, jobId);
+      const list = projectFileList(job.name, files);
+      const saved = [], failed = [];
+      for (const f of list) {
+        const res = await saveFile(spaceId, f.name, f.content);
+        if (res && res.success) saved.push(f.name); else failed.push({ name: f.name, error: (res && res.error) || 'Could not save.' });
+      }
+      emit('project-files-changed', { spaceId });
+      return { saved, failed };
     }
 
     return Object.freeze({
@@ -1233,6 +1382,7 @@
           if (out.stageId === 'check') await boardChecks(spaceId, jobId);   // Assemble board just finished
           await saveJobs(spaceId);
         }
+        if (out && out.workflowId === 'website' && out.stageId === 'check') await siteBoardChecks(spaceId, jobId);   // Build just finished
         return out;
       },
       setStageNeed: saved('setStageNeed', true),
@@ -1244,8 +1394,21 @@
       getLook: (...a) => local.getLook(...a),
       getShotPrompts: (...a) => local.getShotPrompts(...a),
       // Real look frames need Website Jobs on the server (their images live there); until then, say so.
-      makeLookFrames: notOnServerYet,
-      chooseLookFrame: notOnServerYet,
+      makeLookFrames: async () => notOnServerYet(),
+      chooseLookFrame: async () => notOnServerYet(),
+      // The builder's site stays local with the cards (#198); it starts from the project's real DNA, never the sample one.
+      getSite: (...a) => local.getSite(...a),
+      async startSite(spaceId, jobId, options = {}) {
+        const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
+        return local.startSite(spaceId, jobId, { ...options, dna: (space && space.dna) || null });
+      },
+      saveSite: (...a) => local.saveSite(...a),
+      previewPage: (...a) => local.previewPage(...a),
+      getSiteFiles: (...a) => local.getSiteFiles(...a),
+      async finishSite(spaceId, jobId) {
+        const files = await local.getSiteFiles(spaceId, jobId);
+        return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
+      },
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
       // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.
@@ -1266,8 +1429,8 @@
       async runChecks(spaceId, jobId) {
         await loadSaved(spaceId);
         await local.runChecks(spaceId, jobId);
-        await boardChecks(spaceId, jobId);
-        await saveJobs(spaceId);
+        if ((await local.getJob(spaceId, jobId)).workflowId === 'website') await siteBoardChecks(spaceId, jobId);
+        else { await boardChecks(spaceId, jobId); await saveJobs(spaceId); }
         return (await local.getChecks(spaceId, jobId)).flags;
       },
       getChecks: loaded('getChecks'),
@@ -1281,19 +1444,7 @@
         return byStage;
       },
       /** Saves a Job's outputs into the real project folder (Files tab, Docs section) through Connect. */
-      async saveToProjectFiles(spaceId, jobId, files) {
-        if (typeof saveFile !== 'function') throw new Error('Saving to the project folder isn\'t available here.');
-        await loadSaved(spaceId);
-        const job = await local.getJob(spaceId, jobId);
-        const list = projectFileList(job.name, files);
-        const saved = [], failed = [];
-        for (const f of list) {
-          const res = await saveFile(spaceId, f.name, f.content);
-          if (res && res.success) saved.push(f.name); else failed.push({ name: f.name, error: (res && res.error) || 'Could not save.' });
-        }
-        emit('project-files-changed', { spaceId });
-        return { saved, failed };
-      },
+      saveToProjectFiles: saveProjectFiles,
       async listProjectFiles() { throw new Error('Open the project\'s Files tab to see its folder.'); },
       on(listener) {
         if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');

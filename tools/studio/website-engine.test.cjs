@@ -53,6 +53,19 @@ test('CSS: only asset urls, no escapes out of the style block', () => {
   assert.ok(errorsFor(s).some(p => p.endsWith('.sel')));
 });
 
+test('CSS: brackets and quotes close inside their own rule; images only from assets', () => {
+  const rule = (extra) => { const s = sample(); Object.assign(s.pages[0].sections[0].styles[1], extra); return E.validateSite(s).ok; };
+  for (const sel of [':is(h1', 'h1)', '[data-x="a"', 'h1[title="a]']) assert.equal(rule({ sel }), false, `selector ${sel}`);
+  for (const v of ['calc(100% - 2px', 'url(asset:hero1', '"Inter', 'image-set(asset:hero1 1x)', '-webkit-image-set(asset:hero1 1x)', 'red\n']) {
+    assert.equal(rule({ decl: { color: v } }), false, `value ${JSON.stringify(v)}`);
+  }
+  assert.equal(rule({ media: '(max-width: 700px' }), false, 'media query');
+  for (const sel of [':is(h1, h2)', 'a:not(.btn)', '[data-x="a(b"]']) assert.equal(rule({ sel }), true, `selector ${sel}`);
+  for (const v of ['calc(100% - 2px)', 'url("asset:hero1")', '"Source Serif 4", serif', 'rgba(11, 18, 32, .08)']) {
+    assert.equal(rule({ decl: { color: v } }), true, `value ${v}`);
+  }
+});
+
 test('IDs, paths and edit keys must be unique; a home page is required', () => {
   const s = sample(); s.pages[0].sections[1].id = 'hero';
   assert.ok(errorsFor(s).some(p => p.endsWith('sections[1].id')));

@@ -73,9 +73,22 @@
     node.children.forEach((c, i) => checkNode(c, `${path}.children[${i}]`, errors, state, depth + 1));
   }
 
-  const BAD_CSS = /[{};<>\\]|expression\s*\(|javascript:|@import|behavior\s*:|-moz-binding/i;
+  // image-set() and friends take plain-string URLs, so they'd load outside images; images come from assets only.
+  const BAD_CSS = /[{};<>\\\u0000-\u001f]|expression\s*\(|javascript:|@import|behavior\s*:|-moz-binding|image-set|\b(image|src)\s*\(/i;
+  // Every bracket and quote must close inside its own selector, value or media query, so nothing runs on into
+  // the next rule or out of the section's scope. Brackets inside quotes don't count (backslashes are refused).
+  function balanced(str) {
+    const open = [];
+    let quote = '';
+    for (const ch of str) {
+      if (quote) { if (ch === quote) quote = ''; } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === '(' || ch === '[') open.push(ch === '(' ? ')' : ']');
+      else if ((ch === ')' || ch === ']') && open.pop() !== ch) return false;
+    }
+    return !quote && !open.length;
+  }
   function checkValue(value) {
-    if (typeof value !== 'string' || !value.trim() || value.length > 300 || BAD_CSS.test(value)) return false;
+    if (typeof value !== 'string' || !value.trim() || value.length > 300 || BAD_CSS.test(value) || !balanced(value)) return false;
     const urls = value.match(/url\s*\(([^)]*)\)/gi) || [];
     return urls.every(u => ASSET.test(u.replace(/^url\s*\(\s*["']?|["']?\s*\)$/gi, '')));
   }
@@ -88,8 +101,8 @@
       const at = `${path}[${i}]`;
       if (!plain(rule)) return fail(errors, at, 'Must be a rule.');
       onlyKeys(rule, ['sel', 'decl', 'media'], at, errors);
-      if (typeof rule.sel !== 'string' || !rule.sel.trim() || rule.sel.length > 200 || /[{};<>@\\]/.test(rule.sel)) fail(errors, `${at}.sel`, 'Bad selector.');
-      if (rule.media !== undefined && (typeof rule.media !== 'string' || !/^[a-z0-9 ():,.-]{1,120}$/i.test(rule.media))) fail(errors, `${at}.media`, 'Bad media query.');
+      if (typeof rule.sel !== 'string' || !rule.sel.trim() || rule.sel.length > 200 || /[{};<>@\\\u0000-\u001f]/.test(rule.sel) || !balanced(rule.sel)) fail(errors, `${at}.sel`, 'Bad selector.');
+      if (rule.media !== undefined && (typeof rule.media !== 'string' || !/^[a-z0-9 ():,.-]{1,120}$/i.test(rule.media) || !balanced(rule.media))) fail(errors, `${at}.media`, 'Bad media query.');
       if (!plain(rule.decl) || !Object.keys(rule.decl).length) return fail(errors, `${at}.decl`, 'Needs at least one property.');
       for (const [prop, value] of Object.entries(rule.decl)) {
         if (!/^(--[a-z0-9-]{1,40}|-?[a-z][a-z-]{0,40})$/.test(prop)) fail(errors, `${at}.decl.${prop}`, 'Bad property name.');
@@ -199,9 +212,16 @@
     + 'var p=document.querySelectorAll("[data-motion=parallax]");if(p.length)addEventListener("scroll",function(){p.forEach(function(e){'
     + 'var b=e.getBoundingClientRect();e.style.transform="translateY("+(b.top*-0.15).toFixed(1)+"px)"})},{passive:true})})();';
 
+  // Builder preview only (#198): a click selects the clicked element's data-edit key; links and forms never leave the preview.
+  // Connect's CSP allows this script and MOTION_JS by hash (index.html); a test keeps those hashes in step.
+  const PREVIEW_JS = '(function(){function up(e,s){return e.target&&e.target.closest?e.target.closest(s):null}'
+    + 'document.addEventListener("click",function(e){if(up(e,"a"))e.preventDefault();var el=up(e,"[data-edit]"),s=up(e,"[data-s]");'
+    + 'if(el&&s)parent.postMessage({type:"meridian-select",key:el.getAttribute("data-edit"),sectionId:s.getAttribute("data-s")},"*")},true);'
+    + 'document.addEventListener("submit",function(e){e.preventDefault()},true)})();';
+
   const hasMotion = node => !('text' in node) && ((node.attrs && node.attrs['data-motion']) || (node.children || []).some(hasMotion));
 
-  function renderPage(site, pageId, { assets = {} } = {}) {
+  function renderPage(site, pageId, { assets = {}, preview = false, still = false } = {}) {
     const check = validateSite(site);
     if (!check.ok) throw new Error(`Site has problems: ${check.errors.slice(0, 3).map(e => `${e.path} ${e.message}`).join('; ')}`);
     const page = site.pages.find(p => p.id === pageId);
@@ -209,7 +229,8 @@
     const { colors = {}, fonts } = site.theme;
     const vars = Object.entries(colors).map(([k, v]) => `--c-${k}:${v}`).concat(`--f-heading:"${fonts.heading}"`, `--f-body:"${fonts.body}"`).join(';');
     const families = [...new Set([fonts.heading, fonts.body])].map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;600;800`).join('&');
-    const motion = page.sections.some(s => hasMotion(s.tree));
+    // still: no motion at all (Connect's phone check runs with scripts off, so faded-in sections would stay hidden).
+    const motion = !still && page.sections.some(s => hasMotion(s.tree));
     // Each section's id doubles as its anchor, so a button can link to "#booking" (ids are checked: lowercase, digits, dashes).
     const body = page.sections.map(s => `<div id="${s.id}" data-s="${s.id}" data-section="${esc(s.label)}">${renderNode(s.tree, assets)}</div>`).join('\n');
     const concept = site.concept ? `<p class="concept-note">Concept for discussion, not affiliated with ${esc(site.name)}.</p>` : '';
@@ -221,12 +242,13 @@
       + 'h1,h2,h3,h4{font-family:var(--f-heading),system-ui,sans-serif}img,video{max-width:100%;height:auto}'
       + '.concept-note{margin:0;padding:12px 16px;font-size:12px;text-align:center;opacity:.7}'
       + `${motion ? MOTION_CSS : ''}\n${page.sections.map(s => renderStyles(s, assets)).join('\n')}</style></head>`
-      + `<body>${body}${concept}${motion ? `<script>${MOTION_JS}</script>` : ''}</body></html>`;
+      + `<body>${body}${concept}${motion ? `<script>${MOTION_JS}</script>` : ''}${preview ? `<script>${PREVIEW_JS}</script>` : ''}</body></html>`;
   }
 
+  /** The files a finished site is saved as. Never carries the builder's preview script. */
   function renderSite(site, options) {
     const files = {};
-    for (const page of site.pages) files[page.path === '/' ? 'index.html' : `${page.path.replace(/^\/|\/$/g, '')}/index.html`] = renderPage(site, page.id, options);
+    for (const page of site.pages) files[page.path === '/' ? 'index.html' : `${page.path.replace(/^\/|\/$/g, '')}/index.html`] = renderPage(site, page.id, { ...options, preview: false });
     return files;
   }
 
@@ -268,5 +290,5 @@
     return { ...check, site: check.ok ? next : null };
   }
 
-  return Object.freeze({ MOTION, validateSite, renderPage, renderSite, fromHomePage, findEditable, replaceSection });
+  return Object.freeze({ MOTION, SCRIPTS: Object.freeze({ motion: MOTION_JS, preview: PREVIEW_JS }), validateSite, renderPage, renderSite, fromHomePage, findEditable, replaceSection });
 });

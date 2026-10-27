@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
-const { fillStory } = require('./helpers/website-story.cjs'); // chapter cards so Website gates pass (#186)
+const { fillStory, startSiteAtBuild } = require('./helpers/website-story.cjs'); // chapter cards and the site, so Website gates pass (#186, #206)
 const { createJob, render, safeUrl } = require('../../src/renderer/studio/screens/job.js');
 const { createSpace } = require('../../src/renderer/studio/screens/space.js');
 const { mount } = require('../../src/renderer/studio/screens/stage-bar.js');
@@ -41,6 +41,7 @@ test('sample Job page shows ordered stages, safe stage images, progress, statuse
   click(el, 'Open in Work'); click(el, 'Back');
   assert.deepEqual(routes, [['work', params], ['space', { spaceId: job.spaceId }]]);
   while (!(await service.getJob(job.spaceId, job.id)).finished) {
+    await startSiteAtBuild(service, job.spaceId, job.id);
     await service.completeStage(job.spaceId, job.id);
     if ((await service.getJob(job.spaceId, job.id)).waitingOnJax) await service.approveStage(job.spaceId, job.id);
   }

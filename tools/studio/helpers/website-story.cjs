@@ -13,4 +13,9 @@ async function fillStory(service, spaceId, jobId) {
   await service.chooseLookFrame(spaceId, jobId, look.frames[0].id);
   return saved;
 }
-module.exports = { fillStory };
+// Build can't finish without a site (#206): walk loops call this before completing each stage.
+async function startSiteAtBuild(service, spaceId, jobId) {
+  const job = await service.getJob(spaceId, jobId);
+  if (job.stageId === 'build' && !(await service.getSite(spaceId, jobId))) await service.startSite(spaceId, jobId, { from: 'cards' });
+}
+module.exports = { fillStory, startSiteAtBuild };
