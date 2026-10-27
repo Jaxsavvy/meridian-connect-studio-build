@@ -104,7 +104,7 @@
         + d.plan.moves.map((m, i) => `<article><p class="eyebrow">0${i + 1}</p><h3>${esc(m.name)}</h3><p class="goal">${esc(m.goal)}</p><p>${esc(m.detail)}</p></article>`).join('')
         + '</div><ol class="timeline">' + d.plan.timeline.map(t => `<li><strong>${esc(t.when)}</strong><span>${esc(t.label)}</span></li>`).join('') + '</ol></section>',
       `<footer class="close">${img(assetUrl(assets, 'closing'), 'bg')}<div class="in">${logo}<p>Prepared for ${esc(c.name)}, ${esc(c.town)}. Every number on this page comes from the source shown with it.</p>${sell(options, 'bottom')}`
-        + '<p class="privacy">This page counts views so we know it was helpful. No third-party trackers.</p></div></footer>',
+        + '<p class="privacy">No third-party trackers.</p></div></footer>',
     ];
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
       + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\' https: http:; style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com">'
