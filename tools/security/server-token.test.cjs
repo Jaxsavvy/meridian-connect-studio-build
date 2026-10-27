@@ -70,11 +70,18 @@ test('main.js guards settings, media and updates', () => {
 });
 
 test('both pages carry a strict content security policy', () => {
-  for (const page of ['renderer/index.html', 'renderer/popout.html']) {
+  // index.html may also allow the site engine's two fixed scripts by hash: the website builder's sandboxed preview
+  // inherits this policy (#198). Nothing else: no unsafe-inline, no hosts, and the hashes must match the engine.
+  const crypto = require('node:crypto');
+  const { SCRIPTS } = require('../../src/renderer/studio/website/site-engine.js');
+  const hashes = Object.values(SCRIPTS).map(js => `'sha256-${crypto.createHash('sha256').update(js).digest('base64')}'`);
+  for (const [page, allowed] of [['renderer/index.html', ["'self'", ...hashes]], ['renderer/popout.html', ["'self'"]]]) {
     const html = src(page);
     const m = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
     assert.ok(m, `${page} has a CSP`);
-    assert.match(m[1], /script-src 'self';/);
+    const scriptSrc = (m[1].match(/script-src ([^;]+);/) || [])[1];
+    assert.ok(scriptSrc, `${page} sets script-src`);
+    assert.deepEqual(scriptSrc.trim().split(/\s+/).sort(), allowed.slice().sort(), `${page} script-src is exactly ${allowed.join(' ')}`);
     assert.doesNotMatch(m[1], /unsafe-eval/);
     assert.match(m[1], /object-src 'none'/);
   }
