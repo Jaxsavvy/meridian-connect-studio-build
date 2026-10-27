@@ -73,9 +73,22 @@
     node.children.forEach((c, i) => checkNode(c, `${path}.children[${i}]`, errors, state, depth + 1));
   }
 
-  const BAD_CSS = /[{};<>\\]|expression\s*\(|javascript:|@import|behavior\s*:|-moz-binding/i;
+  // image-set() and friends take plain-string URLs, so they'd load outside images; images come from assets only.
+  const BAD_CSS = /[{};<>\\\u0000-\u001f]|expression\s*\(|javascript:|@import|behavior\s*:|-moz-binding|image-set|\b(image|src)\s*\(/i;
+  // Every bracket and quote must close inside its own selector, value or media query, so nothing runs on into
+  // the next rule or out of the section's scope. Brackets inside quotes don't count (backslashes are refused).
+  function balanced(str) {
+    const open = [];
+    let quote = '';
+    for (const ch of str) {
+      if (quote) { if (ch === quote) quote = ''; } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === '(' || ch === '[') open.push(ch === '(' ? ')' : ']');
+      else if ((ch === ')' || ch === ']') && open.pop() !== ch) return false;
+    }
+    return !quote && !open.length;
+  }
   function checkValue(value) {
-    if (typeof value !== 'string' || !value.trim() || value.length > 300 || BAD_CSS.test(value)) return false;
+    if (typeof value !== 'string' || !value.trim() || value.length > 300 || BAD_CSS.test(value) || !balanced(value)) return false;
     const urls = value.match(/url\s*\(([^)]*)\)/gi) || [];
     return urls.every(u => ASSET.test(u.replace(/^url\s*\(\s*["']?|["']?\s*\)$/gi, '')));
   }
@@ -88,8 +101,8 @@
       const at = `${path}[${i}]`;
       if (!plain(rule)) return fail(errors, at, 'Must be a rule.');
       onlyKeys(rule, ['sel', 'decl', 'media'], at, errors);
-      if (typeof rule.sel !== 'string' || !rule.sel.trim() || rule.sel.length > 200 || /[{};<>@\\]/.test(rule.sel)) fail(errors, `${at}.sel`, 'Bad selector.');
-      if (rule.media !== undefined && (typeof rule.media !== 'string' || !/^[a-z0-9 ():,.-]{1,120}$/i.test(rule.media))) fail(errors, `${at}.media`, 'Bad media query.');
+      if (typeof rule.sel !== 'string' || !rule.sel.trim() || rule.sel.length > 200 || /[{};<>@\\\u0000-\u001f]/.test(rule.sel) || !balanced(rule.sel)) fail(errors, `${at}.sel`, 'Bad selector.');
+      if (rule.media !== undefined && (typeof rule.media !== 'string' || !/^[a-z0-9 ():,.-]{1,120}$/i.test(rule.media) || !balanced(rule.media))) fail(errors, `${at}.media`, 'Bad media query.');
       if (!plain(rule.decl) || !Object.keys(rule.decl).length) return fail(errors, `${at}.decl`, 'Needs at least one property.');
       for (const [prop, value] of Object.entries(rule.decl)) {
         if (!/^(--[a-z0-9-]{1,40}|-?[a-z][a-z-]{0,40})$/.test(prop)) fail(errors, `${at}.decl.${prop}`, 'Bad property name.');
