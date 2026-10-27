@@ -45,10 +45,18 @@ test('a story using every layout assembles into a site that passes the engine ch
   const home = files['index.html'];
   assert.match(home, /Roofs done &lt;right&gt;/);
   assert.match(home, /href="\/more#book"/, 'call-to-action links to the booking chapter');
-  assert.match(home, /url\("https:\/\/cdn\.example\.com\/a1\.jpg"\)/);
+  assert.match(home, /<img src="https:\/\/cdn\.example\.com\/a1\.jpg" alt="Synthetic a1" loading="eager"[^>]*class="bg">/, 'hero photo is a real image, loaded first');
+  assert.doesNotMatch(home, /class="trust"/, 'no trust line when the hero card has no proof');
+  assert.doesNotMatch(home, /#ffffff|#000000/i, 'no pure white or black');
   assert.match(files['more/index.html'], /href="tel:5415550100"/, 'booking button calls the business');
   assert.match(files['more/index.html'], /<video[^>]* autoplay muted loop playsinline/);
   assert.doesNotMatch(home, /Concept for discussion/);
+});
+
+test('the hero shows its own sourced proof as a trust line', () => {
+  const st = storyAll(); st.pages[0].chapters[0].proof = [{ claim: 'Licensed and insured', source: 'State license lookup' }];
+  const out = Lib.assembleSite(st, { name: 'Sample Roofing Co' });
+  assert.match(Engine.renderPage(out.site, 'home'), /<ul class="trust"><li>✓ Licensed and insured<\/li><\/ul>/);
 });
 
 test('style numbers come from Project DNA and stay readable', () => {

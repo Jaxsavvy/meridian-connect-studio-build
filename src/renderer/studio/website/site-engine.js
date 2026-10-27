@@ -187,8 +187,8 @@
     }).join('\n');
   }
 
-  const MOTION_CSS = '[data-motion="fade-up"]{opacity:0;transform:translateY(24px);transition:opacity .8s ease,transform .8s ease}'
-    + '[data-motion="reveal"]{clip-path:inset(0 0 100% 0);transition:clip-path 1s ease}'
+  const MOTION_CSS = '[data-motion="fade-up"]{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}'
+    + '[data-motion="reveal"]{clip-path:inset(0 0 100% 0);transition:clip-path 1.1s cubic-bezier(.2,.7,.2,1)}'
     + '[data-motion].in{opacity:1;transform:none;clip-path:inset(0)}'
     + '[data-motion="video-bg"]{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1}'
     + '@media (prefers-reduced-motion:reduce){[data-motion]{opacity:1!important;transform:none!important;clip-path:none!important;transition:none!important}}';
@@ -217,7 +217,7 @@
       + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https: data: blob:; media-src https: data: blob:; style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src \'unsafe-inline\'">'
       + `<title>${esc(page.title)}</title>${page.description ? `<meta name="description" content="${esc(page.description)}">` : ''}`
       + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families}&display=swap">`
-      + `<style>:root{${vars}}*{box-sizing:border-box}body{margin:0;font-family:var(--f-body),system-ui,sans-serif;background:var(--c-bg,#fff);color:var(--c-text,#111)}`
+      + `<style>:root{${vars}}*{box-sizing:border-box}body{margin:0;font-family:var(--f-body),system-ui,sans-serif;background:var(--c-bg,#faf9f6);color:var(--c-text,#14202e)}`
       + 'h1,h2,h3,h4{font-family:var(--f-heading),system-ui,sans-serif}img,video{max-width:100%;height:auto}'
       + '.concept-note{margin:0;padding:12px 16px;font-size:12px;text-align:center;opacity:.7}'
       + `${motion ? MOTION_CSS : ''}\n${page.sections.map(s => renderStyles(s, assets)).join('\n')}</style></head>`
