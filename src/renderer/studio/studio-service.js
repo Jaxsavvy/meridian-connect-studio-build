@@ -10,10 +10,11 @@
   // Pitch deck format (#114), research model (#124), chapter cards (#186): index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
-    node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards);
+    node ? require('./website/chapter-cards.js') : root && root.MeridianChapterCards,
+    node ? require('./website/look-frames.js') : root && root.MeridianLookFrames);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Look) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -46,6 +47,10 @@
     ['ad-creative', 'Ad creative', '1:1', ['What is the offer?', 'Where does the headline go?']],
     ['seasonal', 'Seasonal promo', '4:5', ['Which season or holiday?']],
   ].map(([id, name, size, questions]) => Object.freeze({ id, toolId: 'image-gen', name, size, questions: Object.freeze(questions) }));
+  // Internal: a full-page website design from ChatGPT images (#191). Not in Image gen's list; only the Website pipeline uses it.
+  const LOOK_PRESET = Object.freeze({ id: 'look-frame', toolId: 'image-gen', name: 'Website look frame', size: '2:3', questions: Object.freeze([]) });
+  const SAMPLE_DNA = Object.freeze({ status: 'draft', brief: 'Sample brief', colors: Object.freeze(['#0b1f3a', '#2bb3a3']), fonts: Object.freeze(['Source Serif 4', 'Inter']),
+    voice: 'Confident, plain-spoken', audience: 'Local homeowners' });
 
   // Website workflow (docs/PLAN.md). approver 'jax' means the stage waits on Jax; the team can't mark it done.
   const STAGE = (id, name, goal, tools, needs, check, approver = 'team', tiers = ['standard', 'cinematic']) =>
@@ -266,7 +271,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, ...extra }; // Website only: chapter cards (#186)
+        story: null, look: null, ...extra }; // Website only: chapter cards (#186), look frames (#191)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -302,7 +307,7 @@
       return assets.get(spaceId);
     }
 
-    return Object.freeze({
+    const self = Object.freeze({
       mode: 'sample',
       /** Called by Connect with the projects the signed-in person is assigned to. */
       setProjects(list) {
@@ -314,9 +319,7 @@
       async listSpaces() { return clone(spaceList()); },
       async getSpace(spaceId) {
         const space = requireSpace(spaceId);
-        const dna = space.type === 'client'
-          ? { status: 'draft', brief: 'Sample brief', colors: ['#0b1f3a', '#2bb3a3'], fonts: ['Source Serif 4', 'Inter'], voice: 'Confident, plain-spoken', audience: 'Local homeowners' }
-          : null;
+        const dna = space.type === 'client' ? clone(SAMPLE_DNA) : null;
         const started = spaceJobs(space.id).map(jobSummary);
         const jobList = space.type === 'client' && !started.length
           ? [{ id: `${space.id}-job-1`, name: 'Website v1', stage: 'Not started', progress: 0 }] : started;
@@ -516,6 +519,50 @@
       async getStoryGaps(spaceId, jobId, stageId) {
         const { space, job } = websiteJob(spaceId, jobId);
         return clone(gapsFor(space, job, stageId || job.stageId));
+      },
+      /** Look frames (#191): ChatGPT's full-page designs for this Website Job, and which one Jax picked. */
+      async getLook(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        return clone(lookOf(job));
+      },
+      /** Meridian asks ChatGPT images for one full-page look frame per direction (default all three), from the finished
+       *  storyboard and Project DNA. Needs a complete storyboard; making new frames keeps the old ones. */
+      async makeLookFrames(spaceId, jobId, { directions } = {}) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('look') || job.stageId === null) throw new Error('The look is locked once Look and assets is done.');
+        const missing = Cards.stageGaps(storyOf(job), 'storyboard', { tier: job.tier });
+        if (missing.length) throw new Error(`Finish the storyboard first: ${missing[0].where}: ${missing[0].message}`);
+        const wanted = Array.isArray(directions) && directions.length ? directions : Look.DIRECTIONS.map(d => d.id);
+        const look = lookOf(job);
+        for (const direction of wanted) {
+          if (!Look.DIRECTIONS.some(d => d.id === direction)) throw new Error('Unknown design direction.');
+          const prompt = Look.framePrompt(storyOf(job), { name: space.name, dna: SAMPLE_DNA, tier: job.tier, direction });
+          const out = await self.generateImage({ spaceId: space.id, presetId: LOOK_PRESET.id, description: prompt, count: 1, jobId: job.id, stageId: 'look' });
+          await self.keepAsset(space.id, out.results[0].assetId);
+          look.frames.push({ id: nextId('frame'), direction, assetId: out.results[0].assetId, prompt });
+        }
+        job.look = look;
+        emit('look-changed', { spaceId: space.id, jobId: job.id });
+        return clone(look);
+      },
+      /** Jax picks the look. Locked once Look and assets is done. */
+      async chooseLookFrame(spaceId, jobId, frameId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (job.done.includes('look') || job.stageId === null) throw new Error('The look is locked once Look and assets is done.');
+        const look = lookOf(job);
+        if (!look.frames.some(f => f.id === frameId)) throw new Error('That look frame is not on this Job.');
+        look.chosenId = frameId;
+        job.look = look;
+        emit('look-changed', { spaceId: space.id, jobId: job.id });
+        return clone(look);
+      },
+      /** One ChatGPT prompt per shot on the cards, written to match the chosen frame, for Image gen to make. */
+      async getShotPrompts(spaceId, jobId) {
+        const { job } = websiteJob(spaceId, jobId);
+        const look = lookOf(job), frame = look.frames.find(f => f.id === look.chosenId);
+        if (!frame) throw new Error('Pick a look frame first.');
+        return clone(storyOf(job).pages.flatMap(p => p.chapters.flatMap(c => c.shots.map(sh => ({ pageId: p.id, chapterId: c.id, shotId: sh.id, what: sh.what,
+          made: !!sh.assetId, prompt: Look.shotPrompt(sh, { direction: frame.direction, dna: SAMPLE_DNA, tier: job.tier }) })))));
       },
       /** The Job's pitch deck: the saved one, or a blank deck with the project name until someone saves. */
       async getDeck(spaceId, jobId) {
@@ -792,7 +839,7 @@
        *  jobId/stageId (from the Work view inside a Job) tag the results so the Job page can list them. */
       async generateImage(request) {
         const space = requireSpace(request && request.spaceId);
-        const preset = PRESETS.find(p => p.id === request.presetId) || PRESETS[0];
+        const preset = PRESETS.find(p => p.id === request.presetId) || (request.presetId === LOOK_PRESET.id ? LOOK_PRESET : PRESETS[0]);
         const description = String(request.description || '').trim();
         if (!description) throw new Error('Describe the image first.');
         const count = [1, 2, 4].includes(request.count) ? request.count : 4;
@@ -844,6 +891,7 @@
         return () => listeners.delete(listener);
       },
     });
+    return self;
 
     function spaceJobs(spaceId) {
       if (!jobs.has(spaceId)) jobs.set(spaceId, []);
@@ -899,8 +947,11 @@
     function storyOf(job) { return job.story || Cards.storyFromPages(job.notes.brief ? job.notes.brief.pages : []); }
     function hasAsset(spaceId, assetId) { return spaceAssets(spaceId).some(a => a.id === assetId && !a.trashed); }
     function gapsFor(space, job, stageId) {
-      return Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
+      const gaps = Cards.stageGaps(storyOf(job), stageId, { tier: job.tier, hasAsset: id => hasAsset(space.id, id) });
+      if (stageId === 'look' && !(job.look && job.look.chosenId)) gaps.unshift({ where: 'Look frame', message: 'Pick a look frame (Meridian designs them with ChatGPT).' });
+      return gaps;
     }
+    function lookOf(job) { return job.look || { frames: [], chosenId: null, tokens: null, layouts: {} }; }
     function storyReady(space, job, stageId) {
       const gaps = gapsFor(space, job, stageId);
       if (gaps.length) throw new Error(`Not ready yet: ${gaps.length} thing${gaps.length === 1 ? '' : 's'} to finish. First: ${gaps[0].where}: ${gaps[0].message}`);
@@ -1190,6 +1241,11 @@
       getStory: (...a) => local.getStory(...a),
       saveStory: (...a) => local.saveStory(...a),
       getStoryGaps: (...a) => local.getStoryGaps(...a),
+      getLook: (...a) => local.getLook(...a),
+      getShotPrompts: (...a) => local.getShotPrompts(...a),
+      // Real look frames need Website Jobs on the server (their images live there); until then, say so.
+      makeLookFrames: notOnServerYet,
+      chooseLookFrame: notOnServerYet,
       saveStageNotes: (...a) => local.saveStageNotes(...a),
       draftCopy: (...a) => local.draftCopy(...a),
       // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.

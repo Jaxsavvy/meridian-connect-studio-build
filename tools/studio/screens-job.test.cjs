@@ -33,9 +33,10 @@ test('sample Job page shows ordered stages, safe stage images, progress, statuse
   await service.approveStage(job.spaceId, job.id); await tick();
   await service.completeStage(job.spaceId, job.id); await service.completeStage(job.spaceId, job.id); await tick();
   const generated = await service.generateImage({ ...params, stageId: 'look', description: 'Synthetic hero', count: 1 });
-  await tick(); const images = walk(el).filter(n => n.tag === 'img'); assert.equal(images.length, 1);
+  await tick(); const images = walk(el).filter(n => n.tag === 'img'); assert.equal(images.length, 2); // + the look frame (#191)
   const assets = await service.listJobAssets(job.spaceId, job.id);
-  assert.equal(images[0].alt, assets.look[0].name); assert.equal(images[0].src, generated.results[0].url);
+  const made = assets.look.find(a => a.url === generated.results[0].url);
+  assert.ok(images.some(i => i.alt === made.name && i.src === made.url));
   assert.match(text(el), /3 of 9 stages done/);
   click(el, 'Open in Work'); click(el, 'Back');
   assert.deepEqual(routes, [['work', params], ['space', { spaceId: job.spaceId }]]);
