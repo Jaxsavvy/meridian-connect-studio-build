@@ -83,7 +83,7 @@
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website'], ['Every page renders'], 'Runs on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
-        STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
+        STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review', 'website'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
       ]),
     }),
@@ -438,6 +438,7 @@
         if (job.workflowId === 'website' && target === 'review') {
           const open = reviewOf(job).comments.filter(c => !c.resolved).length;
           if (open) throw new Error(`Review isn't done: ${open} ${open === 1 ? 'comment needs' : 'comments need'} an answer.`);
+          if (job.siteFilesSaved === false) throw new Error('The site files in the project folder are out of date: save the site again.');
         }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
@@ -607,17 +608,31 @@
         if (out.ok) { job.site = out.site; emit('site-changed', { spaceId: space.id, jobId: job.id }); }
         return clone({ ok: out.ok, errors: out.errors, site: out.ok ? out.site : null, report: { custom: out.custom, short: out.short } });
       },
-      /** Saves the whole site (replaces it) while Build is open: { ok, errors, site }. Refuses anything the engine refuses. */
+      /** Saves the whole site (replaces it) while Build or Review is open: { ok, errors, site }. Refuses anything the engine
+       *  refuses. During Review (#219) the checks run again (new problems become Review comments) and the project folder's
+       *  site files are saved again: { ..., files: { saved, failed } } (real sign-in: Connect saves them, see the server). */
       async saveSite(spaceId, jobId, site) {
-        const { space, job } = buildJob(spaceId, jobId);
+        const { space, job } = siteJob(spaceId, jobId);
         const check = Engine.validateSite(site);
         if (!check.ok) return clone({ ok: false, errors: check.errors, site: null });
         if (siteAssetIds(site).some(id => !hasAsset(space.id, id))) {
           return { ok: false, errors: [{ path: 'site', message: 'An image points at an asset that is not in this Space.' }], site: null };
         }
         job.site = clone(site);
+        let files = null;
+        if (openStages(job).includes('review')) {
+          recheckInReview(space, job);
+          job.siteFilesSaved = false;
+          if (practice) files = await saveSiteFilesFor(space, job, list => saveProjectFiles(space.id, job.id, list));
+        }
         emit('site-changed', { spaceId: space.id, jobId: job.id });
-        return clone({ ok: true, errors: [], site: job.site });
+        return clone({ ok: true, errors: [], site: job.site, ...(files ? { files } : {}) });
+      },
+      /** Core only (#219): real sign-in reports how saving the site files through Connect went. */
+      markSiteFiles(spaceId, jobId, result) {
+        const { job } = websiteJob(spaceId, jobId);
+        job.siteFilesSaved = !!result && Array.isArray(result.failed) && !result.failed.length;
+        return job.siteFilesSaved;
       },
       /** One page as HTML for the builder's sandboxed preview: the saved site, or an unsaved draft (checked, never saved).
        *  Only this Space's assets resolve, and the preview script reports clicks (site-engine.js). */
@@ -647,7 +662,7 @@
         const words = text(c.text, 'Comment', 1000);
         if (!words) throw new Error('Write the comment first.');
         const review = reviewOf(job);
-        const added = { id: nextId('comment'), pageId: page.id, sectionId: section.id, key, where: `${SiteCheck.pageLabel(page)} · ${section.label}`,
+        const added = { id: nextId('comment'), source: 'team', pageId: page.id, sectionId: section.id, key, where: `${SiteCheck.pageLabel(page)} · ${section.label}`,
           text: words, at: new Date(now()).toISOString(), resolved: null };
         review.comments.push(added);
         job.review = review;
@@ -661,9 +676,12 @@
         if (!found) throw new Error('Comment not found.');
         if (found.resolved) throw new Error('This comment already has an answer.');
         if (!['fixed', 'keep'].includes(kind)) throw new Error('Answer with fixed or keep.');
+        // A real fix answers a check comment by itself on the next save; while it's open, the check still finds the problem.
+        if (found.source === 'check' && kind === 'fixed') throw new Error('The check still finds this: fix it and save the site, or choose Keep as is.');
         const why = text(note, 'Note', 500);
         if (!why) throw new Error(kind === 'fixed' ? 'Say what changed.' : 'Say why it stays.');
         found.resolved = { kind, note: why, at: new Date(now()).toISOString() };
+        if (found.source === 'check') answerFlag(job, found.flagKey, why, found.resolved.at);
         emit('review-changed', { spaceId: space.id, jobId: job.id });
         return clone(found);
       },
@@ -678,6 +696,7 @@
       },
       /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
       async finishSite(spaceId, jobId) {
+        buildJob(spaceId, jobId);
         const files = siteFiles(spaceId, jobId);
         return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
       },
@@ -1069,6 +1088,39 @@
       if (!found.job.site) throw new Error('Build the site first.');
       return found;
     }
+    // The site can change while Build is open, and during Review until it goes to Jax (#219).
+    function siteJob(spaceId, jobId) {
+      const found = websiteJob(spaceId, jobId), open = openStages(found.job);
+      if (!open.includes('build') && !(open.includes('review') && !found.job.waitingOnJax)) throw new Error('The site can only change while Build or Review is open.');
+      return found;
+    }
+    // A save during Review runs the checks again: each new problem becomes a Review comment, and an open check comment
+    // whose problem is gone answers itself.
+    function recheckInReview(space, job) {
+      const flags = runSiteChecks(space, job).flags.filter(f => !f.resolved && !BOARD_CHECKS.includes(f.check));
+      const review = reviewOf(job), keys = new Set(flags.map(f => f.key)), at = new Date(now()).toISOString();
+      for (const c of review.comments) {
+        if (c.source === 'check' && !c.resolved && !keys.has(c.flagKey)) c.resolved = { kind: 'fixed', note: 'The automatic check passes now.', at };
+      }
+      for (const f of flags) {
+        if (review.comments.some(c => c.flagKey === f.key && !c.resolved)) continue;
+        review.comments.push({ id: nextId('comment'), source: 'check', flagKey: f.key, pageId: null, sectionId: null, key: null,
+          where: f.where, text: `The automatic check found: ${f.message}`, at, resolved: null });
+      }
+      job.review = review;
+      emit('review-changed', { spaceId: space.id, jobId: job.id });
+    }
+    function answerFlag(job, key, note, at) {
+      const flag = job.checks && job.checks.flags.find(f => f.key === key);
+      if (!flag || flag.resolved) return;
+      flag.resolved = { note, at };
+      job.checkLog.push({ at, flagId: flag.id, check: flag.check, where: flag.where, message: flag.message, note });
+    }
+    async function saveSiteFilesFor(space, job, save) {
+      const result = await saveInBatches(save, siteFiles(space.id, job.id));
+      job.siteFilesSaved = !result.failed.length;
+      return result;
+    }
     function buildJob(spaceId, jobId) {
       const found = websiteJob(spaceId, jobId);
       if (!openStages(found.job).includes('build')) throw new Error('The site can only change while Build is open.');
@@ -1092,7 +1144,7 @@
       return ids;
     }
     function siteFiles(spaceId, jobId) {
-      const { space, job } = buildJob(spaceId, jobId);
+      const { space, job } = siteJob(spaceId, jobId);
       if (!job.site) throw new Error('Start the site first.');
       const pages = Object.entries(Engine.renderSite(job.site, { assets: assetUrls(space.id) }))
         .map(([file, html]) => ({ name: `Site - ${file === 'index.html' ? 'home' : file.replace(/\/index\.html$/, '').replace(/\//g, '-')}.html`, content: html }));
@@ -1454,7 +1506,18 @@
         const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
         return local.startSite(spaceId, jobId, { ...options, dna: (space && space.dna) || null });
       },
-      saveSite: (...a) => local.saveSite(...a),
+      async saveSite(spaceId, jobId, site) {
+        const out = await local.saveSite(spaceId, jobId, site);
+        const job = out && out.ok ? await local.getJob(spaceId, jobId) : null;
+        if (job && job.stageId === 'review') {   // during Review (#219) the project folder's files follow every save
+          let files;
+          try { files = await saveInBatches(list => saveProjectFiles(spaceId, jobId, list), await local.getSiteFiles(spaceId, jobId)); }
+          catch (error) { files = { saved: [], failed: [{ name: 'site files', error: error.message }] }; }
+          local.markSiteFiles(spaceId, jobId, files);
+          return { ...out, files };
+        }
+        return out;
+      },
       previewPage: (...a) => local.previewPage(...a),
       getSiteFiles: (...a) => local.getSiteFiles(...a),
       getReview: (...a) => local.getReview(...a),
