@@ -17,7 +17,8 @@
 .studio-website-bar .is-primary { margin-inline-start: auto; }
 .studio-website-status { align-self: center; color: var(--studio-gold); }
 .studio-website-edit { display: grid; gap: .6rem; align-content: start; min-width: 0; }
-.studio-website-edit[hidden] { display: none; }
+.studio-website-builder [hidden] { display: none; }
+.studio-website-review-line { margin: 0; color: var(--studio-muted); }
 .studio-website-edit :is(h3, p) { margin: 0; }
 .studio-website-field { display: grid; gap: .35rem; }
 .studio-website-field textarea { min-height: 4.5rem; padding: .4rem .5rem; resize: vertical; }
