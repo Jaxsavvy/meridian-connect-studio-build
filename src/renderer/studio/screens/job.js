@@ -12,12 +12,18 @@
     const stages = Array.isArray(job.stages) ? job.stages : [];
     const brief = stages.find(st => st.id === 'brief');
     const website = job.workflowId === 'website';   // Pitch deck Jobs have no chapter cards
-    const [notes, story, ...gaps] = await Promise.all([
+    const has = id => stages.some(st => st.id === id);
+    // Where the site stands (#224): Website Jobs read the look, site and review; Pitch deck Jobs only their checks.
+    const [notes, story, look, site, checks, review, ...gaps] = await Promise.all([
       brief?.hasNotes ? part(service.getStageNotes(spaceId, jobId, 'brief')) : { ok: true, value: null },
       website ? part(service.getStory(spaceId, jobId)) : null,
-      ...STORY_STAGES.map(id => website && stages.some(st => st.id === id) ? part(service.getStoryGaps(spaceId, jobId, id)) : null),
+      website && has('look') ? part(service.getLook(spaceId, jobId)) : null,
+      website && has('build') ? part(service.getSite(spaceId, jobId)) : null,
+      has('check') ? part(service.getChecks(spaceId, jobId)) : null,
+      website && has('review') ? part(service.getReview(spaceId, jobId)) : null,
+      ...STORY_STAGES.map(id => website && has(id) ? part(service.getStoryGaps(spaceId, jobId, id)) : null),
     ]);
-    return { notes, story, gaps: Object.fromEntries(STORY_STAGES.map((id, i) => [id, gaps[i]])) };
+    return { notes, story, status: { look, build: site, check: checks, review }, gaps: Object.fromEntries(STORY_STAGES.map((id, i) => [id, gaps[i]])) };
   }
   const safeUrl = url => typeof url === 'string' && /^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i.test(url);
   function createJob({ service, spaceId, jobId, navigate, report }) {
@@ -40,7 +46,8 @@
     }
     const off = service.on((event, detail) => {
       if (['jobs-changed', 'assets-changed'].includes(event) && detail?.spaceId === spaceId) void load();
-      else if (['stage-notes-changed', 'story-changed'].includes(event) && detail?.jobId === jobId) void load();
+      else if (['stage-notes-changed', 'story-changed', 'site-changed', 'checks-changed', 'review-changed', 'look-changed'].includes(event)
+        && detail?.jobId === jobId) void load();
     });
     return { load,
       openWork() { if (!disposed && ready) navigate('work', { spaceId, jobId }); },
@@ -52,6 +59,7 @@
     const doc = el.ownerDocument, root = doc.createElement('section');
     root.className = 'studio-job'; root.setAttribute('aria-label', 'Job page'); el.replaceChildren(root);
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
+    const directions = (doc.defaultView?.MeridianLookFrames || require('../website/look-frames.js')).DIRECTIONS;
     const focus = states.focus(root);
     function node(tag, text, className) {
       const item = doc.createElement(tag); if (text) item.textContent = text;
@@ -60,6 +68,22 @@
     function button(text, action) {
       const item = node('button', text, 'studio-button is-secondary'); item.type = 'button';
       item.addEventListener('click', action); return item;
+    }
+    // One or two plain lines per later stage: the chosen look, the site's pages, the check result, open review comments.
+    function standing(stageId, value) {
+      if (stageId === 'look') {
+        const frame = (value?.frames || []).find(f => f.id === value.chosenId);
+        return [frame ? `Look: ${directions.find(d => d.id === frame.direction)?.name || frame.direction}` : 'No look chosen yet'];
+      }
+      if (stageId === 'build') return [value && Array.isArray(value.pages) ? `Site: ${plural(value.pages.length, 'page', 'pages')}` : 'Not built yet'];
+      if (stageId === 'check') {
+        const flags = Array.isArray(value?.flags) ? value.flags : [], open = flags.filter(f => !f.resolved).length;
+        const lines = [!value?.ranAt ? 'Not checked yet' : !flags.length ? 'All clear' : `${open} to review · ${flags.length - open} explained`];
+        if (Array.isArray(value?.notRun) && value.notRun.length) lines.push('Phone and outside links run in Connect after a real sign-in');
+        return lines;
+      }
+      const comments = Array.isArray(value?.comments) ? value.comments : [], open = comments.filter(c => !c.resolved).length;
+      return [!comments.length ? 'No comments yet' : !open ? `${plural(comments.length, 'comment', 'comments')} · all answered` : `${open} of ${comments.length} still open`];
     }
     // Read-only: every note and card goes in as text, never as HTML.
     function decided(item, stage, decisions) {
@@ -81,6 +105,12 @@
         box.appendChild(node('h3', 'Story so far'));
         if (!decisions.story.ok) box.appendChild(failed());
         else box.appendChild(node('p', (decisions.story.value?.pages || []).map(p => `${p.name || 'Untitled page'}: ${plural((p.chapters || []).length, 'chapter', 'chapters')}`).join(' · ') || 'No pages yet'));
+      }
+      const status = decisions?.status?.[stage.id];
+      if (status) {
+        box.appendChild(node('h3', 'Where it stands'));
+        if (!status.ok) box.appendChild(failed());
+        else for (const line of standing(stage.id, status.value)) box.appendChild(node('p', line, 'studio-job-standing'));
       }
       const gaps = decisions?.gaps?.[stage.id];
       if (gaps) box.appendChild(gaps.ok ? node('p', gaps.value.length ? `${plural(gaps.value.length, 'thing', 'things')} left` : 'Ready', gaps.value.length ? 'studio-job-left' : 'studio-job-ready') : failed());

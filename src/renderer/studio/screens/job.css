@@ -9,4 +9,5 @@
 .studio-job-ticked, .studio-job-failed { color: var(--studio-muted); }
 #studioCenter .studio-job-ready { color: var(--studio-teal); }
 #studioCenter .studio-job-left { color: var(--studio-gold); }
+.studio-job-standing { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 40rem) { .studio-job-decided dl { grid-template-columns: minmax(0, 1fr); } }
