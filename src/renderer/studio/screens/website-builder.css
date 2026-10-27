@@ -1,7 +1,8 @@
 .studio-website-builder { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
 .studio-website-builder > button { justify-self: start; }
-.studio-website-body { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.studio-website-body { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr) minmax(15rem, 20rem); gap: 1rem; align-items: start; }
 .studio-website-pages, .studio-website-preview { display: grid; gap: .5rem; min-width: 0; }
+.studio-website-preview { grid-template-columns: minmax(0, 1fr); }
 #studioCenter .studio-website-pages > button { text-align: start; }
 #studioCenter .studio-website-builder [aria-pressed="true"] { border-color: var(--studio-sky); color: var(--studio-sky); }
 .studio-website-bar { display: flex; flex-wrap: wrap; gap: .5rem; }
@@ -12,5 +13,17 @@
 #studioCenter .studio-website-notes { border-color: var(--studio-gold); }
 .studio-website-notes h3 { margin: 0; color: var(--studio-gold); }
 .studio-website-notes ul { margin: 0; padding-inline-start: 1.2rem; }
-.studio-website-builder :is(button):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-website-builder :is(button, textarea, h3):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-website-bar .is-primary { margin-inline-start: auto; }
+.studio-website-status { align-self: center; color: var(--studio-gold); }
+.studio-website-edit { display: grid; gap: .6rem; align-content: start; min-width: 0; }
+.studio-website-edit :is(h3, p) { margin: 0; }
+.studio-website-field { display: grid; gap: .35rem; }
+.studio-website-field textarea { min-height: 4.5rem; padding: .4rem .5rem; resize: vertical; }
+.studio-website-hint { color: var(--studio-muted); font-size: var(--studio-text-small); }
+.studio-website-sections { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.studio-website-sections li { display: grid; gap: .35rem; padding-block-start: .6rem; border-block-start: var(--studio-border) solid var(--studio-line-soft); }
+#studioCenter .studio-website-sections li > button { justify-content: flex-start; text-align: start; }
+.studio-website-tools { display: flex; flex-wrap: wrap; gap: .35rem; }
+@media (max-width: 80rem) { .studio-website-body { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } .studio-website-edit { grid-column: 1 / -1; } }
 @media (max-width: 56rem) { .studio-website-body { grid-template-columns: minmax(0, 1fr); } }
