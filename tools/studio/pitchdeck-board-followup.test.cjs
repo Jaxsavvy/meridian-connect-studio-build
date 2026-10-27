@@ -54,3 +54,10 @@ test('every piece of follow-up text is escaped', async () => {
   assert.equal((p.match(/&lt;script&gt;alert\(1\)&lt;\/script&gt;/g) || []).length, 2);
   assert.match(p, /Since your first look on 2026-09-01<\/p>/);   // only the date part is used
 });
+
+test('the panel and the selling buttons share one options object', async () => {
+  const html = renderDeck(await sampleDeck(), {}, { bookingUrl: 'https://booking.example.com/15', pageUrl: 'https://boards.example.com/a', followUp: FOLLOW });
+  assert.equal((html.match(/Book a 15-minute call/g) || []).length, 2); assert.equal((html.match(/Text me this/g) || []).length, 2);
+  const top = html.indexOf('sell-top'), aside = html.indexOf('<aside class="followup"'), score = html.indexOf('<section id="s-score"');
+  assert.ok(top > 0 && top < aside && aside < score);   // buttons in the hero, then the panel, then the first section
+});
