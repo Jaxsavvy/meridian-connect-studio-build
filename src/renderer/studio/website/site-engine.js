@@ -210,7 +210,8 @@
     const vars = Object.entries(colors).map(([k, v]) => `--c-${k}:${v}`).concat(`--f-heading:"${fonts.heading}"`, `--f-body:"${fonts.body}"`).join(';');
     const families = [...new Set([fonts.heading, fonts.body])].map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;600;800`).join('&');
     const motion = page.sections.some(s => hasMotion(s.tree));
-    const body = page.sections.map(s => `<div data-s="${s.id}" data-section="${esc(s.label)}">${renderNode(s.tree, assets)}</div>`).join('\n');
+    // Each section's id doubles as its anchor, so a button can link to "#booking" (ids are checked: lowercase, digits, dashes).
+    const body = page.sections.map(s => `<div id="${s.id}" data-s="${s.id}" data-section="${esc(s.label)}">${renderNode(s.tree, assets)}</div>`).join('\n');
     const concept = site.concept ? `<p class="concept-note">Concept for discussion, not affiliated with ${esc(site.name)}.</p>` : '';
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https: data: blob:; media-src https: data: blob:; style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src \'unsafe-inline\'">'
