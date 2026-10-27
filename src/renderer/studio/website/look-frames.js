@@ -33,7 +33,8 @@
     const fonts = ((dna && dna.fonts) || []).filter(f => typeof f === 'string');
     const sections = home.chapters.map((c, i) => {
       const layout = (Lib.LAYOUT_INFO[c.layout] || Lib.LAYOUT_INFO.custom).name;
-      const words = [c.words.eyebrow && `label ${quote(c.words.eyebrow)}`, c.words.headline && `headline ${quote(c.words.headline)}`,
+      // The footer shows the business name, never a headline, so its headline stays out of the brief.
+      const words = [c.words.eyebrow && `label ${quote(c.words.eyebrow)}`, c.layout !== 'footer' && c.words.headline && `headline ${quote(c.words.headline)}`,
         c.words.button && `button ${quote(c.words.button)}`].filter(Boolean).join(', ');
       const pics = c.shots.length ? `; photo: ${c.shots.map(s => s.what).filter(Boolean).join(', ')}` : '';
       return `${i + 1}. ${layout}${words ? `: ${words}` : ''}${pics}`;

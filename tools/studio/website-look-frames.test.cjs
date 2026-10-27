@@ -21,6 +21,8 @@ test('the frame prompt carries the cards in order, the brand, the direction and 
   assert.match(p, /#0b1f3a, #2bb3a3/); assert.match(p, /Warm and trustworthy/);
   assert.match(p, /no star ratings, review counts, testimonials or prices/);
   assert.ok(p.length <= 3800);
+  const withFooter = story(); withFooter.pages[0].chapters.push({ ...withFooter.pages[0].chapters[1], id: 'foot', layout: 'footer', words: { headline: 'internal', body: '', button: '', eyebrow: '' } });
+  assert.doesNotMatch(Look.framePrompt(withFooter, { name: 'X' }), /internal/, 'footer headline stays out');
   assert.notEqual(Look.framePrompt(story(), { name: 'X', direction: 'bold' }), Look.framePrompt(story(), { name: 'X', direction: 'premium' }));
   assert.throws(() => Look.framePrompt({ pages: [] }, { name: 'X' }), /needs chapters/);
 });
