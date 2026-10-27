@@ -125,8 +125,9 @@
       if (e) stats.push({ icon: 'people', ...compact(e.value), prefix: '', label: '', note: '', estimate: false, source: sourceOf(e) });
     }
     const d = find(ev, 'demand', 'monthlySearches', 'market');
-    if (d) stats.push({ icon: 'search', ...compact(d.value), prefix: d.method === 'ai-estimate' ? '~' : '', label: '', note: d.method === 'ai-estimate' ? 'est.' : '',
-      estimate: d.method === 'ai-estimate', source: sourceOf(d) });
+    // Search demand is always labeled an estimate (Jax, 2026-10-27); "~" when it isn't from Google Ads data.
+    if (d) stats.push({ icon: 'search', ...compact(d.value), prefix: d.method === 'ai-estimate' ? '~' : '', label: '', note: 'est.',
+      estimate: true, source: sourceOf(d) });
     const rows = places(ev).slice(0, 5).map(p => ({ name: p.subject === 'client' ? name : (names[p.placeId] || ''), you: p.subject === 'client',
       placeId: p.placeId, presence: presenceFor(ev, p), visibility: rankScore(p.rank) }));
     return {

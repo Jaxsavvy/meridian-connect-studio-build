@@ -61,6 +61,7 @@ How BV wins clients: each prospect gets an interactive Market Opportunity board 
 - **Every stage is timed** (opened, finished), shown to Jax so the slow steps are visible.
 - **Everything is saved to the project's files**: research summary, deck data, the three home pages, the board, the QR card.
 - Every number on the board is the prospect's own and has a source. Nothing internal (pricing, team, BV pipeline) ever appears on it. Google ratings and review counts are never stored; the board shows them live with the "Google Maps" credit.
+- Demand is always shown as a labeled **estimate**, with a line saying how it was estimated; never hidden or "not available" (Jax, 2026-10-27).
 - Sending decks by email or text follows CAN-SPAM and TCPA (consent, opt-out, real sender).
 
 ## Old work

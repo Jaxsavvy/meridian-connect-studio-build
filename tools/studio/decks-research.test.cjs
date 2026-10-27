@@ -77,6 +77,9 @@ test('draft deck: numbers come from evidence, words are left empty, Google value
   assert.equal(d.score.value, scoreFromEvidence(evidence(), live).value);
   assert.deepEqual(d.market.stats.map(s => [s.value, s.unit, s.estimate]), [[176.7, 'K', false], [8.4, 'K', true]]);
   assert.equal(d.market.stats[1].prefix, '~');
+  const ads = evidence().map(e => (e.kind === 'demand' ? { ...e, method: 'api' } : e));   // from Google Ads data: still an estimate
+  const fromAds = draftDeckFromEvidence(ads, { name: 'Sample Roofing Co' }, live).market.stats[1];
+  assert.deepEqual([fromAds.estimate, fromAds.note, fromAds.prefix], [true, 'est.', '']);
   assert.equal(d.market.headline, '');
   assert.deepEqual(d.competitors.rows.map(r => [r.placeId, r.you, r.visibility]), [[R1, false, 100], [R2, false, 75], [ME, true, 50], [R3, false, 25]]);
   assert.deepEqual(d.competitors.rows[0].presence, [88, 100, 0, 100]);       // speed, rank, social, ads pixel

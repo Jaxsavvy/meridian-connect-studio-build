@@ -95,7 +95,8 @@
     market: obj({ headline: headline(),
       stats: list(obj({ icon: oneOf(ICONS), value: num(0, 1e9), prefix: str(2, { optional: true }), unit: str(4, { optional: true }),
         label: str(60), note: str(60, { optional: true }), estimate: bool(), source: source() }), 1, 4) }),
-    demand: obj({ headline: headline(), change: str(12), text: blurb(), series: list(num(0, 1e9), 6, 36), source: source() }),
+    // Demand is always shown as a labeled estimate (Jax, 2026-10-27); basis says how it was estimated.
+    demand: obj({ headline: headline(), change: str(12), text: blurb(), series: list(num(0, 1e9), 6, 36), basis: str(160), source: source() }),
     saturation: obj({ headline: headline(), level: num(0, 1), band: oneOf(SATURATION_BANDS),
       zones: list(obj({ name: str(40), density: num(0, 100), open: bool() }), 1, 6), source: source() }),
     competitors: obj({ headline: headline(), text: blurb(), channels: list(str(20), 4, 4),
@@ -145,7 +146,7 @@
         { name: 'Website', points: 0, max: 25 }, { name: 'Visibility', points: 0, max: 20 }] },
       bottomLine: { headline: '', text: '', findings: three(() => ({ icon: 'search', title: '', text: '' })) },
       market: { headline: '', stats: [{ icon: 'people', value: 0, prefix: '', unit: '', label: '', note: '', estimate: false, source: src() }] },
-      demand: { headline: '', change: '', text: '', series: [], source: src() },
+      demand: { headline: '', change: '', text: '', series: [], basis: '', source: src() },
       saturation: { headline: '', level: 0, band: 'Medium', zones: [{ name: '', density: 0, open: false }], source: src() },
       competitors: { headline: '', text: '', channels: ['Website', 'Search', 'Social', 'Ads'],
         rows: [{ name, you: true, placeId: null, presence: [0, 0, 0, 0], visibility: 0 }], source: src() },
@@ -172,7 +173,8 @@
     for (const s of deck.market.stats) {
       lines.push(`- ${md(s.label)}: ${md(s.prefix)}${s.value}${md(s.unit)}${s.estimate ? ' (estimate)' : ''}. Source: ${ref(s.source)}`);
     }
-    lines.push('', '## Demand', '', `- Change: ${md(deck.demand.change)} over ${deck.demand.series.length} points. Source: ${ref(deck.demand.source)}`,
+    lines.push('', '## Demand (estimate)', '', `- Change: ${md(deck.demand.change)} over ${deck.demand.series.length} points. Source: ${ref(deck.demand.source)}`,
+      `- How it was estimated: ${md(deck.demand.basis)}`,
       '', '## Saturation', '', `- Overall: ${deck.saturation.band}. Source: ${ref(deck.saturation.source)}`);
     for (const z of deck.saturation.zones) lines.push(`- ${md(z.name)}: density ${z.density}${z.open ? ' (open)' : ''}`);
     lines.push('', '## Competitors', '', `Source: ${ref(deck.competitors.source)}`, '');

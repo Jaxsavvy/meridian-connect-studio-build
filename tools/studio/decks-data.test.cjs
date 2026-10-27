@@ -17,7 +17,7 @@ function sample() {
     market: { headline: 'Demand is growing.', stats: [
       { icon: 'people', value: 120, unit: 'K', label: 'Service-area population', source: { ...src } },
       { icon: 'search', value: 6.2, unit: 'K', prefix: '~', label: 'Monthly local searches', note: 'est.', estimate: true, source: { ...src } }] },
-    demand: { headline: 'Local demand up 14%.', change: '+14%', text: 'Up each quarter.', series: [100, 101, 103, 105, 108, 114], source: { ...src } },
+    demand: { headline: 'Local demand up 14%.', change: '+14%', text: 'Up each quarter.', series: [100, 101, 103, 105, 108, 114], basis: 'Estimated from local search ranges.', source: { ...src } },
     saturation: { headline: 'One side of town is underserved.', level: 0.6, band: 'High',
       zones: [{ name: 'North', density: 70 }, { name: 'South', density: 30, open: true }], source: { ...src } },
     competitors: { headline: 'Two competitors lead online.', text: 'Presence across four channels.', channels: ['Website', 'Search', 'Social', 'Ads'],
@@ -115,6 +115,7 @@ test('research summary lists every number with its source, escaped', () => {
   assert.match(md, /Rival One: rating and reviews live from Google Maps \(https:\/\/www\.google\.com\/maps\/place\/\?q=place_id:ChIJsample0002\)/);
   assert.match(md, /Business score: 64 \(Healthy\): Reputation 20 of 30/);
   assert.match(md, /Tier 3: no live link yet/);
+  assert.match(md, /## Demand \(estimate\)\n\n- Change: \+14% over 6 points\. Source: .*\n- How it was estimated: Estimated from local search ranges\./);
   assert.ok(!md.includes('<b>'));
 });
 
@@ -137,4 +138,11 @@ test('the score must equal its parts, and the parts must total 100', () => {
   const f = sample();
   f.score.parts[0].points = 40; f.score.value = 84;
   assert.ok(validateDeck(f).errors.some(x => x.path === 'score.parts' && /maximum/.test(x.message)));
+});
+
+test('demand is always a labeled estimate: it needs a line saying how it was estimated (Jax, 2026-10-27)', () => {
+  const d = sample();
+  delete d.demand.basis;
+  assert.ok(validateDeck(d).errors.some(e => e.path === 'demand.basis' && e.message === 'Required.'));
+  assert.equal(emptyDeck({ name: 'X' }).demand.basis, '');
 });
