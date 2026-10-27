@@ -209,7 +209,7 @@
     const town = 'Sample Town';
     const draft = Research.draftDeckFromEvidence(evidence, { name, town, preparedOn, names: SAMPLE_RIVALS });
     const three = (make) => [0, 1, 2].map(make);
-    const demandSource = evidence.find(e => e.kind === 'demand').source;
+    const demandSource = (evidence.find(e => e.kind === 'demand') || {}).source || { label: 'Google Ads Keyword Planner (sample)', url: 'https://ads.google.com/' };
     return DeckData.validateDeck({ ...DeckData.emptyDeck({ name, town, preparedOn }), client: draft.client, score: draft.score,
       bottomLine: { headline: 'Customers are looking; most find someone else first', text: 'A practice summary of what the research found.',
         findings: three(i => ({ icon: ['search', 'star', 'window'][i], title: `Practice finding ${i + 1}`, text: 'What the numbers show, in one line.' })) },
@@ -231,9 +231,12 @@
   }
 
   /** options.simulateJaxMs: in the app's sample mode only, "Jax" approves waiting stages and Review items
-   *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off. */
+   *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off.
+   *  options.practice: false when this backs the real server; then nothing made-up (research, words, names) is offered. */
   function createSampleService(options = {}) {
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
+    const practice = options.practice !== false;
+    const practiceOnly = () => { if (!practice) throw new Error('Practice research only runs in practice mode.'); };
     const now = typeof options.now === 'function' ? options.now : () => Date.now(); // tests pass a fake clock
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
     let projects = [];
@@ -500,6 +503,7 @@
       /** Sample-mode stand-in for the research agent and the builder: made-up evidence and a finished deck that
        *  pass the check, so the rest of the pipeline can be clicked through. Not in real mode. */
       async useSampleResearch(spaceId, jobId) {
+        practiceOnly();
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         const today = new Date(now()).toISOString();
@@ -513,6 +517,7 @@
       /** Starts research on the deck's business (its name comes from the project). category: e.g. 'plumber'.
        *  Practice mode finds two lookalike businesses, so the person confirms the right one. Returns { runId, status }. */
       async startResearch(spaceId, jobId, { category } = {}) {
+        practiceOnly();   // real research comes from the agent on the server (#126)
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         if (job.research && job.research.status === 'running') throw new Error('Research is already running.');
@@ -526,7 +531,7 @@
         emit('research-changed', { spaceId: space.id, jobId: job.id });
         return clone({ runId: run.runId, status: run.status });
       },
-      /** Where research stands. status: 'not-started' | 'running' | 'needs-match' | 'done' | 'failed'; candidates
+      /** Where research stands. status: 'not-started' | 'running' | 'needs-match' | 'by-hand' | 'done' | 'failed'; candidates
        *  (businesses that could match), evidence, score (parts + what couldn't be found) and, once the deck passes, the summary. */
       async getResearch(spaceId, jobId) {
         const { space, job } = deckJob(spaceId, jobId);
@@ -538,6 +543,7 @@
       },
       /** The person picks which business is the prospect; then the research is done. */
       async confirmMatch(spaceId, jobId, placeId) {
+        practiceOnly();
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         const run = job.research;
@@ -548,20 +554,62 @@
         emit('research-changed', { spaceId: space.id, jobId: job.id });
         return clone({ runId: run.runId, status: run.status });
       },
+      /** Hand-entered research: one fact a person found, with its source (method 'person', dated now). fact:
+       *  { kind, subject, field, value, placeId?, rank?, source: { label, url } }; kinds and fields as in research-model.js.
+       *  The same fact again replaces it. The prospect's own Google place (kind 'place', subject 'client', with its rank)
+       *  confirms the business, so research is done. Google ratings and review counts are never typed in. */
+      async addEvidence(spaceId, jobId, fact) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        let run = job.research;
+        if (run && (run.status === 'running' || run.status === 'needs-match')) throw new Error('Finish the research run first (pick the business).');
+        if (!fact || typeof fact !== 'object' || Array.isArray(fact)) throw new Error('A fact must be a group of fields.');
+        if (fact.kind === 'google') throw new Error('Google ratings and review counts come live from Google Maps; don\'t type them in.');
+        if (typeof fact.value === 'number' && !(Number.isFinite(fact.value) && fact.value >= 0)) throw new Error('Use a number of 0 or more.');
+        const source = fact.source || {};
+        const record = { id: nextId('fact'), kind: fact.kind, subject: fact.subject, method: 'person',
+          source: { label: text(source.label, 'Source name', 120), url: String(source.url || '') }, fetchedAt: new Date(now()).toISOString() };
+        if (fact.kind === 'place') Object.assign(record, { placeId: fact.placeId, rank: fact.rank });
+        else Object.assign(record, { field: fact.field, value: fact.value }, fact.subject === 'competitor' ? { placeId: fact.placeId } : {});
+        const same = e => e.kind === record.kind && (record.kind === 'place'
+          ? (record.subject === 'client' ? e.subject === 'client' : e.placeId === record.placeId)
+          : e.field === record.field && e.subject === record.subject && e.placeId === record.placeId);
+        const next = [...job.evidence.filter(e => !same(e)), record];
+        const bad = Research.validateEvidence(next).errors.find(e => e.index === next.length - 1);
+        if (bad) throw new Error(bad.message);
+        if (!run || run.status === 'failed') run = job.research = { runId: nextId('run'), category: '', status: 'by-hand', candidates: [], placeId: null, byHand: true };
+        job.evidence = next;
+        if (record.kind === 'place' && record.subject === 'client') { run.placeId = record.placeId; run.status = 'done'; }
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
+        return clone(record);
+      },
+      /** Removes a fact a person typed in. Facts the research agent found stay. */
+      async removeEvidence(spaceId, jobId, evidenceId) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        const fact = job.evidence.find(e => e.id === evidenceId);
+        if (!fact || fact.method !== 'person') throw new Error('Only facts a person typed in can be removed.');
+        job.evidence = job.evidence.filter(e => e !== fact);
+        const run = job.research;
+        if (run && run.byHand && fact.kind === 'place' && fact.subject === 'client') { run.placeId = null; run.status = 'by-hand'; }
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ removed: fact.id });
+      },
       /** Puts the research into the deck: the numbers from the evidence (score, market stats, competitor rows) and
-       *  Meridian's draft words in every blank field, keeping every word the person wrote. Practice words here; the
-       *  server agent drafts real ones (#126). names: { placeId: name } typed by the person (Places names aren't stored).
+       *  Meridian's draft words in every blank field, keeping every word the person wrote. Practice words in practice
+       *  mode only; in real mode just the numbers (the server agent drafts real words, #126).
+       *  names: { placeId: name } typed by the person (Places names aren't stored).
        *  Returns { ok, errors, deck, missing }: missing is what research couldn't find; it's never saved in the deck. */
       async applyResearchToDeck(spaceId, jobId, { names = {} } = {}) {
         const { space, job } = deckJob(spaceId, jobId);
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         researchDone(job);
-        const words = sampleDeck(space.name, job.evidence, new Date(now()).toISOString().slice(0, 10));
-        const current = fillBlanks(deckOf(space, job), words);
+        const words = practice ? sampleDeck(space.name, job.evidence, new Date(now()).toISOString().slice(0, 10)) : null;
+        const current = words ? fillBlanks(deckOf(space, job), words) : deckOf(space, job);
         const known = Object.fromEntries(current.competitors.rows.filter(r => r.placeId && r.name).map(r => [r.placeId, r.name]));
         const { missing, ...draft } = Research.draftDeckFromEvidence(job.evidence,
-          { ...current.client, names: { ...SAMPLE_RIVALS, ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
-        const label = i => (current.market.stats[i] || {}).label || (words.market.stats[i] || {}).label || '';
+          { ...current.client, names: { ...(words ? SAMPLE_RIVALS : {}), ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
+        const label = i => (current.market.stats[i] || {}).label || ((words && words.market.stats[i]) || {}).label || '';
         const checked = checkDeck(job, { ...current, client: { ...current.client, placeId: draft.client.placeId }, score: draft.score,
           market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: label(i) })) },
           competitors: { ...current.competitors, channels: draft.competitors.channels, rows: draft.competitors.rows, source: draft.competitors.source } });
@@ -866,7 +914,7 @@
    */
   function createServerService({ request, local, saveFile }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
-    local = local || createSampleService();
+    local = local || createSampleService({ practice: false });   // nothing made-up in real mode
     const listeners = new Set();
     const emit = (event, detail) => { for (const fn of listeners) { try { fn(event, detail); } catch (_) { /* a listener failed */ } } };
     const enc = encodeURIComponent;
@@ -955,9 +1003,12 @@
       // Real decks get their evidence from the research agent on the server (#126), never from practice data.
       async useSampleResearch() { throw new Error('Practice research only runs in practice mode.'); },
       startResearch: async () => notOnServerYet(),
-      getResearch: async () => notOnServerYet(),
       confirmMatch: async () => notOnServerYet(),
-      applyResearchToDeck: async () => notOnServerYet(),   // the agent drafts real words; practice words stay local
+      // Hand-entered research works now (local, like Jobs); the numbers go into the deck, never practice words.
+      getResearch: (...a) => local.getResearch(...a),
+      addEvidence: (...a) => local.addEvidence(...a),
+      removeEvidence: (...a) => local.removeEvidence(...a),
+      applyResearchToDeck: (...a) => local.applyResearchToDeck(...a),
       runChecks: (...a) => local.runChecks(...a),
       getChecks: (...a) => local.getChecks(...a),
       resolveFlag: (...a) => local.resolveFlag(...a),
