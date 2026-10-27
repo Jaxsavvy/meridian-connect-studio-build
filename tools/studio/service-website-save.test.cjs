@@ -29,6 +29,7 @@ async function toBuild(pc) {
   await pc.local.completeStage(ID, job.id); await pc.local.completeStage(ID, job.id);
   await pc.local.completeStage(ID, job.id); await pc.local.approveStage(ID, job.id);
   await pc.local.completeStage(ID, job.id);
+  await pc.local.completeStage(ID, job.id); await pc.local.approveStage(ID, job.id);   // Design lock (#238)
   return job;
 }
 

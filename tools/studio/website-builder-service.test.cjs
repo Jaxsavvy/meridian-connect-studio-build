@@ -15,7 +15,8 @@ async function toBuild(s = createSampleService()) {
   await fillStory(s, ID, job.id);
   await s.completeStage(ID, job.id); await s.completeStage(ID, job.id);   // Story and sitemap, Words
   await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);   // Storyboard
-  await s.completeStage(ID, job.id);                                      // Look and assets -> Build
+  await s.completeStage(ID, job.id);                                      // Look and assets
+  await s.completeStage(ID, job.id); await s.approveStage(ID, job.id);   // Design lock: Jax approves for the client (#238)
   return { s, job };
 }
 

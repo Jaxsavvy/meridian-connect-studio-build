@@ -49,6 +49,7 @@
     'studio/screens/site-review.js', 'studio/screens/site-review.css',
     'studio/screens/concept.js', 'studio/screens/concept.css',
     'studio/screens/storyboard.js', 'studio/screens/storyboard.css',
+    'studio/screens/design-lock.js', 'studio/screens/design-lock.css',
     'studio/screens/pitch-deck.js', 'studio/screens/pitch-deck.css',
     'studio/screens/research.js', 'studio/screens/research.css',
     'studio/tools/pitch-deck/niche-styles.js',
