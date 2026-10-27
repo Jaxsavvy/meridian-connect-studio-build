@@ -130,7 +130,10 @@
   const INTERNAL_WORDS = Object.freeze([/\bpric(?:e|es|ing)\b/i, /[$€£]/, /\bno clients\b/i, /\binternal\b/i, /\bdraft\b/i, /\btbd\b/i,
     new RegExp(`\\b(?:${PEOPLE.map(p => p.name).join('|')})\\b`, 'i')]);
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
-  const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // on the server, with the board (#131 part 2)
+  const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
+  const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
+  // Every link on the board, with the deck field it's in, for the live link check.
+  const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
   // Every text field in a deck as [path, key, text].
   function deckText(value, path = '', out = []) {
     if (Array.isArray(value)) value.forEach((v, i) => deckText(v, `${path}.${i}`, out));
@@ -645,7 +648,24 @@
       async getChecks(spaceId, jobId) {
         const { job } = deckJob(spaceId, jobId);
         const last = job.checks || { ranAt: null, flags: [] };
-        return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: CHECKS_NOT_RUN, log: job.checkLog });
+        return clone({ ranAt: last.ranAt, flags: last.flags.map(flagView), notRun: last.notRun || CHECKS_NOT_RUN, log: job.checkLog });
+      },
+      /** Core only: what Connect found on the finished board ({ flags, ran }: phone width, live links). Replaces the last
+       *  board flags; one a person resolved stays resolved when the same thing is found again. */
+      addBoardChecks(spaceId, jobId, result) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object') return null;
+        const ran = (Array.isArray(result.ran) ? result.ran : []).filter(x => CHECKS_NOT_RUN.includes(x));
+        const before = new Map(job.checks.flags.map(f => [f.key, f]));
+        const fresh = (Array.isArray(result.flags) ? result.flags : []).filter(f => f && BOARD_CHECKS.includes(f.check)).slice(0, 50).map(f => {
+          const clean = { check: f.check, message: String(f.message || '').slice(0, 300), where: String(f.where || '').slice(0, 200) };
+          const key = `${clean.check}|${clean.where}|${clean.message}`;
+          return before.get(key) || { id: nextId('flag'), key, ...clean, resolved: null };
+        });
+        job.checks = { ...job.checks, notRun: CHECKS_NOT_RUN.filter(x => !ran.includes(x)),
+          flags: [...job.checks.flags.filter(f => !BOARD_CHECKS.includes(f.check)), ...fresh] };
+        emit('checks-changed', { spaceId: space.id, jobId: job.id });
+        return clone(job.checks.flags.map(flagView));
       },
       /** A person marks a flag OK with a note saying why; the note is logged. It stays resolved when checks re-run. */
       async resolveFlag(spaceId, jobId, flagId, note) {
@@ -833,7 +853,8 @@
         notes: {}, needs, assignees, timing, locked: true, template: 'pitch-deck-starter',
         deck: s.deck && typeof s.deck === 'object' ? DeckData.validateDeck(s.deck).deck : null,
         evidence: Array.isArray(s.evidence) && Research.validateEvidence(s.evidence).ok ? s.evidence : [], research,
-        checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag) } : null,
+        checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag),
+          notRun: Array.isArray(c.notRun) ? CHECKS_NOT_RUN.filter(x => c.notRun.includes(x)) : CHECKS_NOT_RUN } : null,
         checkLog: entries(s.checkLog).map(x => ({ at: str(x.at, 40), flagId: str(x.flagId, 40), check: str(x.check, 40), where: str(x.where, 200),
           message: str(x.message), note: str(x.note) })) };
     }
@@ -878,12 +899,14 @@
         const hit = INTERNAL_WORDS.map(word => value.match(word)).find(Boolean);
         if (hit) flag('internal-words', `Internal word on the board: "${hit[0]}".`, where);
       }
-      // A flag a person already resolved stays resolved when the same thing is found again.
-      const before = new Map(((job.checks && job.checks.flags) || []).map(f => [f.key, f]));
-      job.checks = { ranAt: new Date(now()).toISOString(), flags: found.map(f => {
+      // A flag a person already resolved stays resolved when the same thing is found again. The board checks
+      // (phone, live links) keep their last result until Connect runs them again (addBoardChecks).
+      const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
+      const before = new Map(last.flags.map(f => [f.key, f]));
+      job.checks = { ranAt: new Date(now()).toISOString(), notRun: last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
         const key = `${f.check}|${f.where}|${f.message}`;
         return before.get(key) || { id: nextId('flag'), key, ...f, resolved: null };
-      }) };
+      }), ...last.flags.filter(f => BOARD_CHECKS.includes(f.check))] };
       emit('checks-changed', { spaceId: space.id, jobId: job.id });
       return job.checks;
     }
@@ -960,7 +983,7 @@
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
    * there costs money. Approvals never happen here: Jax approves from Command.
    */
-  function createServerService({ request, local, saveFile, readSave }) {
+  function createServerService({ request, local, saveFile, readSave, checkBoard, board }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
     local = local || createSampleService({ practice: false });   // nothing made-up in real mode
     const listeners = new Set();
@@ -1037,6 +1060,18 @@
       if (!pitchDeckOnly || (out && out.workflowId === 'pitch-deck')) await saveJobs(spaceId);
       return out;
     };
+    // Auto check part 2 (#131): Connect's main process opens the finished board at phone width (screenshot to the
+    // project's Docs) and tries every link. If it can't run (offline, a deck that doesn't render yet), those stay "not run".
+    async function boardChecks(spaceId, jobId) {
+      const Board = board || (typeof window === 'undefined' ? null : window.MeridianPitchBoard);
+      if (typeof checkBoard !== 'function' || !Board) return;
+      try {
+        const [deck, job] = await Promise.all([local.getDeck(spaceId, jobId), local.getJob(spaceId, jobId)]);
+        const res = await checkBoard({ projectId: spaceId, html: Board.renderDeck(deck), links: deckLinks(deck),
+          fileName: `${job.name} - Board on a phone.png` });
+        if (res && res.success) local.addBoardChecks(spaceId, jobId, res);
+      } catch (_) { /* the deck checker already flags a deck that can't render */ }
+    }
 
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
@@ -1095,7 +1130,15 @@
       startJob: saved('startJob', true),
       getJob: loaded('getJob'),
       async listJobs(spaceId) { await refreshSaved(spaceId); return local.listJobs(spaceId); },
-      completeStage: saved('completeStage', true),
+      async completeStage(spaceId, jobId, stageId) {
+        await loadSaved(spaceId);
+        const out = await local.completeStage(spaceId, jobId, stageId);
+        if (out && out.workflowId === 'pitch-deck') {
+          if (out.stageId === 'check') await boardChecks(spaceId, jobId);   // Assemble board just finished
+          await saveJobs(spaceId);
+        }
+        return out;
+      },
       setStageNeed: saved('setStageNeed', true),
       getStageNotes: (...a) => local.getStageNotes(...a),
       saveStageNotes: (...a) => local.saveStageNotes(...a),
@@ -1113,7 +1156,13 @@
       addEvidence: saved('addEvidence'),
       removeEvidence: saved('removeEvidence'),
       applyResearchToDeck: saved('applyResearchToDeck'),
-      runChecks: saved('runChecks'),
+      async runChecks(spaceId, jobId) {
+        await loadSaved(spaceId);
+        await local.runChecks(spaceId, jobId);
+        await boardChecks(spaceId, jobId);
+        await saveJobs(spaceId);
+        return (await local.getChecks(spaceId, jobId)).flags;
+      },
       getChecks: loaded('getChecks'),
       resolveFlag: saved('resolveFlag'),
       async listJobAssets(spaceId, jobId) {

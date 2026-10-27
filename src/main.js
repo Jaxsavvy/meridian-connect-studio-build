@@ -15,6 +15,7 @@ const AuthManager = require('./auth');
 const LayoutStore = require('./layout-store');
 const api = require('./api');
 const { isSafeExternalUrl, isAllowedServerUrl } = require('./safe-url');
+const boardCheck = require('./board-check');
 
 /** Opens a link in the person's browser or mail app, but only if it's a normal web or email link. */
 function openSafeExternal(url) {
@@ -769,6 +770,39 @@ if (!gotTheLock) {
       if (!res.success) return { success: false, missing: res.error === 'HTTP 404', offline: !!res.offline, error: res.error };
       if (res.bytes.length > 5 * 1024 * 1024) return { success: false, error: 'The save file is too big.' };
       return { success: true, content: res.bytes.toString('utf8') };
+    });
+    // Auto check part 2 (#131): the pitch deck board at phone width (screenshot saved to the project's Docs) and every link on it.
+    // A hidden window in its own in-memory session, JavaScript off, no navigation or popups; Chromium's page tools do the measuring.
+    ipcMain.handle('studio:check-board', async (e, req) => {
+      let job;
+      try { job = boardCheck.checkRequest(req); } catch (err) { return { success: false, error: err.message }; }
+      const { width, height } = boardCheck.PHONE, flags = [], ran = [];
+      let screenshot = null;
+      const win = new BrowserWindow({ show: false, width, height, useContentSize: true,
+        webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false, partition: 'board-check' } });
+      win.webContents.on('will-navigate', ev => ev.preventDefault());
+      win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      try {
+        await Promise.race([win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(job.html)),
+          new Promise((_, fail) => setTimeout(() => fail(new Error('slow')), 20000))]);
+        const tools = win.webContents.debugger;
+        tools.attach('1.3');
+        const metrics = await tools.sendCommand('Page.getLayoutMetrics');
+        flags.push(...boardCheck.phoneFlags(metrics));
+        const full = Math.min(Math.ceil(Number((metrics.cssContentSize || metrics.contentSize || {}).height) || height), 16000);
+        const shot = await tools.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true,
+          clip: { x: 0, y: 0, width, height: full, scale: 1 } });
+        ran.push('phone-screenshot');
+        const saved = await api.uploadProjectBytes(job.projectId, Buffer.from(shot.data, 'base64'), job.fileName, 'Docs');
+        if (saved.success) screenshot = job.fileName;
+      } catch (_) {
+        /* the phone check stays "not run"; the links are still checked */
+      } finally {
+        if (!win.isDestroyed()) win.destroy();
+      }
+      flags.push(...await boardCheck.linkFlags(job.links, (url, opts) => fetch(url, opts)));
+      ran.push('links-open');
+      return { success: true, flags, ran, screenshot };
     });
     ipcMain.handle('ws:upload', async (e, { projectId, section }) => {
       const pick = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Add files to project', properties: ['openFile', 'multiSelections'] });
