@@ -418,7 +418,10 @@
         + 'border-radius:10px;background:#2A1A0C;border:1px solid #F6A85B66;color:#F6D3B0;font:500 13px/1.45 Inter,system-ui,sans-serif;'
         + 'box-shadow:0 8px 30px #0008;display:none';
       el.innerHTML = '<strong style="color:#F6A85B">Home base is offline.</strong> Check that Tailscale is on. If it is, Jax\'s computer may be off or asleep. Connect will reconnect by itself.';
-      document.body.appendChild(el);
+      // Signed in: a row right under the top bar, in the page's flow, so it never covers content (#83). Sign-in screen: floats as before.
+      const bar = document.querySelector('.log > header');
+      if (bar) { el.classList.add('hb-inline'); el.style.position = 'static'; el.style.transform = 'none'; el.style.maxWidth = 'none'; bar.insertAdjacentElement('afterend', el); }
+      else document.body.appendChild(el);
     }
     el.style.display = show ? 'block' : 'none';
   }

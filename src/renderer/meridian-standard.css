@@ -540,3 +540,25 @@ body.view-messages #teamMessagesCenter{flex:1 1 auto;min-width:0}
 @media(max-width:1200px){.mh.files-open,.mh{grid-template-columns:210px minmax(0,1fr)}.mh-topic{display:none}.mh-files{position:absolute;right:0;top:0;bottom:0;z-index:9;width:min(320px,82vw);box-shadow:-18px 0 35px #0009}.mh{position:relative}}
 @media(max-width:900px){.mh.files-open,.mh{grid-template-columns:200px minmax(0,1fr)}}
 @media(max-width:620px){.mh.files-open,.mh{grid-template-columns:1fr}.mh-side{display:none}}
+
+/* ---------- top bar at narrow widths and 200% zoom (#83): collapse, never clip ----------
+   The left menu takes 202px, so an 800px window leaves the bar about 600px. Words that hide stay readable to screen readers. */
+.log header>div:first-child{min-width:0;flex:0 1 auto}
+.log header h1,.log header .head-sub{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis}
+.log header .command-search{min-width:0}
+@media(max-width:1100px){.log header .head-sub,.command-search kbd{display:none!important}}
+@media(max-width:1000px){
+  .log header .command-search{flex:none!important;width:39px!important;max-width:39px!important;padding:0!important;justify-content:center!important}
+  .log header .command-search input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;padding:0!important}
+  .log header #user-name-label{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important}
+  .log header .header-profile{padding:4px!important;gap:0!important}
+  .log header .header-profile b{display:none!important}
+  .log header .tools{gap:10px!important}
+}
+@media(max-width:900px){
+  .log header{padding:0 14px!important;gap:10px!important}
+  .log header #top-status-text{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important}
+  .log header h1{font-size:20px!important}
+}
+/* The home-base banner sits under the bar, in the page's flow, so it never covers what's below it. */
+#hb-offline.hb-inline{flex:none;margin:10px 21px 0}

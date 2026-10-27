@@ -275,7 +275,7 @@ function createMainWindow() {
   const winOpts = {
     width: bounds.width || 1400,
     height: bounds.height || 900,
-    minWidth: 1024,
+    minWidth: 800,   // the top bar collapses cleanly down to 800px, so a narrow window and 200% zoom work (#83)
     minHeight: 700,
     backgroundColor: '#05060A',
     show: false,
