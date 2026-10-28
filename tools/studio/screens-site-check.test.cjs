@@ -149,3 +149,29 @@ test('the real site: plain names, the PR flag is checked on GitHub, the preview 
   assert.match(text(el), /Ready: mark the stage done/);
   cleanup();
 });
+
+test('the look flag: Against the look frame, compared and marked (#262)', async () => {
+  const ID = 'sample-home', REPO = 'site-sample-home-services';
+  const service = createSampleService({ practice: false }); service.setProjects([{ id: ID, name: 'Sample Home Services' }]);
+  const job = await service.startJob(ID, 'website', 'standard');
+  await fillStory(service, ID, job.id);
+  for (let guard = 0; guard < 20 && (await service.getJob(ID, job.id)).stageId !== 'lock'; guard++) {
+    if ((await service.getJob(ID, job.id)).waitingOnJax) await service.approveStage(ID, job.id); else await service.completeStage(ID, job.id);
+  }
+  await service.completeStage(ID, job.id); await service.answerDesign(ID, job.id, { approved: true });
+  await service.setBuildLinks(ID, job.id, { pr: `https://github.com/Jaxsavvy/${REPO}/pull/3`, preview: 'https://3-abc.site-sample-home-services.pages.dev' });
+  await service.completeStage(ID, job.id);
+  const { el, cleanup } = await mount({ service, job });
+  assert.equal(groupOf(el, 'Against the look frame'), undefined);   // not until Connect has taken the screenshots
+  service.addPreviewChecks(ID, job.id, { flags: [], ran: ['site-screenshots', 'links-open'] }); await settle();
+  const look = (await service.getChecks(ID, job.id)).flags.find(f => f.check === 'look');
+  const group = groupOf(el, 'Against the look frame');
+  assert.match(text(group), /Compare the screenshots of https:\/\/3-abc\.site-sample-home-services\.pages\.dev .*How the screenshots match the look frame/);
+  assert.deepEqual(walk(el).filter(n => n.tag === 'section' && String(n.className).includes('group')).map(n => n.attrs['aria-label']), ['The pull request', 'Against the look frame']);
+  assert.equal(btn(el, `Mark as OK: ${look.message}`), undefined);
+  note(el, look.id).value = 'Hero, colours and type match the frame.'; note(el, look.id).events.input();
+  btn(el, `Mark as compared: ${look.message}`).click(); await settle();
+  assert.ok((await service.getChecks(ID, job.id)).flags.find(f => f.id === look.id).resolved);
+  assert.match(text(groupOf(el, 'Against the look frame')), /ExplainedNote: Hero, colours and type match the frame\./);
+  cleanup();
+});
