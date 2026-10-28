@@ -95,5 +95,8 @@ test('Sample sign-in: no Connect, so the screenshots stay "Not run yet" and don\
   assert.deepEqual((await s.getChecks(ID, job.id)).notRun, ['site-screenshots']);
   for (const f of (await s.getChecks(ID, job.id)).flags) await s.resolveFlag(ID, job.id, f.id, 'Checked.');
   assert.equal((await s.completeStage(ID, job.id)).stageId, 'review');
-  assert.equal(s.addPreviewChecks(ID, job.id, { flags: [SEO], ran: [] }), null, 'Check is done');
+  assert.ok(Array.isArray(s.addPreviewChecks(ID, job.id, { flags: [SEO], ran: [] })), 'Review takes it too (#267)');
+  assert.deepEqual((await s.getReview(ID, job.id)).comments, [], 'an explained flag makes no comment');
+  await s.completeStage(ID, job.id);
+  assert.equal(s.addPreviewChecks(ID, job.id, { flags: [SEO], ran: [] }), null, 'not once Review is with Jax');
 });
