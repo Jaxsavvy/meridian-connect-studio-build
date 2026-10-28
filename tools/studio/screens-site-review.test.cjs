@@ -133,3 +133,58 @@ test('reloads on review-changed for this Job, ignores stale loads, and cleanup r
   const before = reads; await s.service.addReviewComment(sp, id, { pageId: 'home', sectionId: 'hero', key: 'hero-button', text: 'Third' }); await settle();
   assert.equal(reads, before);
 });
+
+// The real site (#266): Review on the preview link.
+const REAL = { ID: 'sample-home', REPO: 'site-sample-home-services', PREVIEW: 'https://3-abc.site-sample-home-services.pages.dev' };
+async function atRealReview(opened) {
+  const service = createSampleService({ practice: false, openWindow: async (url, title) => { opened.push([url, title]); return opened.answer || { success: true }; } });
+  service.setProjects([{ id: REAL.ID, name: 'Sample Home Services' }]);
+  const job = await service.startJob(REAL.ID, 'website', 'standard');
+  await fillStory(service, REAL.ID, job.id);
+  for (let guard = 0; guard < 20 && (await service.getJob(REAL.ID, job.id)).stageId !== 'lock'; guard++) {
+    if ((await service.getJob(REAL.ID, job.id)).waitingOnJax) await service.approveStage(REAL.ID, job.id); else await service.completeStage(REAL.ID, job.id);
+  }
+  await service.completeStage(REAL.ID, job.id); await service.answerDesign(REAL.ID, job.id, { approved: true });
+  await service.setBuildLinks(REAL.ID, job.id, { pr: `https://github.com/Jaxsavvy/${REAL.REPO}/pull/3`, preview: REAL.PREVIEW });
+  await service.completeStage(REAL.ID, job.id);
+  service.addPreviewChecks(REAL.ID, job.id, { flags: [], ran: ['site-screenshots', 'links-open'] });
+  for (const f of (await service.getChecks(REAL.ID, job.id)).flags) await service.resolveFlag(REAL.ID, job.id, f.id, 'Checked.');
+  await service.completeStage(REAL.ID, job.id);
+  return { service, job };
+}
+
+test('the real site: pages, the preview link as text with Copy link and Open the preview, page and section comments, answers', async () => {
+  const opened = [], s = await atRealReview(opened), copied = [];
+  const d = dom(), cleanup = mountCanvas(d.el, { spaceId: REAL.ID, jobId: s.job.id, stageId: 'review', clipboard: { writeText: async t => { copied.push(t); } }, studio: { service: s.service } });
+  await settle();
+  const { el } = d, url = `${REAL.PREVIEW}/`;
+  assert.equal(walk(el).some(n => n.tag === 'iframe' || n.tag === 'a'), false);
+  assert.equal(btn(el, 'Desktop'), undefined);
+  assert.deepEqual(walk(walk(el).find(n => n.tag === 'nav')).filter(n => n.tag === 'button').map(text), ['Home']);
+  assert.match(text(el), new RegExp(`Preview link: ${url.replace(/[.]/g, '\\.')}`));
+  btn(el, 'Copy link').click(); await settle(); assert.deepEqual(copied, [url]); assert.match(text(el), /Copied/);
+  btn(el, 'Open the preview').click(); await settle(); assert.deepEqual(opened, [[url, 'Sample Home Services: Home']]);
+  opened.answer = { success: false }; btn(el, 'Open the preview').click(); await settle();
+  assert.match(alerts(el)[0], /couldn't open\. Copy the link/);
+  const part = walk(el).find(n => n.tag === 'select');
+  assert.deepEqual(part.children.map(o => [o.value, text(o)]), [['', 'The whole page'], ['hero', 'Hero']]);
+  type(byFocus(el, 'comment'), 'The page feels long on a phone.'); btn(el, 'Add comment').click(); await settle();
+  const again = walk(el).find(n => n.tag === 'select'); again.value = 'hero'; again.events.change();   // the screen redrew after the first comment
+  type(byFocus(el, 'comment'), 'Make the call button bigger.'); btn(el, 'Add comment').click(); await settle();
+  const comments = (await s.service.getReview(REAL.ID, s.job.id)).comments;
+  assert.deepEqual(comments.map(c => [c.where, c.sectionId, c.text]), [['Home', null, 'The page feels long on a phone.'], ['Home · Hero', 'hero', 'Make the call button bigger.']]);
+  assert.match(summary(el), /^2 open · 0 answered$/); assert.equal(byFocus(el, 'comment').value, '');
+  assert.ok(walk(el).some(n => n.attrs['aria-label'] === 'Home · Hero'));
+  const refuse = { ...s.service, addReviewComment: async () => { throw Error('That part of the site isn\'t on this page.'); } };
+  cleanup();
+  const r = dom(), off = mountCanvas(r.el, { spaceId: REAL.ID, jobId: s.job.id, stageId: 'review', studio: { service: refuse } }); await settle();
+  type(byFocus(r.el, 'comment'), 'Keep this text.'); btn(r.el, 'Add comment').click(); await settle();
+  assert.deepEqual(alerts(r.el), ['That part of the site isn\'t on this page.']); assert.equal(byFocus(r.el, 'comment').value, 'Keep this text.');
+  off();
+  const a = dom(), done = mountCanvas(a.el, { spaceId: REAL.ID, jobId: s.job.id, stageId: 'review', studio: { service: s.service } }); await settle();
+  type(byFocus(a.el, `note:${comments[0].id}`), 'The client wants every section.'); btn(a.el, 'Keep as is: The page feels long on a phone.').click(); await settle();
+  type(byFocus(a.el, `note:${comments[1].id}`), 'Bigger button, pushed to the PR.'); btn(a.el, 'Fixed: Make the call button bigger.').click(); await settle();
+  assert.match(summary(a.el), /^0 open · 2 answered$/); assert.match(text(a.el), /Ready: send to Jax/);
+  assert.doesNotMatch(text(a.el), /\$|price|cost/i);
+  done();
+});

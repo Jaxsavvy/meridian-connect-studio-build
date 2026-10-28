@@ -5,7 +5,8 @@
   if (root) root.MeridianStudio.registerTool('site-review', { mountCanvas: api.mountCanvas });
 })(typeof window === 'undefined' ? null : window, function () {
   // Website Review screen (#218): click the preview (or pick from the list) to comment; every comment gets
-  // Fixed or Keep as is with a note before Review goes to Jax.
+  // Fixed or Keep as is with a note before Review goes to Jax. On the real site (#266) Review happens on the preview link:
+  // pick a page and a part of it, comment, copy or open the link; no practice preview, no click-to-pick.
   const WIDTHS = Object.freeze({ desktop: 1280, phone: 390 });
   const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
   const KINDS = { h1: 'Heading', h2: 'Heading', h3: 'Heading', h4: 'Heading', a: 'Link', button: 'Button', li: 'List item' };
@@ -15,11 +16,11 @@
 
   function createSiteReview({ service, edit, spaceId, jobId, stageId, report }) {
     let disposed = false, revision = 0, previewTurn = 0, site = null, comments = null, locked = false, busy = false;
-    let pageId = null, html = '', preview = 'loading', mode = 'desktop', selected = null;
-    const items = () => (site ? edit.editableList(site, pageId) : []);
+    let pageId = null, html = '', preview = 'loading', mode = 'desktop', selected = null, real = null;
+    const items = () => (site && !real ? edit.editableList(site, pageId) : []);
     const show = (error = '') => {
       const list = items();
-      report({ state: 'ready', site, pageId, html, preview, mode, comments, locked, busy, error, items: list,
+      report({ state: 'ready', site, real, pageId, html, preview, mode, comments, locked, busy, error, items: list,
         selected: list.find(i => i.key === selected?.key && i.sectionId === selected?.sectionId) || null });
     };
     async function loadPreview() {
@@ -45,6 +46,11 @@
         locked = !!job.waitingOnJax || (job.stages || []).some(st => st.id === 'review' && st.status === 'done');
         site = next && Array.isArray(next.pages) ? next : null;
         comments = (Array.isArray(review?.comments) ? review.comments : []).map(c => ({ ...c, source: c.source === 'check' ? 'check' : 'team' }));
+        real = review?.site && Array.isArray(review.site.pages) ? review.site : null;
+        if (real) {   // the real site: its pages from the locked bundle, reviewed on the preview link
+          if (!real.pages.some(p => p.id === pageId)) pageId = real.pages[0]?.id || null;
+          selected = null; show(); return;
+        }
         if (!site) { report({ state: 'empty', message: 'Build the site first.' }); return; }
         if (!site.pages.some(p => p.id === pageId)) pageId = site.pages[0]?.id || null;
         if (!items().some(i => i.key === selected?.key && i.sectionId === selected?.sectionId)) selected = null;
@@ -64,7 +70,26 @@
       }
     }
     return { load,
-      selectPage(id) { if (!disposed && site?.pages.some(p => p.id === id) && id !== pageId) { pageId = id; selected = null; void loadPreview(); } },
+      selectPage(id) {
+        if (disposed || id === pageId) return;
+        if (real) { if (real.pages.some(p => p.id === id)) { pageId = id; show(); } return; }
+        if (site?.pages.some(p => p.id === id)) { pageId = id; selected = null; void loadPreview(); }
+      },
+      /** The real site: a comment on the open page, on one of its sections or (no sectionId) the whole page. */
+      addReal(sectionId, text) {
+        const words = String(text || '').trim();
+        if (!real) return Promise.resolve(false);
+        if (!words) { if (!disposed) show('Write the comment first.'); return Promise.resolve(false); }
+        return act(() => service.addReviewComment(spaceId, jobId, { pageId, ...(sectionId ? { sectionId } : {}), text: words }));
+      },
+      /** Opens the open page of the preview in Connect's preview window; a refusal says what to do instead. */
+      async openPreview() {
+        if (disposed || !real) return false;
+        try { await service.openPreview(spaceId, jobId, pageId); if (!disposed) show(); return true; } catch (error) {
+          if (!disposed) show(error?.message || 'The preview couldn\'t open. Copy the link and open it in your browser.');
+          return false;
+        }
+      },
       /** Selects an item on this page; anything not in editableList is ignored. */
       select(key, sectionId) {
         if (disposed || locked || !items().some(i => i.key === key && i.sectionId === sectionId)) return false;
@@ -92,7 +117,8 @@
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const edit = win?.MeridianSiteEdit || require('../website/site-edit.js');
     const focus = states.focus(root), marked = new Map(), notes = {};
-    let listeners = [], layout = null, draft = { key: null, text: '' };
+    let listeners = [], layout = null, draft = { key: null, text: '' }, realDraft = { pageId: null, sectionId: '', text: '' }, disposed = false;
+    const clipboard = ctx.clipboard || win?.navigator?.clipboard;
     const listen = (item, type, fn) => { item.addEventListener(type, fn); listeners.push([item, type, fn]); };
     const unlisten = () => { for (const [item, type, fn] of listeners) item.removeEventListener?.(type, fn); listeners = []; };
     function node(tag, text, className) {
@@ -199,6 +225,57 @@
       }
       return parts;
     }
+    function summaryParts(view) {
+      const open = view.comments.filter(c => !c.resolved).length;
+      const summary = mark(node('p', '', 'studio-site-review-summary'), 'summary'); summary.tabIndex = -1;
+      summary.append(node('span', `${open} open`, 'studio-site-review-open'), node('span', ' · '),
+        node('span', `${view.comments.length - open} answered`, 'studio-site-review-answered'));
+      const top = [summary];
+      if (view.locked) top.push(node('p', 'With Jax for review.', 'studio-site-review-locked'));
+      else if (!open) { const ready = mark(node('p', 'Ready: send to Jax', 'studio-site-review-ready'), 'ready'); ready.setAttribute('role', 'status'); ready.tabIndex = -1; top.push(ready); }
+      return top;
+    }
+    // The real site's Review: the preview link as plain text (never <a>), Copy link and Open the preview, and comments on a page or a part of it.
+    function realView(view) {
+      const pages = node('nav', '', 'studio-card studio-site-review-pages'); pages.setAttribute('aria-label', 'Pages');
+      pages.appendChild(node('h3', 'Pages'));
+      for (const p of view.real.pages) pages.appendChild(button(p.name || 'Untitled page', () => model.selectPage(p.id), { pressed: p.id === view.pageId }));
+      const side = node('div', '', 'studio-site-review-side'); side.appendChild(pages);
+      const page = view.real.pages.find(p => p.id === view.pageId), main = node('section', '', 'studio-card studio-site-review-real');
+      main.setAttribute('aria-label', page ? `${page.name}: preview` : 'Preview');
+      if (page) {
+        const status = node('span', '', 'studio-site-review-status'); status.setAttribute('role', 'status');
+        const link = node('p', '', 'studio-site-review-link'); link.append(node('span', 'Preview link: '), node('span', page.url, 'studio-site-review-url'));
+        const tools = node('div', '', 'studio-site-review-tools');
+        tools.append(button('Copy link', async () => {
+          try {
+            if (typeof clipboard?.writeText !== 'function') throw Error('No clipboard');
+            await clipboard.writeText(page.url); if (!disposed) status.textContent = 'Copied';
+          } catch (_) { if (!disposed) status.textContent = 'Couldn\'t copy. Select the link and copy it.'; }
+        }, { focus: 'copy-link' }), button('Open the preview', async () => { await model.openPreview(); focusTo('open-preview'); }, { focus: 'open-preview' }), status);
+        main.append(node('h3', page.name || 'Untitled page'), link, tools);
+        if (!view.locked) {
+          if (realDraft.pageId !== page.id) realDraft = { pageId: page.id, sectionId: '', text: '' };
+          const partLabel = node('label', '', 'studio-site-review-field'), select = mark(node('select'), 'part'); select.disabled = view.busy;
+          for (const [value, name] of [['', 'The whole page'], ...(page.sections || []).map(x => [x.id, x.name || x.id])]) {
+            const o = node('option', name); o.value = value; o.selected = value === realDraft.sectionId; select.appendChild(o);
+          }
+          select.value = realDraft.sectionId; listen(select, 'change', () => { realDraft.sectionId = select.value; });
+          partLabel.append(node('span', 'Part of the page'), select);
+          const textLabel = node('label', '', 'studio-site-review-field'), box = mark(node('textarea'), 'comment');
+          box.maxLength = 1000; box.rows = 3; box.value = realDraft.text; box.disabled = view.busy;
+          listen(box, 'input', () => { realDraft.text = box.value; });
+          textLabel.append(node('span', 'Comment'), box);
+          main.append(node('h4', 'Add a comment'), partLabel, textLabel, button(view.busy ? 'Saving…' : 'Add comment', async () => {
+            if (await model.addReal(realDraft.sectionId, realDraft.text)) { realDraft.text = ''; const b = marked.get('comment'); if (b) b.value = ''; focusTo('comment'); }
+          }, { primary: true, focus: 'add', disabled: view.busy }));
+        }
+      }
+      const panel = node('aside', '', 'studio-card studio-site-review-comments'); panel.setAttribute('aria-label', 'Comments');
+      panel.append(...commentList(view));
+      const body = node('div', '', 'studio-site-review-body'); body.append(side, main, panel);
+      return body;
+    }
     const model = createSiteReview({ service: studio.service, edit, spaceId: ctx.spaceId, jobId: ctx.jobId, stageId: ctx.stageId,
       report(view) {
         const want = doc.activeElement?.getAttribute?.('data-focus');
@@ -210,14 +287,18 @@
             view.state === 'loading' ? 'Loading the review…' : view.message, () => void model.load()));
           restore(); return;
         }
-        const l = shell(), open = view.comments.filter(c => !c.resolved).length, page = view.site.pages.find(p => p.id === view.pageId);
-        const summary = mark(node('p', '', 'studio-site-review-summary'), 'summary'); summary.tabIndex = -1;
-        summary.append(node('span', `${open} open`, 'studio-site-review-open'), node('span', ' · '),
-          node('span', `${view.comments.length - open} answered`, 'studio-site-review-answered'));
-        const top = [summary];
-        if (view.locked) top.push(node('p', 'With Jax for review.', 'studio-site-review-locked'));
-        else if (!open) { const ready = mark(node('p', 'Ready: send to Jax', 'studio-site-review-ready'), 'ready'); ready.setAttribute('role', 'status'); ready.tabIndex = -1; top.push(ready); }
-        l.top.replaceChildren(...top);
+        if (view.real) {   // the real site: no practice preview, so no persistent frame to keep
+          layout = null;
+          const top = node('div', '', 'studio-card studio-site-review-top'); top.append(...summaryParts(view));
+          const alerts = node('div');
+          if (view.error) { const e = node('p', view.error); e.setAttribute('role', 'alert'); alerts.appendChild(e); }
+          root.replaceChildren(node('h2', 'Website Review'), top, alerts, realView(view));
+          const keep = want && marked.get(want);
+          if (keep && !keep.disabled) keep.focus?.(); else restore();
+          return;
+        }
+        const l = shell(), page = view.site.pages.find(p => p.id === view.pageId);
+        l.top.replaceChildren(...summaryParts(view));
         if (view.error) { const e = node('p', view.error); e.setAttribute('role', 'alert'); l.alerts.replaceChildren(e); } else l.alerts.replaceChildren();
         l.side.replaceChildren(...side(view, page));
         l.bar.replaceChildren(button('Desktop', () => model.setMode('desktop'), { pressed: view.mode === 'desktop' }),
@@ -240,7 +321,7 @@
       if ((event === 'review-changed' || event === 'site-changed') && detail?.jobId === ctx.jobId) void model.load();
     });
     void model.load();
-    return () => { off(); win?.removeEventListener('message', onMessage); model.dispose(); unlisten(); root.remove(); };
+    return () => { disposed = true; off(); win?.removeEventListener('message', onMessage); model.dispose(); unlisten(); root.remove(); };
   }
   return { WIDTHS, createSiteReview, mountCanvas };
 });
