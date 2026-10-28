@@ -57,6 +57,7 @@
     'studio/tools/pitch-deck/niche-styles.js',
     'studio/tools/pitch-deck/homepage-builder.js', 'studio/tools/pitch-deck/homepage-builder.css',
     'studio/tools/pitch-deck/board.js', 'studio/tools/pitch-deck/board.css',
+    'studio/tools/pitch-deck/print-card.js',
     'studio/assets/asset-model.js',
     'studio/assets/assets-strip.js', 'studio/assets/assets-strip.css',
     'studio/assets/version-history.js', 'studio/assets/version-history.css',
