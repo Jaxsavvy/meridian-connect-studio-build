@@ -120,3 +120,32 @@ test('a clean site is ready; stale loads are ignored; cleanup removes listeners'
   cleanup(); assert.ok(controls.every(n => !n.events.click && !n.events.input));
   const before = reads; await s.service.runChecks(s.job.spaceId, s.job.id); await settle(); assert.equal(reads, before);
 });
+
+test('the real site: plain names, the PR flag is checked on GitHub, the preview flag clears by itself (#258)', async () => {
+  const ID = 'sample-home', REPO = 'site-sample-home-services', PR = `https://github.com/Jaxsavvy/${REPO}/pull/3`;
+  const service = createSampleService({ practice: false }); service.setProjects([{ id: ID, name: 'Sample Home Services' }]);
+  const job = await service.startJob(ID, 'website', 'standard');
+  await fillStory(service, ID, job.id);
+  for (let guard = 0; guard < 20 && (await service.getJob(ID, job.id)).stageId !== 'lock'; guard++) {
+    if ((await service.getJob(ID, job.id)).waitingOnJax) await service.approveStage(ID, job.id); else await service.completeStage(ID, job.id);
+  }
+  await service.completeStage(ID, job.id); await service.answerDesign(ID, job.id, { approved: true });
+  await service.setBuildLinks(ID, job.id, { pr: PR }); await service.completeStage(ID, job.id);   // Build finishes on the PR link
+  const { el, cleanup } = await mount({ service, job });
+  const [pr, preview] = (await service.getChecks(ID, job.id)).flags;
+  assert.deepEqual(walk(el).filter(n => n.tag === 'section' && String(n.className).includes('group') && n.attrs['aria-label']).map(n => n.attrs['aria-label']), ['The pull request', 'Preview link']);
+  const notRun = walk(el).find(n => n.tag === 'section' && text(n).startsWith('Not run yet'));
+  assert.match(text(notRun), /Desktop and phone screenshots/);
+  assert.match(text(groupOf(el, 'The pull request')), /What the checks showed on GitHub/);
+  assert.ok(btn(el, `Mark as checked: ${pr.message}`)); assert.equal(btn(el, `Mark as OK: ${pr.message}`), undefined);
+  const pv = groupOf(el, 'Preview link');
+  assert.match(text(pv), /Paste the preview link on the Build kit\. This clears by itself\./);
+  assert.equal(walk(pv).some(n => n.tag === 'button' || n.tag === 'input'), false); assert.ok(preview);
+  note(el, pr.id).value = 'Build and size budget are green.'; note(el, pr.id).events.input();
+  btn(el, `Mark as checked: ${pr.message}`).click(); await settle();
+  assert.match(summary(el), /^1 to review · 1 explained$/);
+  await service.setBuildLinks(ID, job.id, { pr: PR, preview: 'https://3-abc.site-sample-home-services.pages.dev' }); await settle();
+  assert.equal(groupOf(el, 'Preview link'), undefined); assert.match(summary(el), /^0 to review · 1 explained$/);
+  assert.match(text(el), /Ready: mark the stage done/);
+  cleanup();
+});
