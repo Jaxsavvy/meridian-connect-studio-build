@@ -9,7 +9,7 @@
   const node = typeof module === 'object' && module.exports;
   // Pitch deck format (#114), research model (#124), chapter cards (#186), site engine (#157), section library (#189),
   // site checker (#206), look frames (#202), site edit helpers (#198), concept (#229), storyboard frames (#231), design bundle (#238),
-  // build prompt (#246):
+  // build prompt (#246), QR code (#123):
   // index.html loads them before this file.
   const api = factory(node ? require('./decks/deck-data.js') : root && root.MeridianDeckData,
     node ? require('./decks/research-model.js') : root && root.MeridianResearchModel,
@@ -22,10 +22,11 @@
     node ? require('./website/concept.js') : root && root.MeridianConcept,
     node ? require('./website/storyboard-frames.js') : root && root.MeridianStoryboardFrames,
     node ? require('./website/design-bundle.js') : root && root.MeridianDesignBundle,
-    node ? require('./website/build-prompt.js') : root && root.MeridianBuildPrompt);
+    node ? require('./website/build-prompt.js') : root && root.MeridianBuildPrompt,
+    node ? require('./decks/qr-code.js') : root && root.MeridianQrCode);
   if (node) module.exports = api;
   if (root) root.MeridianStudioService = api;
-})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames, Bundle, BuildPrompt) {
+})(typeof window === 'undefined' ? null : window, function (DeckData, Research, Cards, Engine, Library, SiteCheck, Look, SiteEdit, Concept, Frames, Bundle, BuildPrompt, Qr) {
   const TOOLS = [
     ['image-gen', 'Image gen', 'tool', 'available'],
     ['asset-library', 'Asset Library', 'tool', 'available'],
@@ -506,6 +507,15 @@
         jaxApproves(job);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
+      },
+      /** A pitch deck's live link and its QR code (#121, for the Print card #123), only once Jax has approved Publish;
+       *  null before that. Sample mode: a made-up unlisted link (example.com) with a real, scannable QR code for it. */
+      async getPublished(spaceId, jobId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        if (job.workflowId !== 'pitch-deck' || !job.done.includes('publish')) return null;
+        const url = `https://decks.example.com/u/${encodeURIComponent(job.id)}`;
+        return { url, qrSvg: Qr.svg(url) };
       },
       /** Ticks or unticks one "This stage needs" item (by index) on an open stage (default: the current one). */
       async setStageNeed(spaceId, jobId, index, checked, stageId) {
@@ -1888,6 +1898,7 @@
       assignStage: saved('assignStage'),
       approveAsset: notHere,
       approveStage: notHere,
+      async getPublished() { return null; },   // until publishing is on the server (#121)
       // Local until the server has Jobs (no cost involved).
       getWorkflow: (...a) => local.getWorkflow(...a),
       // Pitch deck Jobs are saved to the project folder after every change (#171).
