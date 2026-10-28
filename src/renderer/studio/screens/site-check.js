@@ -7,10 +7,12 @@
   // Website Check screen (#207): what Meridian found on the finished site, grouped by kind; a person explains each flag.
   // The real site (#258): its pull request, its preview link and the screenshots Connect takes come first.
   const KINDS = Object.freeze({ pr: 'The pull request', preview: 'Preview link', 'site-screenshots': 'Desktop and phone screenshots',
+    look: 'Against the look frame',   // #262: the preview's screenshots compared with the chosen look frame
     seo: 'Google basics', accessibility: 'Easy for everyone to use', links: 'Links inside the site',
     'links-open': 'Outside links', speed: 'Speed (estimate)', phone: 'On a phone', 'phone-screenshot': 'On a phone' });
   // How each kind is answered: the PR is checked on GitHub; the preview flag clears by itself, so it takes no note.
-  const ANSWER = { pr: { label: 'What the checks showed on GitHub', button: 'Mark as checked' } };
+  const ANSWER = { pr: { label: 'What the checks showed on GitHub', button: 'Mark as checked' },
+    look: { label: 'How the screenshots match the look frame', button: 'Mark as compared' } };
   const SELF_CLEARING = { preview: 'Paste the preview link on the Build kit. This clears by itself.' };
   const kindName = check => KINDS[check] || check;
   /** Flags grouped by kind, in KINDS order (any other kind after): [{ check, name, flags }]. */
