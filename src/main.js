@@ -787,15 +787,17 @@ if (!gotTheLock) {
       win.webContents.on('will-navigate', ev => ev.preventDefault());
       win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
       try {
-        await Promise.race([win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(job.html)),
-          new Promise((_, fail) => setTimeout(() => fail(new Error('slow')), 20000))]);
-        const tools = win.webContents.debugger;
-        tools.attach('1.3');
-        const metrics = await tools.sendCommand('Page.getLayoutMetrics');
+        // The whole window step is timed (#270), and only its finished result counts: a late step can't change what was sent.
+        const { metrics, shot } = await boardCheck.timed(async () => {
+          await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(job.html));
+          const tools = win.webContents.debugger;
+          tools.attach('1.3');
+          const measured = await tools.sendCommand('Page.getLayoutMetrics');
+          const full = Math.min(Math.ceil(Number((measured.cssContentSize || measured.contentSize || {}).height) || height), 16000);
+          return { metrics: measured, shot: await tools.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true,
+            clip: { x: 0, y: 0, width, height: full, scale: 1 } }) };
+        }, 30000);
         flags.push(...boardCheck.phoneFlags(metrics));
-        const full = Math.min(Math.ceil(Number((metrics.cssContentSize || metrics.contentSize || {}).height) || height), 16000);
-        const shot = await tools.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true,
-          clip: { x: 0, y: 0, width, height: full, scale: 1 } });
         ran.push('phone-screenshot');
         const saved = await api.uploadProjectBytes(job.projectId, Buffer.from(shot.data, 'base64'), job.fileName, 'Docs');
         if (saved.success) screenshot = job.fileName;
