@@ -103,3 +103,41 @@ test('the tool: sandboxed preview, a live reload when Jax approves Publish, clea
   const source = fs.readFileSync(path.join(__dirname, '../../src/renderer/studio/tools/pitch-deck/print-card.js'), 'utf8');
   assert.doesNotMatch(source, /innerHTML|fetch\(|window\.meridian/);
 });
+
+test('BV\'s line carries the email from getContact, escaped; a missing or odd email leaves just the name', () => {
+  const card = contact => buildCard({ name: 'A', score: 58, url: URL_, qrSvg: Qr.svg(URL_), contact });
+  assert.match(card({ email: 'team&co@example.com' }), /<p class="bv">Prepared by Breakthrough Ventures · team&amp;co@example\.com<\/p>/);
+  for (const contact of [null, {}, { email: 42 }, { email: '<b>x</b>@example.com' }, { email: 'not an email' }]) {
+    assert.match(card(contact), /<p class="bv">Prepared by Breakthrough Ventures<\/p>/);
+  }
+});
+
+test('the card uses service.getContact(); if it fails the card still prints', async () => {
+  const { service, job } = await walked({ publish: true });
+  const { email } = await service.getContact();
+  const ok = setup(service, job.id); await ok.model.load();
+  assert.ok(ok.last().html.includes(`Prepared by Breakthrough Ventures · ${email}`), 'built from the service, not hard-coded');
+  const broken = Object.create(service, { getContact: { value: async () => { throw new Error('offline'); } } });
+  const fallback = setup(broken, job.id); await fallback.model.load();
+  assert.equal(fallback.last().state, 'ready');
+  assert.match(fallback.last().html, /<p class="bv">Prepared by Breakthrough Ventures<\/p>/);
+});
+
+test('the Print card stage opens the tool in the pitch deck workspace; no plain Finish button', async () => {
+  const { render } = require('../../src/renderer/studio/screens/pitch-deck.js');
+  const { service, job } = await walked({ publish: true });
+  const mounts = [], routes = [];
+  const show = params => { const el = dom(); return { el, stop: render(el, { spaceId: 'client-a', jobId: job.id, ...params },
+    { service, navigate: (...r) => routes.push(r), mountInto: (...m) => mounts.push(m), setDirty() {} }) }; };
+  const list = show({});
+  for (let i = 0; i < 8; i++) await tick();
+  const buttons = walk(list.el).filter(n => n.tag === 'button').map(n => n.attrs['aria-label'] || text(n));
+  assert.ok(buttons.includes('Open Print card')); assert.ok(!buttons.includes('Finish Print card'));
+  walk(list.el).find(n => n.tag === 'button' && n.attrs['aria-label'] === 'Open Print card').click();
+  assert.deepEqual(routes.at(-1), ['pitch-deck', { spaceId: 'client-a', jobId: job.id, open: 'print' }]);
+  assert.equal(mounts.length, 0); list.stop();
+  const opened = show({ open: 'print' });
+  for (let i = 0; i < 8; i++) await tick();
+  assert.deepEqual(mounts.map(m => m.slice(1)), [['tool', 'print-card', { spaceId: 'client-a', jobId: job.id, stageId: 'print' }]]);
+  assert.match(text(opened.el), /Print card/); opened.stop();
+});
