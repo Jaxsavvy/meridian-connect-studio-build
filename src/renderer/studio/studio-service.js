@@ -152,8 +152,10 @@
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
   const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
   const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
-  const REAL_NOT_RUN = Object.freeze(['site-screenshots']);   // the real site (#256): desktop and phone screenshots of the preview, next part
+  const REAL_NOT_RUN = Object.freeze(['site-screenshots']);   // the real site (#256): desktop and phone screenshots of the preview (#260)
   const NOT_RUN_KINDS = Object.freeze([...CHECKS_NOT_RUN, ...REAL_NOT_RUN]);
+  const REAL_CHECKS = Object.freeze(['pr', 'preview']);   // the real site's own flags (#256); the rest come from the preview (#260)
+  const PREVIEW_CHECKS = Object.freeze(['links', 'phone', 'accessibility', 'seo', 'links-open']);
   const CHECKED = Object.freeze(['pitch-deck', 'website']);      // workflows with an automatic Check stage (#131, #206)
   // Every link on the board, with the deck field it's in, for the live link check.
   const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
@@ -453,6 +455,9 @@
         const stage = stageOf(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'research') { researchDone(job); passingDeck(space, job); }
         if (CHECKED.includes(job.workflowId) && target === 'check') checksClear(job);
+        if (!practice && target === 'check' && realSite(job) && job.checks.notRun.includes('site-screenshots')) {   // #260
+          throw new Error('Check isn\'t done: Connect hasn\'t checked the preview yet. Run the checks again.');
+        }
         if (job.workflowId === 'website' && target === 'concept') {
           const gaps = Concept.conceptGaps(job.concept);
           if (gaps.length) throw new Error(`The concept isn't ready: ${gaps[0].message}`);
@@ -859,6 +864,28 @@
         return clone({ links: SiteCheck.siteLinks(job.site), pages: job.site.pages.map(p => ({ label: SiteCheck.pageLabel(p),
           html: Engine.renderPage(job.site, p.id, { assets, still: true }),
           fileName: `${job.name} - Site ${p.path === '/' ? 'home' : p.path.slice(1).replace(/\//g, '-')} on a phone.png` })) });
+      },
+      /** Core only (#260): the real site's pages for Connect's preview check, from the locked design bundle:
+       *  { preview, name, pages: [{ path, label }] }; null unless the Job is at Check on the real site with a preview link. */
+      async getPreviewPages(spaceId, jobId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!realSite(job) || !job.buildLinks.preview || !openStages(job).includes('check')) return null;
+        return clone({ preview: job.buildLinks.preview, name: job.name,
+          pages: designView(space, job).bundle.pages.map(p => ({ path: p.path, label: p.name || p.path })) });
+      },
+      /** Core only (#260): what Connect found on the preview ({ flags, ran }). Replaces the last preview flags (the real
+       *  site's own pr and preview flags stay); one a person explained stays explained when the same thing is found again.
+       *  Once the screenshots are taken, a person compares them with the look frame. */
+      addPreviewChecks(spaceId, jobId, result) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!realSite(job) || !job.checks || !openStages(job).includes('check') || !result || typeof result !== 'object') return null;
+        const ran = Array.isArray(result.ran) ? result.ran : [];
+        const found = (Array.isArray(result.flags) ? result.flags : []).filter(f => f && PREVIEW_CHECKS.includes(f.check)).slice(0, 80)
+          .map(f => ({ check: f.check, message: String(f.message || '').slice(0, 300), where: String(f.where || '').slice(0, 200) }));
+        if (ran.includes('site-screenshots')) found.push({ check: 'look', where: 'Look frame',
+          message: `Compare the screenshots of ${job.buildLinks.preview} (in the project folder) with the look frame: say how they match.` });
+        storeChecks(space, job, found, { notRun: REAL_NOT_RUN.filter(x => !ran.includes(x)), keep: f => REAL_CHECKS.includes(f.check) });
+        return clone(job.checks.flags.map(flagView));
       },
       /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
       async finishSite(spaceId, jobId) {
@@ -1506,15 +1533,16 @@
       const { pr, preview } = job.buildLinks, found = [{ check: 'pr', where: 'Pull request',
         message: `Meridian can't read the pull request's checks yet: open ${pr} and confirm they passed (build and size budget).` }];
       if (!preview) found.push({ check: 'preview', where: 'Preview link', message: 'Paste the preview link from Cloudflare Pages on the Build kit.' });
-      return storeChecks(space, job, found, REAL_NOT_RUN);
+      return storeChecks(space, job, found, { notRun: REAL_NOT_RUN, keep: f => !REAL_CHECKS.includes(f.check) });   // the preview's flags stay
     }
-    function storeChecks(space, job, found, notRun) {
+    // keep: the last run's flags this run doesn't replace (default: the board checks Connect adds).
+    function storeChecks(space, job, found, { notRun, keep = f => BOARD_CHECKS.includes(f.check) } = {}) {
       const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
       const before = new Map(last.flags.map(f => [f.key, f]));
       job.checks = { ranAt: new Date(now()).toISOString(), notRun: notRun || last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
         const key = `${f.check}|${f.where}|${f.message}`;
         return before.get(key) || { id: nextId('flag'), key, ...f, resolved: null };
-      }), ...last.flags.filter(f => BOARD_CHECKS.includes(f.check))] };
+      }), ...last.flags.filter(keep)] };
       emit('checks-changed', { spaceId: space.id, jobId: job.id });
       return job.checks;
     }
@@ -1592,7 +1620,7 @@
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
    * there costs money. Approvals never happen here: Jax approves from Command.
    */
-  function createServerService({ request, local, saveFile, readSave, checkBoard, board }) {
+  function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, board }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
     local = local || createSampleService({ practice: false });   // nothing made-up in real mode
     const listeners = new Set();
@@ -1712,6 +1740,17 @@
         local.addBoardChecks(spaceId, jobId, { flags, ran });
       } catch (_) { /* the phone and link checks stay "not run" */ }
     }
+    // The real site (#260): Connect checks every page of the preview at desktop and phone width (screenshots to Docs)
+    // and the outside links once. Until it has, the real site's Check can't finish.
+    async function previewChecks(spaceId, jobId) {
+      if (typeof checkPreview !== 'function') return;
+      try {
+        const pages = await local.getPreviewPages(spaceId, jobId);
+        if (!pages) return;
+        const res = await checkPreview({ projectId: spaceId, ...pages });
+        if (res && res.success) local.addPreviewChecks(spaceId, jobId, res);
+      } catch (_) { /* the screenshots stay "not run" */ }
+    }
 
     async function listAssets(spaceId, { query = '', includeTrash = false } = {}) {
       const q = new URLSearchParams();
@@ -1792,7 +1831,7 @@
           await saveJobs(spaceId);
         }
         if (out && out.workflowId === 'website') {
-          if (out.stageId === 'check' && !out.realSite) await siteBoardChecks(spaceId, jobId);   // Build just finished on the practice site
+          if (out.stageId === 'check') await (out.realSite ? previewChecks : siteBoardChecks)(spaceId, jobId);   // Build just finished
           await saveJobs(spaceId, 'website');
         }
         return out;
@@ -1801,7 +1840,11 @@
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
       getBuildKit: loaded('getBuildKit'),
-      setBuildLinks: saved('setBuildLinks'),
+      async setBuildLinks(spaceId, jobId, links) {   // while Check is open, a new preview link is checked again (#260)
+        const out = await saved('setBuildLinks')(spaceId, jobId, links);
+        if ((await local.getJob(spaceId, jobId)).stageId === 'check') { await previewChecks(spaceId, jobId); await saveJobs(spaceId, 'website'); }
+        return out;
+      },
       async saveBuildKit(spaceId, jobId) {   // Connect writes the files; the Job remembers which design version went out (#246)
         await loadSaved(spaceId);
         const kit = await local.getBuildKit(spaceId, jobId);
@@ -1885,7 +1928,7 @@
         await local.runChecks(spaceId, jobId);
         const job = await local.getJob(spaceId, jobId), kind = job.workflowId;
         if (kind !== 'website') await boardChecks(spaceId, jobId);
-        else if (!job.realSite) await siteBoardChecks(spaceId, jobId);   // the real site's screenshots come with the preview check
+        else await (job.realSite ? previewChecks : siteBoardChecks)(spaceId, jobId);
         await saveJobs(spaceId, kind);
         return (await local.getChecks(spaceId, jobId)).flags;
       },

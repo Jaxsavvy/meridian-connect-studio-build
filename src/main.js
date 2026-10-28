@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog, protocol, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -16,6 +16,7 @@ const LayoutStore = require('./layout-store');
 const api = require('./api');
 const { isSafeExternalUrl, isAllowedServerUrl } = require('./safe-url');
 const boardCheck = require('./board-check');
+const previewCheck = require('./preview-check');
 
 /** Opens a link in the person's browser or mail app, but only if it's a normal web or email link. */
 function openSafeExternal(url) {
@@ -806,6 +807,22 @@ if (!gotTheLock) {
       flags.push(...await boardCheck.linkFlags(job.links, (url, opts) => fetch(url, opts)));
       ran.push('links-open');
       return { success: true, flags, ran, screenshot };
+    });
+    // The real site, part 2 (#260): every page of the client site's Cloudflare Pages preview at desktop and phone width,
+    // screenshots to the project's Docs. One in-memory session for these windows, refusing permissions and downloads.
+    let previewSession = null;
+    ipcMain.handle('studio:check-preview', async (e, req) => {
+      let job;
+      try { job = previewCheck.previewRequest(req); } catch (err) { return { success: false, error: err.message }; }
+      if (!previewSession) {
+        previewSession = session.fromPartition('preview-check');   // no "persist:": nothing is kept on disk
+        previewSession.setPermissionRequestHandler((wc, permission, done) => done(false));
+        previewSession.setPermissionCheckHandler(() => false);
+        previewSession.on('will-download', ev => ev.preventDefault());
+      }
+      return previewCheck.checkPreview(job, { capture: previewCheck.makeCapture({ BrowserWindow, ses: previewSession, origin: job.origin }),
+        upload: async (png, name) => !!(await api.uploadProjectBytes(job.projectId, png, name, 'Docs')).success,
+        fetchFn: (url, opts) => fetch(url, opts) });
     });
     ipcMain.handle('ws:upload', async (e, { projectId, section }) => {
       const pick = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { title: 'Add files to project', properties: ['openFile', 'multiSelections'] });

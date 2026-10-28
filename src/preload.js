@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('meridian', {
     studioSaveFile: (projectId, name, content) => ipcRenderer.invoke('studio:save-project-file', { projectId, name, content }),
     studioReadSave: (projectId, name) => ipcRenderer.invoke('studio:read-project-save', { projectId, name }),
     studioCheckBoard: req => ipcRenderer.invoke('studio:check-board', req),
+    studioCheckPreview: req => ipcRenderer.invoke('studio:check-preview', req),
     wsUpload: (projectId, section) => ipcRenderer.invoke('ws:upload', { projectId, section }),
     wsCreateProjectPdf: (projectId, title, content) => ipcRenderer.invoke('ws:create-project-pdf', { projectId, title, content }),
     // A file dropped onto the chat: its bytes go to the main process (no file path crosses over)
