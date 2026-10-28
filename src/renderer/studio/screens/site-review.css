@@ -29,3 +29,10 @@
 .studio-site-review :is(button, input, textarea, [tabindex="-1"]):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 @media (max-width: 80rem) { .studio-site-review-body { grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); } .studio-site-review-comments { grid-column: 1 / -1; } }
 @media (max-width: 56rem) { .studio-site-review-body { grid-template-columns: minmax(0, 1fr); } }
+.studio-site-review-real { display: grid; gap: .6rem; align-content: start; min-width: 0; }
+.studio-site-review-link { overflow-wrap: anywhere; }
+.studio-site-review-url { font-family: ui-monospace, monospace; font-size: var(--studio-text-small); }
+.studio-site-review-real select { min-height: 2.25rem; padding-inline: .5rem; justify-self: start; max-width: 100%; }
+.studio-site-review-real > button { justify-self: start; }
+.studio-site-review-status { color: var(--studio-muted); }
+.studio-site-review select:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
