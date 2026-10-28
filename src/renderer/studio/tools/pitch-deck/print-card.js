@@ -13,12 +13,17 @@
   });
   // Only the QR code decks/qr-code.js makes: one white square and one black path, no text anywhere.
   const QR_SVG = /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 (\d{2,3}) \1" shape-rendering="crispEdges"><rect width="\1" height="\1" fill="#fff"\/><path fill="#000" d="[MHVhvz0-9 .-]*"\/><\/svg>$/;
+  // BV's line comes from service.getContact() (email only, Jax 2026-10-28); a missing or odd email leaves just the name.
+  const contactLine = contact => {
+    const email = typeof contact?.email === 'string' && /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[A-Za-z]{2,24}$/.test(contact.email) ? contact.email : '';
+    return `Prepared by Breakthrough Ventures${email ? ` · ${email}` : ''}`;
+  };
   const httpsUrl = value => { try { const u = new URL(String(value)); return u.protocol === 'https:' ? u.href : ''; } catch (_) { return ''; } };
   const failureText = error => error?.code === 'OFFLINE' ? 'You are offline. Try again when connected.'
     : error?.message || 'The print card could not finish. Try again.';
 
   /** One print-ready card page. Refuses a link that isn't https or a QR code that isn't ours; every piece of text is escaped. */
-  function buildCard({ layout = 'letter', name, score, url, qrSvg }) {
+  function buildCard({ layout = 'letter', name, score, url, qrSvg, contact }) {
     const L = LAYOUTS[layout] || LAYOUTS.letter, link = httpsUrl(url);
     if (!link) throw Error('The print card needs the live https link from Publish.');
     if (!QR_SVG.test(String(qrSvg))) throw Error('The print card needs the QR code from Publish.');
@@ -35,7 +40,7 @@
       + '.link{margin:0;font:9pt Arial,sans-serif;word-break:break-all;color:#33435f}.bv{margin:0;font:10pt Arial,sans-serif;letter-spacing:.08em}</style></head>'
       + `<body data-layout="${layout === 'card' ? 'card' : 'letter'}"><p class="who">Prepared for ${escape(name)}</p><p class="hook">${escape(hook)}</p>`
       + `<div class="qr" role="img" aria-label="QR code to your market report">${qrSvg}</div><p class="link">${escape(link)}</p>`
-      + '<p class="bv">Prepared by Breakthrough Ventures</p></body></html>';
+      + `<p class="bv">${escape(contactLine(contact))}</p></body></html>`;
   }
 
   function createPrintCard({ service, spaceId, jobId, report, onDirty = () => {} }) {
@@ -56,10 +61,11 @@
         if (!stage) { report({ state: 'empty', message: 'This Job has no Print card stage.' }); return; }
         // Nothing prints before Jax approves Publish: no live link means no card.
         if (!published) { card = null; report({ state: 'empty', message: 'Waiting for Publish. The card shows once Jax approves the live link.' }); return; }
-        let score = null;
+        let score = null, contact = null;
         try { score = (await service.getDeck(spaceId, jobId))?.score?.value ?? null; } catch (_) { /* the hook falls back to plain words */ }
+        try { contact = await service.getContact(); } catch (_) { /* the card still prints with just BV's name */ }
         if (disposed || request !== revision) return;
-        card = { name: space.name, score, url: published.url, qrSvg: published.qrSvg };
+        card = { name: space.name, score, url: published.url, qrSvg: published.qrSvg, contact };
         page('letter'); show();
       } catch (error) {
         if (disposed || request !== revision) return;

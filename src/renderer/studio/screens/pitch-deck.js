@@ -7,6 +7,7 @@
   // Pitch Deck page: the locked stage list with builders, timing and actions; the workspace shows the open tool.
   const STATUS = Object.freeze({ done: 'Done', current: 'Open', 'waiting-on-jax': 'Waiting on Jax', upcoming: 'Not open yet' });
   const HOME = Object.freeze(['home-t1', 'home-t2', 'home-t3']);
+  const PRINT = 'print';   // the Print card stage opens its tool (#279); the tool's Finish stage completes it
   // Deck form helpers: the form is built from the deck itself (decks/deck-data.js), so it always matches the format.
   const LONG = new Set(['text', 'problem', 'build', 'effect', 'detail', 'description', 'basis']);
   const NAMES = Object.freeze({ url: 'Link', placeId: 'Google place ID', bookingUrl: 'Booking link' });
@@ -79,6 +80,9 @@
     if (HOME.includes(open)) {
       const slot = node('div'); workspace.append(node('h2', `Home page: Tier ${HOME.indexOf(open) + 1}`), slot);
       studio.mountInto(slot, 'tool', 'homepage-builder', { spaceId, jobId, stageId: open });
+    } else if (open === PRINT) {
+      const slot = node('div'); workspace.append(node('h2', 'Print card'), slot);
+      studio.mountInto(slot, 'tool', 'print-card', { spaceId, jobId, stageId: PRINT });
     } else {
       workspace.className += ' studio-pitch-deck-deck';   // the deck form and preview fill it once the deck loads
     }
@@ -164,11 +168,12 @@
       if (st.status === 'waiting-on-jax') { row.appendChild(node('p', 'Waiting on Jax')); return row; }
       if (st.status !== 'current') return row;
       if (st.id === 'research') row.appendChild(button('Open research', () => studio.navigate('research', { spaceId, jobId }), false, busy));
-      if (HOME.includes(st.id)) {
+      if (HOME.includes(st.id) || st.id === PRINT) {
         row.appendChild(button(open === st.id ? 'Opened' : 'Open', () => studio.navigate('pitch-deck', { spaceId, jobId, open: st.id }),
           false, busy || open === st.id, `Open ${st.name}`));
       }
       if (st.id === 'publish') row.appendChild(node('p', 'Jax publishes it.'));
+      else if (st.id === PRINT) { /* Finish stage lives in the Print card tool: it saves the card first */ }
       else if (st.id === 'review') row.appendChild(button('Send to Review', () => void model.finish(st.id), true, busy));
       else row.appendChild(button('Finish', () => void model.finish(st.id), true, busy, `Finish ${st.name}`));
       return row;
@@ -216,7 +221,7 @@
     const off = studio.service.on((event, detail) => {
       if (['jobs-changed', 'deck-changed'].includes(event) && detail?.spaceId === spaceId) void model.load();
     });
-    void model.load(); if (!HOME.includes(open)) void loadDeck();
+    void model.load(); if (!HOME.includes(open) && open !== PRINT) void loadDeck();
     return () => { closed = true; off(); model.dispose(); unlisten(); for (const [i, ty, fn] of deckListeners) i.removeEventListener?.(ty, fn); dirty(false); root.remove(); };
   }
   return { createPitchDeck, render };
