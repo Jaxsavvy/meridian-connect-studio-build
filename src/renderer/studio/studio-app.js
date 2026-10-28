@@ -26,7 +26,8 @@
 
   // Sample mode: a stand-in "Jax" approves after 5 seconds so the whole Job can be clicked through.
   // The real server (Core #48) replaces this; approvals then only come from Jax's Command queue.
-  const sampleService = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000 });
+  const openWindow = window.meridian && window.meridian.api && window.meridian.api.wsPreview;   // the real site's preview (#263)
+  const sampleService = window.MeridianStudioService.createSampleService({ simulateJaxMs: 5000, openWindow });
   let serverService = null;
   let service = sampleService;   // switched by MeridianStudioUI.useServer() at sign-in (#48)
   let syncProjects = () => {};
@@ -175,7 +176,7 @@
       const next = on && typeof bridge === 'function'
         ? (serverService = serverService || window.MeridianStudioService.createServerService({ request: bridge,
           saveFile: window.meridian.api.studioSaveFile, readSave: window.meridian.api.studioReadSave,
-          checkBoard: window.meridian.api.studioCheckBoard, checkPreview: window.meridian.api.studioCheckPreview }))
+          checkBoard: window.meridian.api.studioCheckBoard, checkPreview: window.meridian.api.studioCheckPreview, openWindow }))
         : sampleService;
       if (next === service) return service.mode;
       runCleanups(); dirtyOwners.clear();

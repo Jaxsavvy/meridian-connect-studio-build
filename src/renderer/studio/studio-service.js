@@ -278,10 +278,12 @@
 
   /** options.simulateJaxMs: in the app's sample mode only, "Jax" approves waiting stages and Review items
    *  after this many ms, so the whole flow can be clicked through without a server. Tests leave it off.
-   *  options.practice: false when this backs the real server; then nothing made-up (research, words, names) is offered. */
+   *  options.practice: false when this backs the real server; then nothing made-up (research, words, names) is offered.
+   *  options.openWindow(url, title): Connect's website preview window, for the real site's preview (#263). */
   function createSampleService(options = {}) {
     const simulateJaxMs = Number.isFinite(options.simulateJaxMs) && options.simulateJaxMs > 0 ? options.simulateJaxMs : 0;
     const practice = options.practice !== false;
+    const openWindow = typeof options.openWindow === 'function' ? options.openWindow : null;
     const practiceOnly = () => { if (!practice) throw new Error('Practice research only runs in practice mode.'); };
     const now = typeof options.now === 'function' ? options.now : () => Date.now(); // tests pass a fake clock
     const later = fn => { if (simulateJaxMs) setTimeout(() => { try { fn(); } catch (_) { /* already handled */ } }, simulateJaxMs); };
@@ -479,7 +481,7 @@
         if (job.workflowId === 'website' && target === 'review') {
           const open = reviewOf(job).comments.filter(c => !c.resolved).length;
           if (open) throw new Error(`Review isn't done: ${open} ${open === 1 ? 'comment needs' : 'comments need'} an answer.`);
-          if (job.siteFilesSaved === false) throw new Error('The site files in the project folder are out of date: save the site again.');
+          if (!realSite(job) && job.siteFilesSaved === false) throw new Error('The site files in the project folder are out of date: save the site again.');
         }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
@@ -815,26 +817,23 @@
       },
       /** What Finish saves (Build open): "site.json" plus "Site - <page>.html" for every page, with no preview script. */
       async getSiteFiles(spaceId, jobId) { return siteFiles(spaceId, jobId); },
-      /** Review (#216): the team's comments on the site: { comments: [{ id, pageId, sectionId, key, where, text, at, resolved }], open }. */
+      /** Review (#216): the team's comments on the site: { comments: [{ id, pageId, sectionId, key, where, text, at, resolved }], open, site }.
+       *  site (#263): on the real site, { preview, pages: [{ id, name, url, sections: [{ id, name }] }] } (one section per chapter); else null. */
       async getReview(spaceId, jobId) {
-        const { job } = websiteJob(spaceId, jobId);
-        const comments = reviewOf(job).comments;
-        return clone({ comments, open: comments.filter(c => !c.resolved).length });
+        const { space, job } = websiteJob(spaceId, jobId);
+        const comments = reviewOf(job).comments, preview = realSite(job) && job.buildLinks.preview;
+        return clone({ comments, open: comments.filter(c => !c.resolved).length, site: preview ? { preview, pages: realPages(space, job) } : null });
       },
-      /** A team comment on one part of the site, while Review is open: { pageId, sectionId, key?, text }. */
+      /** A team comment on one part of the site, while Review is open: { pageId, sectionId, key?, text }.
+       *  On the real site (#263) sectionId is a chapter of the locked bundle, or empty for the whole page; there's no key. */
       async addReviewComment(spaceId, jobId, comment) {
         const { space, job } = reviewJob(spaceId, jobId);
         const c = comment && typeof comment === 'object' ? comment : {};
-        const page = job.site.pages.find(p => p.id === c.pageId);
-        const section = page && page.sections.find(s => s.id === c.sectionId);
-        if (!section) throw new Error('That part of the site isn\'t on this page.');
-        const key = c.key === undefined || c.key === null || c.key === '' ? null : c.key;
-        if (key !== null && !SiteEdit.editableList(job.site, page.id).some(i => i.key === key && i.sectionId === section.id)) throw new Error('That item isn\'t in this section.');
+        const spot = realSite(job) ? realSpot(space, job, c) : siteSpot(job, c);
         const words = text(c.text, 'Comment', 1000);
         if (!words) throw new Error('Write the comment first.');
         const review = reviewOf(job);
-        const added = { id: nextId('comment'), source: 'team', pageId: page.id, sectionId: section.id, key, where: `${SiteCheck.pageLabel(page)} · ${section.label}`,
-          text: words, at: new Date(now()).toISOString(), resolved: null };
+        const added = { id: nextId('comment'), source: 'team', ...spot, text: words, at: new Date(now()).toISOString(), resolved: null };
         review.comments.push(added);
         job.review = review;
         emit('review-changed', { spaceId: space.id, jobId: job.id });
@@ -855,6 +854,17 @@
         if (found.source === 'check') answerFlag(job, found.flagKey, why, found.resolved.at);
         emit('review-changed', { spaceId: space.id, jobId: job.id });
         return clone(found);
+      },
+      /** The real site (#263): opens one page of its preview in Connect's website preview window (web pages only, no app access). */
+      async openPreview(spaceId, jobId, pageId) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!realSite(job) || !job.buildLinks.preview) throw new Error('Paste the preview link on the Build kit first.');
+        const page = realPages(space, job).find(p => p.id === pageId);
+        if (!page) throw new Error('That page isn\'t on the site.');
+        if (!openWindow) throw new Error('Copy the link and open it in your browser.');
+        const res = await openWindow(page.url, `${space.name}: ${page.name}`);
+        if (!res || !res.success) throw new Error('The preview couldn\'t open. Copy the link and open it in your browser.');
+        return { opened: page.url };
       },
       /** Core only (#206): each page as a still page (no motion) for Connect's phone check, plus the site's outside links. */
       async getCheckPages(spaceId, jobId) {
@@ -1317,12 +1327,39 @@
     function reviewJob(spaceId, jobId) {
       const found = websiteJob(spaceId, jobId);
       if (!openStages(found.job).includes('review') || found.job.waitingOnJax) throw new Error('Comments can only be added while Review is open.');
-      if (!found.job.site) throw new Error('Build the site first.');
+      if (realSite(found.job)) { if (!found.job.buildLinks.preview) throw new Error('Paste the preview link on the Build kit first.'); }
+      else if (!found.job.site) throw new Error('Build the site first.');
       return found;
     }
-    // The site can change while Build is open, and during Review until it goes to Jax (#219).
+    // Where a comment on the practice site goes: one section, and optionally one item in it.
+    function siteSpot(job, c) {
+      const page = job.site.pages.find(p => p.id === c.pageId);
+      const section = page && page.sections.find(s => s.id === c.sectionId);
+      if (!section) throw new Error('That part of the site isn\'t on this page.');
+      const key = c.key === undefined || c.key === null || c.key === '' ? null : c.key;
+      if (key !== null && !SiteEdit.editableList(job.site, page.id).some(i => i.key === key && i.sectionId === section.id)) throw new Error('That item isn\'t in this section.');
+      return { pageId: page.id, sectionId: section.id, key, where: `${SiteCheck.pageLabel(page)} · ${section.label}` };
+    }
+    // ...and on the real site (#263): a page of the locked bundle, and optionally one of its chapters (one section each).
+    function realSpot(space, job, c) {
+      const page = realPages(space, job).find(p => p.id === c.pageId);
+      if (!page) throw new Error('That page isn\'t on the site.');
+      const whole = c.sectionId === undefined || c.sectionId === null || c.sectionId === '';
+      const section = whole ? null : page.sections.find(s => s.id === c.sectionId);
+      if (!whole && !section) throw new Error('That part of the site isn\'t on this page.');
+      return { pageId: page.id, sectionId: section ? section.id : null, key: null, where: section ? `${page.name} · ${section.name}` : page.name };
+    }
+    // The real site's pages on its preview, from the locked design bundle. A path that isn't a plain one is left out.
+    function realPages(space, job) {
+      const origin = new URL(job.buildLinks.preview).origin;
+      return designView(space, job).bundle.pages.filter(p => /^\/[a-z0-9/-]*$/.test(p.path || '') && !p.path.includes('//'))
+        .map(p => ({ id: p.id, name: p.name || p.path, url: origin + p.path, sections: p.chapters.map((ch, i) => ({ id: ch.id, name: ch.name || `Chapter ${i + 1}` })) }));
+    }
+    // The site can change while Build is open, and during Review until it goes to Jax (#219). The real site changes only
+    // through its pull request (#263).
     function siteJob(spaceId, jobId) {
       const found = websiteJob(spaceId, jobId), open = openStages(found.job);
+      if (realSite(found.job)) throw new Error('This site changes through its pull request.');
       if (!open.includes('build') && !(open.includes('review') && !found.job.waitingOnJax)) throw new Error('The site can only change while Build or Review is open.');
       return found;
     }
@@ -1620,9 +1657,9 @@
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
    * there costs money. Approvals never happen here: Jax approves from Command.
    */
-  function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, board }) {
+  function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, openWindow, board }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
-    local = local || createSampleService({ practice: false });   // nothing made-up in real mode
+    local = local || createSampleService({ practice: false, openWindow });   // nothing made-up in real mode
     const listeners = new Set();
     const emit = (event, detail) => { for (const fn of listeners) { try { fn(event, detail); } catch (_) { /* a listener failed */ } } };
     const enc = encodeURIComponent;
@@ -1899,6 +1936,7 @@
       previewPage: loaded('previewPage'),
       getSiteFiles: loaded('getSiteFiles'),
       getReview: loaded('getReview'),
+      openPreview: loaded('openPreview'),
       addReviewComment: saved('addReviewComment'),
       resolveReviewComment: saved('resolveReviewComment'),
       async finishSite(spaceId, jobId) {
