@@ -70,3 +70,13 @@ test('the QR code: known pattern, finder squares, level M format bits, quiet zon
   assert.equal(Qr.encode('a').size, 21);
   assert.ok(!/[<>"&]/.test(Qr.svg('<script>"&').replace(/<\/?(svg|rect|path)[^>]*>/g, '')), 'text never lands in the SVG');
 });
+
+test('the contact the Print card prints, the same in both services, and the card loads in the app', async () => {
+  const want = { name: 'Breakthrough Ventures', email: 'breakthroughventuresgroup@gmail.com' };
+  assert.deepEqual(await service().getContact(), want);
+  assert.deepEqual(await createServerService({ request: async () => ({ success: true, data: [] }) }).getContact(), want);
+  const c = await service().getContact(); c.email = 'changed';
+  assert.equal((await service().getContact()).email, want.email, 'callers get a copy');
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../src/renderer/studio/studio-app.js'), 'utf8');
+  assert.match(app, /'studio\/tools\/pitch-deck\/print-card\.js'/, 'LANE_FILES loads the Print card tool (#277)');
+});

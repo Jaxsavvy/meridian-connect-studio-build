@@ -123,6 +123,8 @@
       ]),
     }),
   });
+  // Who the client contacts: printed on the Print card (#123). Jax chose email only (2026-10-28); change it here.
+  const CONTACT = Object.freeze({ name: 'Breakthrough Ventures', email: 'breakthroughventuresgroup@gmail.com' });
   const stagesFor = (workflow, tier) => workflow.stages.filter(st => st.tiers.includes(tier));
 
   // Stage notes: what the Brief, Plan and Storyboard stages decided, saved per Job. Plain text only.
@@ -406,6 +408,8 @@
       },
       /** Who stages can be assigned to; pass a workflowId for that workflow's team (Pitch deck: Jax and Tyler). */
       async listPeople(workflowId) { return clone(peopleFor(WORKFLOWS[workflowId])); },
+      /** BV's contact for anything a prospect or client holds, like the Print card: { name, email }. */
+      async getContact() { return { ...CONTACT }; },
       /** Assigns one stage of a Job to a person (or null to unassign). Stages Jax approves always stay with Jax. */
       async assignStage(spaceId, jobId, stageId, personId) {
         requireSpace(spaceId);
@@ -1895,6 +1899,7 @@
       copyToSpace: notOnServerYet,
       savePageAsset: notOnServerYet, // until Team Hub stores pages; Finish still saves them to the project folder
       listPeople: (...a) => local.listPeople(...a),
+      getContact: (...a) => local.getContact(...a),
       assignStage: saved('assignStage'),
       approveAsset: notHere,
       approveStage: notHere,
