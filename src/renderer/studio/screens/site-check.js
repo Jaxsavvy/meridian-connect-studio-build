@@ -5,8 +5,13 @@
   if (root) root.MeridianStudio.registerTool('site-check', { mountCanvas: api.mountCanvas });
 })(typeof window === 'undefined' ? null : window, function () {
   // Website Check screen (#207): what Meridian found on the finished site, grouped by kind; a person explains each flag.
-  const KINDS = Object.freeze({ seo: 'Google basics', accessibility: 'Easy for everyone to use', links: 'Links inside the site',
+  // The real site (#258): its pull request, its preview link and the screenshots Connect takes come first.
+  const KINDS = Object.freeze({ pr: 'The pull request', preview: 'Preview link', 'site-screenshots': 'Desktop and phone screenshots',
+    seo: 'Google basics', accessibility: 'Easy for everyone to use', links: 'Links inside the site',
     'links-open': 'Outside links', speed: 'Speed (estimate)', phone: 'On a phone', 'phone-screenshot': 'On a phone' });
+  // How each kind is answered: the PR is checked on GitHub; the preview flag clears by itself, so it takes no note.
+  const ANSWER = { pr: { label: 'What the checks showed on GitHub', button: 'Mark as checked' } };
+  const SELF_CLEARING = { preview: 'Paste the preview link on the Build kit. This clears by itself.' };
   const kindName = check => KINDS[check] || check;
   /** Flags grouped by kind, in KINDS order (any other kind after): [{ check, name, flags }]. */
   function groups(flags) {
@@ -98,12 +103,15 @@
       li.append(node('strong', f.message), node('span', f.where || '', 'studio-site-check-where'));
       if (f.resolved) {
         li.append(node('span', 'Explained', 'studio-chip'), node('p', `Note: ${f.resolved.note}`));
+      } else if (SELF_CLEARING[f.check]) {
+        li.appendChild(node('p', SELF_CLEARING[f.check], 'studio-site-check-self'));
       } else if (!view.locked) {
+        const words = ANSWER[f.check] || { label: 'Why it\'s OK', button: 'Mark as OK' };
         const label = node('label', '', 'studio-site-check-note'), input = mark(node('input'), `note:${f.id}`);
         input.value = notes[f.id] || ''; input.disabled = view.busy; input.maxLength = 500;
         listen(input, 'input', () => { notes[f.id] = input.value; });
-        label.append(node('span', 'Why it\'s OK'), input);
-        li.append(label, mark(button('Mark as OK', () => void resolve(f, order), { disabled: view.busy, label: `Mark as OK: ${f.message}` }), `ok:${f.id}`));
+        label.append(node('span', words.label), input);
+        li.append(label, mark(button(words.button, () => void resolve(f, order), { disabled: view.busy, label: `${words.button}: ${f.message}` }), `ok:${f.id}`));
       }
       return li;
     }
