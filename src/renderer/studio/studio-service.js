@@ -482,6 +482,9 @@
           const open = reviewOf(job).comments.filter(c => !c.resolved).length;
           if (open) throw new Error(`Review isn't done: ${open} ${open === 1 ? 'comment needs' : 'comments need'} an answer.`);
           if (!realSite(job) && job.siteFilesSaved === false) throw new Error('The site files in the project folder are out of date: save the site again.');
+          if (!practice && realSite(job) && job.checks && job.checks.notRun.includes('site-screenshots')) {   // #267
+            throw new Error('Review isn\'t done: Connect hasn\'t checked the latest preview yet. Save the links on the Build kit again.');
+          }
         }
         if (stage.approver === 'jax') {
           job.waitingOnJax = true; emit('jobs-changed', { spaceId });
@@ -644,7 +647,7 @@
         if (job.stageId === null) throw new Error('This job is finished.');
         if (job.done.includes('build') && !realSite(job)) throw new Error('This Job was built as a practice site, so it can\'t take a real build\'s links.');
         job.buildLinks = { ...BuildPrompt.checkLinks(links, BuildPrompt.repoName(space.name)), at: new Date(now()).toISOString() };
-        if (openStages(job).includes('check')) runRealChecks(space, job);
+        if (rechecking(job)) { runRealChecks(space, job); if (openStages(job).includes('review')) recheckRealInReview(space, job); }
         emit('jobs-changed', { spaceId: space.id });
         return clone(job.buildLinks);
       },
@@ -847,7 +850,10 @@
         if (found.resolved) throw new Error('This comment already has an answer.');
         if (!['fixed', 'keep'].includes(kind)) throw new Error('Answer with fixed or keep.');
         // A real fix answers a check comment by itself on the next save; while it's open, the check still finds the problem.
-        if (found.source === 'check' && kind === 'fixed') throw new Error('The check still finds this: fix it and save the site, or choose Keep as is.');
+        if (found.source === 'check' && kind === 'fixed') {
+          throw new Error(realSite(job) ? 'The check still finds this: fix it in the pull request and save the links again, or choose Keep as is.'
+            : 'The check still finds this: fix it and save the site, or choose Keep as is.');
+        }
         const why = text(note, 'Note', 500);
         if (!why) throw new Error(kind === 'fixed' ? 'Say what changed.' : 'Say why it stays.');
         found.resolved = { kind, note: why, at: new Date(now()).toISOString() };
@@ -879,7 +885,7 @@
        *  { preview, name, pages: [{ path, label }] }; null unless the Job is at Check on the real site with a preview link. */
       async getPreviewPages(spaceId, jobId) {
         const { space, job } = websiteJob(spaceId, jobId);
-        if (!realSite(job) || !job.buildLinks.preview || !openStages(job).includes('check')) return null;
+        if (!realSite(job) || !job.buildLinks.preview || !rechecking(job)) return null;
         return clone({ preview: job.buildLinks.preview, name: job.name,
           pages: designView(space, job).bundle.pages.map(p => ({ path: p.path, label: p.name || p.path })) });
       },
@@ -888,13 +894,14 @@
        *  Once the screenshots are taken, a person compares them with the look frame. */
       addPreviewChecks(spaceId, jobId, result) {
         const { space, job } = websiteJob(spaceId, jobId);
-        if (!realSite(job) || !job.checks || !openStages(job).includes('check') || !result || typeof result !== 'object') return null;
+        if (!realSite(job) || !job.checks || !rechecking(job) || !result || typeof result !== 'object') return null;
         const ran = Array.isArray(result.ran) ? result.ran : [];
         const found = (Array.isArray(result.flags) ? result.flags : []).filter(f => f && PREVIEW_CHECKS.includes(f.check)).slice(0, 80)
           .map(f => ({ check: f.check, message: String(f.message || '').slice(0, 300), where: String(f.where || '').slice(0, 200) }));
-        if (ran.includes('site-screenshots')) found.push({ check: 'look', where: 'Look frame',
+        if (ran.includes('site-screenshots') && openStages(job).includes('check')) found.push({ check: 'look', where: 'Look frame',
           message: `Compare the screenshots of ${job.buildLinks.preview} (in the project folder) with the look frame: say how they match.` });
         storeChecks(space, job, found, { notRun: REAL_NOT_RUN.filter(x => !ran.includes(x)), keep: f => REAL_CHECKS.includes(f.check) });
+        if (openStages(job).includes('review')) recheckRealInReview(space, job);   // during Review, new problems become comments (#267)
         return clone(job.checks.flags.map(flagView));
       },
       /** Finish: saves the site's files to the project folder: { saved, failed }. Then the screen completes Build. */
@@ -1366,7 +1373,16 @@
     // A save during Review runs the checks again: each new problem becomes a Review comment, and an open check comment
     // whose problem is gone answers itself.
     function recheckInReview(space, job) {
-      const flags = runSiteChecks(space, job).flags.filter(f => !f.resolved && !BOARD_CHECKS.includes(f.check));
+      checkComments(space, job, runSiteChecks(space, job).flags.filter(f => !f.resolved && !BOARD_CHECKS.includes(f.check)));
+    }
+    // The real site (#267): the same, from its own checks and Connect's preview check. The look flag isn't asked again,
+    // and the preview flag never becomes a comment. A preview Connect couldn't check keeps its last flags, so nothing
+    // is answered by mistake.
+    function recheckRealInReview(space, job) {
+      checkComments(space, job, job.checks.flags.filter(f => !f.resolved && !['preview', 'look'].includes(f.check)));
+    }
+    // flags: the problems found now. Each new one becomes a Review comment; an open check comment whose problem is gone answers itself.
+    function checkComments(space, job, flags) {
       const review = reviewOf(job), keys = new Set(flags.map(f => f.key)), at = new Date(now()).toISOString();
       for (const c of review.comments) {
         if (c.source === 'check' && !c.resolved && !keys.has(c.flagKey)) c.resolved = { kind: 'fixed', note: 'The automatic check passes now.', at };
@@ -1566,6 +1582,8 @@
     // GitHub, a person confirms the PR's own checks. The preview link must be there: the screenshots and Review need it.
     function realSite(job) { return job.workflowId === 'website' && !!(job.buildLinks && job.buildLinks.pr); }
     function websiteChecks(space, job) { return realSite(job) ? runRealChecks(space, job) : runSiteChecks(space, job); }
+    // The real site is checked again while Check is open, and during Review until it goes to Jax (#267).
+    function rechecking(job) { const open = openStages(job); return open.includes('check') || (open.includes('review') && !job.waitingOnJax); }
     function runRealChecks(space, job) {
       const { pr, preview } = job.buildLinks, found = [{ check: 'pr', where: 'Pull request',
         message: `Meridian can't read the pull request's checks yet: open ${pr} and confirm they passed (build and size budget).` }];
@@ -1879,7 +1897,8 @@
       getBuildKit: loaded('getBuildKit'),
       async setBuildLinks(spaceId, jobId, links) {   // while Check is open, a new preview link is checked again (#260)
         const out = await saved('setBuildLinks')(spaceId, jobId, links);
-        if ((await local.getJob(spaceId, jobId)).stageId === 'check') { await previewChecks(spaceId, jobId); await saveJobs(spaceId, 'website'); }
+        const job = await local.getJob(spaceId, jobId);   // Check, or Review before it goes to Jax (#267)
+        if (job.stageId === 'check' || (job.stageId === 'review' && !job.waitingOnJax)) { await previewChecks(spaceId, jobId); await saveJobs(spaceId, 'website'); }
         return out;
       },
       async saveBuildKit(spaceId, jobId) {   // Connect writes the files; the Job remembers which design version went out (#246)
