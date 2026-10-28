@@ -1673,7 +1673,8 @@
    * request(method, endpoint, body) -> { success, data } | { success:false, status, error, code, uncertain }.
    * Spaces, presets, assets, image making, Review and version history are real. Workflows, Jobs and
    * stage notes still run locally (the `local` sample service) until the server has them; nothing
-   * there costs money. Approvals never happen here: Jax approves from Command.
+   * there costs money. Approvals never happen here: Jax approves from Review in Connect (#273); a stage he approved
+   * there moves on here, with the usual stage rules, the next time the project's Jobs are listed.
    */
   function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, openWindow, board }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
@@ -1696,7 +1697,7 @@
     // Same input -> same id, so a retry is recognised by the server and never paid twice.
     const safeRequestId = id => String(id || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(-128) || `r-${Date.now().toString(36)}`;
     const notOnServerYet = () => { throw new Error('Coming soon with the real server.'); };
-    const notHere = () => { throw new Error('Only Jax approves, from Command.'); };
+    const notHere = () => { throw new Error('Only Jax approves, from Review in Connect.'); };
 
     // Pitch deck (#171) and Website (#226) Jobs live in each client project's folder (Docs) until the server has Jobs (#120),
     // so they survive a restart and everyone sees the same Job. One file per workflow, each with a revision number that stops
@@ -1739,6 +1740,21 @@
         if (entry.dirty) continue;
         const remote = await readSaved(spaceId, kind);
         if (remote.revision > entry.revision) { entry.revision = remote.revision; local.importJobs(spaceId, remote.jobs, kind); }
+      }
+      await applyApprovals(spaceId);
+    }
+    // Stages Jax approved on Review in Connect (#273). Team Hub keeps his approvals and only he can add one; the Job moves on
+    // here with the same rules as anywhere else, and the change is saved like any other. If someone saved first, their
+    // version is loaded and the approval applies again next time.
+    async function applyApprovals(spaceId) {
+      let approvals = [];
+      try { approvals = await call('GET', `/api/studio/spaces/${enc(spaceId)}/stage-approvals`); } catch (_) { return; }
+      for (const a of Array.isArray(approvals) ? approvals : []) {
+        let job = null;
+        try { job = await local.getJob(spaceId, a && a.jobId); } catch (_) { continue; }
+        if (!job.waitingOnJax || job.stageId !== a.stageId || !SAVE_FILES[job.workflowId]) continue;
+        await local.approveStage(spaceId, job.id);
+        try { await saveJobs(spaceId, job.workflowId); } catch (_) { /* applied again next time */ }
       }
     }
     async function saveJobs(spaceId, kind = 'pitch-deck') {
