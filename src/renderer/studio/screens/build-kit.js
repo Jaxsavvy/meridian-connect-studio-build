@@ -5,6 +5,7 @@
   if (root) root.MeridianStudio.registerTool('build-kit', { mountCanvas: api.mountCanvas });
 })(typeof window === 'undefined' ? null : window, function () {
   // Build kit screen (#248): what Claude Code needs to build the client's site from the approved design. Never publishes.
+  // Site links (#254): the site's PR and Cloudflare Pages preview, pasted back into the Job once it's built.
   const NOT_YET = 'The build kit is ready once the client approves the design at Design lock.';
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
@@ -44,6 +45,16 @@
           await load(); return !result.failed.length;
         } catch (error) { if (!disposed) { busy = false; show(error?.message || 'The build kit could not be saved. Try again.'); } return false; }
       },
+      /** Saves the site's PR link and preview link; the service checks both and nothing changes when it refuses. */
+      async saveLinks({ pr, preview }) {
+        if (disposed || busy || !kit) return false;
+        busy = true; show();
+        try {
+          await service.setBuildLinks(spaceId, jobId, { pr: String(pr || '').trim(), preview: String(preview || '').trim() });
+          if (disposed) return false;
+          busy = false; await load(); return true;
+        } catch (error) { if (!disposed) { busy = false; show(error?.message || 'The links could not be saved. Try again.'); } return false; }
+      },
       dispose() { disposed = true; revision++; },
     };
   }
@@ -54,7 +65,7 @@
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const clipboard = ctx.clipboard || win?.navigator?.clipboard;
     const focus = states.focus(root), marked = new Map();
-    let listeners = [], disposed = false;
+    let listeners = [], disposed = false, typed = null;   // typed: the links being edited, kept across redraws
     const listen = (item, type, fn) => { item.addEventListener(type, fn); listeners.push([item, type, fn]); };
     const unlisten = () => { for (const [item, type, fn] of listeners) item.removeEventListener?.(type, fn); listeners = []; };
     function node(tag, text, className) {
@@ -88,6 +99,39 @@
       }, { focus: 'copy' }), status);
       return part('The prompt', box, tools, node('p', 'Paste this into Claude Code to build the site. It never publishes; Jax decides when a site goes live.', 'studio-build-kit-help'));
     }
+    async function copy(text, status) {
+      try {
+        if (typeof clipboard?.writeText !== 'function') throw Error('No clipboard');
+        await clipboard.writeText(text); if (!disposed) status.textContent = 'Copied';
+      } catch (_) { if (!disposed) status.textContent = 'Couldn\'t copy. Select the link and copy it.'; }
+    }
+    // The site's links, plain text only (never <a>): a click must not take Connect away from Studio.
+    function siteLinks(view) {
+      const saved = view.kit.links || null;
+      if (!typed) typed = { pr: saved?.pr || '', preview: saved?.preview || '' };
+      const field = (key, name, hint) => {
+        const label = node('label', '', 'studio-build-kit-field'), input = mark(node('input'), `link-${key}`);
+        input.type = 'url'; input.value = typed[key]; input.disabled = view.busy; input.maxLength = 300;
+        listen(input, 'input', () => { typed[key] = input.value; });
+        label.append(node('span', name), input, node('span', hint, 'studio-build-kit-help')); return label;
+      };
+      const kids = [field('pr', 'Pull request link', `For example https://github.com/Jaxsavvy/${view.kit.repo || 'site-name'}/pull/1`),
+        field('preview', 'Preview link (optional)', 'The Cloudflare Pages preview, ending in .pages.dev'),
+        button(view.busy ? 'Saving…' : 'Save links', async () => { if (await model.saveLinks(typed)) typed = null; marked.get('save-links')?.focus?.(); },
+          { focus: 'save-links', disabled: view.busy })];
+      if (saved?.pr) {
+        const list = node('ul', '', 'studio-build-kit-links');
+        for (const [name, url] of [['Pull request', saved.pr], ['Preview', saved.preview]]) {
+          if (!url) continue;
+          const li = node('li'), status = node('span', '', 'studio-build-kit-status'); status.setAttribute('role', 'status');
+          const copyBtn = button('Copy link', () => void copy(url, status)); copyBtn.setAttribute('aria-label', `Copy ${name.toLowerCase()} link`);
+          li.append(node('span', `${name}: `), node('span', url, 'studio-build-kit-code'), copyBtn, status); list.appendChild(li);
+        }
+        const when = new Date(saved.at);
+        kids.push(node('h4', 'Saved links'), list, node('p', `Saved ${Number.isNaN(when.getTime()) ? '' : when.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`.trim(), 'studio-build-kit-help'));
+      }
+      return part('Site links', ...kids);
+    }
     function saving(view) {
       const kids = [node('p', `Saves ${plural((view.kit.files || []).length, 'file', 'files')} (the site bundle and the build prompt). Saving again replaces them.`),
         button(view.busy ? 'Saving…' : 'Save to the project folder', async () => { await model.save(); marked.get('save')?.focus?.(); }, { primary: true, focus: 'save', disabled: view.busy })];
@@ -113,7 +157,7 @@
         status.setAttribute('role', 'status');
         const parts = [title, status];
         if (view.error) { const e = node('p', view.error); e.setAttribute('role', 'alert'); parts.push(e); }
-        parts.push(summary(view.kit), prompt(view.kit), saving(view));
+        parts.push(summary(view.kit), prompt(view.kit), siteLinks(view), saving(view));
         root.replaceChildren(...parts);
         const keep = want && marked.get(want);
         if (keep && !keep.disabled) keep.focus?.(); else restore();

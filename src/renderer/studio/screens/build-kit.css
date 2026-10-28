@@ -11,3 +11,9 @@
 .studio-build-kit-help { color: var(--studio-muted); }
 .studio-build-kit-part > button { justify-self: start; }
 .studio-build-kit :is(button, pre):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-build-kit-field { display: grid; gap: .3rem; }
+.studio-build-kit-field input { min-height: 2.25rem; padding-inline: .5rem; min-width: 0; }
+.studio-build-kit-links { display: grid; gap: .5rem; }
+.studio-build-kit-links li { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; }
+.studio-build-kit-part > h4 { margin-block-start: .4rem; }
+.studio-build-kit input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
