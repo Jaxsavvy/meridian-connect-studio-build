@@ -54,6 +54,9 @@ test('the preview flag clears only with the link; a new PR link needs confirming
   assert.equal((await s.runChecks(ID, job.id)).length, 1, 'running again finds the same flag');
   await s.resolveFlag(ID, job.id, fresh[0].id, 'Green after the fix.');
   assert.equal((await s.getChecks(ID, job.id)).log.length, 2);
+  await assert.rejects(s.completeStage(ID, job.id), /Connect hasn't checked the preview yet/);   // real sign-in (#260)
+  const [look] = s.addPreviewChecks(ID, job.id, { flags: [], ran: ['site-screenshots', 'links-open'] });
+  await s.resolveFlag(ID, job.id, look.id, 'Matches the look frame.');
   assert.equal((await s.completeStage(ID, job.id)).stageId, 'review');
 });
 

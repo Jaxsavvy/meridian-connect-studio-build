@@ -175,7 +175,7 @@
       const next = on && typeof bridge === 'function'
         ? (serverService = serverService || window.MeridianStudioService.createServerService({ request: bridge,
           saveFile: window.meridian.api.studioSaveFile, readSave: window.meridian.api.studioReadSave,
-          checkBoard: window.meridian.api.studioCheckBoard }))
+          checkBoard: window.meridian.api.studioCheckBoard, checkPreview: window.meridian.api.studioCheckPreview }))
         : sampleService;
       if (next === service) return service.mode;
       runCleanups(); dirtyOwners.clear();
