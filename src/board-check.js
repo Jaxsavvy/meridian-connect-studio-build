@@ -42,6 +42,17 @@ async function linkFlags(links, fetchFn, { timeoutMs = 8000 } = {}) {
   return results.filter(Boolean).map(l => ({ check: 'links-open', message: `This link doesn't open: ${l.url}`, where: l.where }));
 }
 
+/** Runs work(), giving up with "slow" after ms (#270): a hidden window that never paints a frame would otherwise
+ *  leave a screenshot waiting forever. The timer is cleared either way. */
+async function timed(work, ms) {
+  let timer = null;
+  try {
+    return await Promise.race([work(), new Promise((_, fail) => { timer = setTimeout(() => fail(new Error('slow')), ms); })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Flags from the board's size at phone width (Chromium's Page.getLayoutMetrics). */
 function phoneFlags(metrics) {
   const size = (metrics && (metrics.cssContentSize || metrics.contentSize)) || {};
@@ -51,4 +62,4 @@ function phoneFlags(metrics) {
     : [];
 }
 
-module.exports = { PHONE, MAX_LINKS, checkRequest, linkFlags, phoneFlags };
+module.exports = { PHONE, MAX_LINKS, checkRequest, linkFlags, phoneFlags, timed };

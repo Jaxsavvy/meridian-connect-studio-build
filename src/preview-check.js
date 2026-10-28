@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { PHONE, MAX_LINKS, linkFlags, phoneFlags } = require('./board-check');
+const { PHONE, MAX_LINKS, linkFlags, phoneFlags, timed } = require('./board-check');
 
 const SIZES = Object.freeze([Object.freeze({ id: 'desktop', label: 'on desktop', width: 1440, height: 900 }),
   Object.freeze({ id: 'phone', label: 'on a phone', width: PHONE.width, height: PHONE.height })]);
@@ -99,7 +99,7 @@ function makeCapture({ BrowserWindow, ses, origin, timeoutMs = 30000, settleMs =
   return async function capture(url, size) {
     const win = new BrowserWindow({ show: false, width: size.width, height: size.height, useContentSize: true,
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, session: ses } });
-    let status = 0, timer = null;
+    let status = 0;
     const stay = (ev, to) => { if (!sameOrigin(to, origin)) ev.preventDefault(); };
     win.webContents.on('will-navigate', stay);
     win.webContents.on('will-redirect', stay);
@@ -120,9 +120,8 @@ function makeCapture({ BrowserWindow, ses, origin, timeoutMs = 30000, settleMs =
       return { status, metrics, said, png: Buffer.from(shot.data, 'base64') };
     }
     try {   // the whole read is timed: a page that never finishes can't hold up Check
-      return await Promise.race([read(), new Promise((_, fail) => { timer = setTimeout(() => fail(new Error('slow')), timeoutMs); })]);
+      return await timed(read, timeoutMs);
     } finally {
-      clearTimeout(timer);
       if (!win.isDestroyed()) win.destroy();
     }
   };

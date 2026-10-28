@@ -2,7 +2,7 @@
 // Core: Auto check part 2 (#131), the main-process helpers for the phone-width board check and the link check.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { PHONE, MAX_LINKS, checkRequest, linkFlags, phoneFlags } = require('../../src/board-check.js');
+const { PHONE, MAX_LINKS, checkRequest, linkFlags, phoneFlags, timed } = require('../../src/board-check.js');
 
 const BOARD = '<!doctype html><html><body>Board</body></html>';
 const ok = extra => ({ projectId: 'sample-home', html: BOARD, fileName: 'Pitch deck v1 - Board on a phone.png', links: [], ...extra });
@@ -44,4 +44,12 @@ test('the phone check flags a board wider than the phone screen', () => {
   const [flag] = phoneFlags({ contentSize: { width: 520 } });
   assert.equal(flag.check, 'phone'); assert.match(flag.message, /520px wide on a 390px screen/);
   assert.deepEqual(phoneFlags(null), []);
+});
+
+test('timed: the result or error of the work, or "slow" when it never finishes; no timer left running (#270)', async () => {
+  const started = Date.now();
+  assert.equal(await timed(async () => 'shot', 60000), 'shot');
+  await assert.rejects(timed(async () => { throw new Error('ERR_ABORTED'); }, 60000), /ERR_ABORTED/);
+  await assert.rejects(timed(() => new Promise(() => {}), 20), /slow/);
+  assert.ok(Date.now() - started < 5000, 'the 60-second timers were cleared, not waited out');
 });
