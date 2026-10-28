@@ -87,3 +87,25 @@ test('reloads on project-files-changed for this Space; cleanup removes listeners
   assert.equal(text(el), shown); assert.ok(controls.every(n => !n.events.click));
   const before = reads; await s.service.saveBuildKit(s.job.spaceId, s.job.id); await settle(); assert.equal(reads, before);
 });
+
+test('site links: a refused link alerts and saves nothing; good links save, show as text with Copy link (#254)', async () => {
+  const s = await atLock(), copied = [], { el, cleanup } = await mount(s, { clipboard: { writeText: async t => { copied.push(t); } } });
+  const repo = (await s.service.getBuildKit(s.job.spaceId, s.job.id)).repo;
+  const field = id => walk(el).find(n => n.attrs['data-focus'] === `link-${id}`);
+  const type = (id, v) => { field(id).value = v; field(id).events.input(); };
+  assert.ok(walk(part(el, 'Site links')).filter(n => n.tag === 'label').map(text).some(t => t.startsWith('Pull request link')));
+  type('pr', 'https://github.com/someone-else/site/pull/1'); btn(el, 'Save links').click(); await settle();
+  assert.equal(alerts(el).length, 1); assert.match(alerts(el)[0], /Paste the pull request link/);
+  assert.equal((await s.service.getBuildKit(s.job.spaceId, s.job.id)).links, null);
+  assert.equal(field('pr').value, 'https://github.com/someone-else/site/pull/1');   // what was typed stays to fix
+  const pr = `https://github.com/Jaxsavvy/${repo}/pull/1`, preview = 'https://abc123.site-sample.pages.dev';
+  type('pr', pr); type('preview', preview); btn(el, 'Save links').click(); await settle();
+  const links = (await s.service.getBuildKit(s.job.spaceId, s.job.id)).links;
+  assert.equal(links.pr, pr); assert.equal(links.preview, preview); assert.deepEqual(alerts(el), []);
+  assert.match(text(part(el, 'Site links')), new RegExp(`Saved linksPull request: ${pr.replace(/[.]/g, '\\.')}Copy link`));
+  assert.match(text(part(el, 'Site links')), /Saved [A-Z][a-z]{2} \d/);
+  assert.equal(field('pr').value, pr); assert.equal(walk(el).some(n => n.tag === 'a'), false);
+  walk(el).find(n => n.tag === 'button' && n.attrs['aria-label'] === 'Copy preview link').click(); await settle();
+  assert.deepEqual(copied, [preview]); assert.match(text(part(el, 'Site links')), /Copied/);
+  cleanup();
+});
