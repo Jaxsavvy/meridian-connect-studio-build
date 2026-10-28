@@ -1,6 +1,6 @@
 /* Build runner, part 1 (#246): the prompt that has Claude Code build a client's site from the house starter kit and the
  * bundle the client approved at Design lock (Website Build Pipeline: One System, step 7). Until the server runs it,
- * someone pastes it into Claude Code. Core lane, pure: repoName() and buildPrompt(). */
+ * someone pastes it into Claude Code. Core lane, pure: repoName(), buildPrompt() and checkLinks() (#252). */
 'use strict';
 
 (function (root, factory) {
@@ -37,5 +37,24 @@
     ].join('\n');
   }
 
-  return Object.freeze({ KIT, repoName, buildPrompt });
+  /** Part 2 (#252): a build's links. pr: a pull request in the client's repo; preview: an https://….pages.dev link
+   *  (Cloudflare Pages), or empty until Cloudflare is connected. Throws a plain message on anything else. */
+  function checkLinks(links, repo) {
+    const l = links && typeof links === 'object' ? links : {};
+    const pr = typeof l.pr === 'string' ? l.pr.trim().replace(/\/$/, '') : '';
+    const preview = typeof l.preview === 'string' ? l.preview.trim() : '';
+    if (!new RegExp(`^https://github\\.com/${OWNER}/${repo}/pull/[1-9][0-9]{0,6}$`).test(pr)) {
+      throw new Error(`Paste the pull request link from ${OWNER}/${repo}, like https://github.com/${OWNER}/${repo}/pull/1.`);
+    }
+    if (preview) {
+      let url = null;
+      try { url = new URL(preview); } catch (_) { /* refused below */ }
+      if (!url || url.protocol !== 'https:' || url.username || url.password || !/(^|\.)pages\.dev$/.test(url.hostname) || preview.length > 300) {
+        throw new Error('The preview link must be an https://….pages.dev link from Cloudflare Pages.');
+      }
+    }
+    return { pr, preview };
+  }
+
+  return Object.freeze({ KIT, repoName, buildPrompt, checkLinks });
 });

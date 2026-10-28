@@ -196,7 +196,7 @@
   const OLDER_TEMPLATES = Object.freeze({ website: Object.freeze({ 2: st => !['concept', 'lock'].includes(st.id), 3: st => st.id !== 'lock' }) });   // v2: no Concept (#229); v3: no Design lock (#238)
   const SAVED_FIELDS = Object.freeze({
     'pitch-deck': Object.freeze([...COMMON_FIELDS, 'deck', 'evidence', 'research']),
-    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'design', 'buildKit', 'site', 'review', 'siteFilesSaved']),
+    website: Object.freeze([...COMMON_FIELDS, 'notes', 'concept', 'story', 'storyboard', 'look', 'design', 'buildKit', 'buildLinks', 'site', 'review', 'siteFilesSaved']),
   });
 
   function sampleImage(label, hue) {
@@ -307,7 +307,7 @@
         stageIds: Object.freeze(stages.map(st => st.id)), stageDefs: Object.freeze(stages), templateVersion: workflow.version || 1,
         done: [], stageId: stages[0].id, waitingOnJax: false, notes: {}, needs: {}, assignees: {}, timing: {}, locked: false, template: null,
         deck: null, evidence: [], research: null, checks: null, checkLog: [], // Pitch deck only (#119, #125, #131)
-        story: null, look: null, review: null, concept: null, storyboard: null, design: null, buildKit: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231), design lock (#238), build kit (#246)
+        story: null, look: null, review: null, concept: null, storyboard: null, design: null, buildKit: null, buildLinks: null, ...extra }; // Website only: chapter cards (#186), look frames (#202), review (#216), concept (#229), storyboard frames (#231), design lock (#238), build kit (#246, #252)
       stampOpened(job);
       spaceJobs(space.id).push(job);
       return job;
@@ -623,6 +623,15 @@
         const out = await saveProjectFiles(space.id, job.id, buildKitOf(space, job).files);
         self.markBuildKit(space.id, job.id, out);
         return out;
+      },
+      /** Part 2 (#252): the client site's PR link and preview link, from the build on Jax's PC. Once Design lock is done. */
+      async setBuildLinks(spaceId, jobId, links) {
+        const { space, job } = websiteJob(spaceId, jobId);
+        if (!job.done.includes('lock') || !job.design || !job.design.sent) throw new Error('Build links come after the client approves the design at Design lock.');
+        if (job.stageId === null) throw new Error('This job is finished.');
+        job.buildLinks = { ...BuildPrompt.checkLinks(links, BuildPrompt.repoName(space.name)), at: new Date(now()).toISOString() };
+        emit('jobs-changed', { spaceId: space.id });
+        return clone(job.buildLinks);
       },
       /** Core only: how saving the build kit went (real sign-in saves it through Connect). Records the design version on success. */
       markBuildKit(spaceId, jobId, result) {
@@ -1256,7 +1265,8 @@
         sent: { version: sent.version, at: str(sent.at, 40), dna: { colors: strs(dnaIn.colors, 10), fonts: strs(dnaIn.fonts, 4) } },
         history: entries(dz.history).map(h => (answerOf(h) ? { version: Number.isInteger(h.version) ? h.version : 0, ...answerOf(h) } : null)).filter(Boolean) } : null;
       const bk = obj(s.buildKit), buildKit = Number.isInteger(bk.version) && bk.version > 0 ? { version: bk.version, at: str(bk.at, 40) } : null;
-      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, design, buildKit, site, review: comments.length ? { comments } : null,
+      const bl = obj(s.buildLinks), buildLinks = tryOr(() => ({ ...BuildPrompt.checkLinks(bl, BuildPrompt.repoName(space.name)), at: str(bl.at, 40) }), null);
+      return { ...common, notes, locked: false, template: null, concept, story, storyboard, look, design, buildKit, buildLinks, site, review: comments.length ? { comments } : null,
         ...(typeof s.siteFilesSaved === 'boolean' ? { siteFilesSaved: s.siteFilesSaved } : {}) };
     }
 
@@ -1406,7 +1416,7 @@
       const images = bundle.assets.map(id => ({ id, name: ((spaceAssets(space.id).find(a => a.id === id) || {}).name) || '', use: uses[id] || '' }));
       const design = { version: view.sent.version, approvedAt: view.answer ? view.answer.at : '', approvedBy: view.answer ? view.answer.by : '' };
       const prompt = BuildPrompt.buildPrompt(bundle, { bundleFile: `${job.name} - site bundle.json`, images, version: design.version });
-      return { repo: BuildPrompt.repoName(space.name), bundle, images, prompt, saved: job.buildKit || null,
+      return { repo: BuildPrompt.repoName(space.name), bundle, images, prompt, saved: job.buildKit || null, links: job.buildLinks || null,
         files: [{ name: 'site bundle.json', content: `${JSON.stringify({ ...bundle, design, images }, null, 2)}\n` }, { name: 'build prompt.md', content: `${prompt}\n` }] };
     }
     // Jax approving Design lock means the client said yes (through the link, or to Jax himself); it's recorded as his.
@@ -1771,6 +1781,7 @@
       getStageNotes: loaded('getStageNotes'),
       // Website Jobs are saved to the project folder after every change (#226), like pitch decks.
       getBuildKit: loaded('getBuildKit'),
+      setBuildLinks: saved('setBuildLinks'),
       async saveBuildKit(spaceId, jobId) {   // Connect writes the files; the Job remembers which design version went out (#246)
         await loadSaved(spaceId);
         const kit = await local.getBuildKit(spaceId, jobId);
