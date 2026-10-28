@@ -92,7 +92,7 @@
         STAGE('look', 'Look and assets', 'Make every shot on the cards and set the style numbers.', ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'], ['Every shot kept', 'Style numbers set'], 'Every shot on every card is kept'),
         STAGE('motion', 'Motion test', 'Cinematic only: try the key motion and video moments on a real phone before the build.', ['video'], ['Motion tried on a phone', 'Video loops kept'], 'Smooth on a real phone, not distracting', 'team', ['cinematic']),
         STAGE('lock', 'Design lock', 'One bundle: concept, cards, storyboard, chosen look, assets and style numbers. Jax sends it to the client, who approves the design.', ['design-lock'], ['Bundle checked', 'Sent to the client', 'Client approved'], 'The client approves the design', 'jax'),
-        STAGE('build', 'Build', 'Meridian assembles the site from the cards, style numbers and section library.', ['website', 'build-kit'], ['Every page renders'], 'Runs on desktop and phone'),
+        STAGE('build', 'Build', 'Claude Code builds the site from the build kit and opens a pull request; paste its links on the Build kit.', ['website', 'build-kit'], ['Pull request link', 'Preview link'], 'The pull request builds, and the preview opens on desktop and phone'),
         STAGE('check', 'Check', 'Automatic: links, phone layout, speed, accessibility, SEO tags, forms.', ['site-check'], ['Phone', 'Speed', 'Links', 'Accessibility', 'SEO tags'], 'All pass, or each failure explained'),
         STAGE('review', 'Review', 'One round: team, then Jax, then the client link. Every comment at once.', ['site-review', 'website'], ['Share link for Jax', 'Client link'], 'Jax and the client approve', 'jax'),
         STAGE('launch', 'Launch', 'Publish on Cloudflare Pages, connect the domain, GA4 and Search Console.', [], ['Domain ready', 'GA4 and Search Console'], 'Live and verified', 'jax'),
@@ -152,6 +152,8 @@
   const NOT_BOARD_TEXT = Object.freeze(['prefix', 'url', 'placeId', 'desktopAsset', 'phoneAsset']);
   const CHECKS_NOT_RUN = Object.freeze(['phone-screenshot', 'links-open']);   // run by Connect on the finished board (#131 part 2)
   const BOARD_CHECKS = Object.freeze(['phone', 'links-open']);   // flag kinds those two checks add
+  const REAL_NOT_RUN = Object.freeze(['site-screenshots']);   // the real site (#256): desktop and phone screenshots of the preview, next part
+  const NOT_RUN_KINDS = Object.freeze([...CHECKS_NOT_RUN, ...REAL_NOT_RUN]);
   const CHECKED = Object.freeze(['pitch-deck', 'website']);      // workflows with an automatic Check stage (#131, #206)
   // Every link on the board, with the deck field it's in, for the live link check.
   const deckLinks = deck => deckText(deck).filter(([, key, value]) => key === 'url' && value).map(([where, , url]) => ({ url, where }));
@@ -465,7 +467,10 @@
             dna: { colors: [...(dna.colors || [])], fonts: [...(dna.fonts || [])] } } };
           emit('design-changed', { spaceId: space.id, jobId: job.id });
         }
-        if (job.workflowId === 'website' && target === 'build' && !job.site) throw new Error('Build the site first: start it from the chapter cards.');
+        // Build finishes on the real site's PR link (#256); the practice site from the cards still works until a real build exists.
+        if (job.workflowId === 'website' && target === 'build' && !realSite(job) && !job.site) {
+          throw new Error('Build the site first: paste its pull request link on the Build kit, or start the practice site from the chapter cards.');
+        }
         if (job.workflowId === 'website' && target === 'review') {
           const open = reviewOf(job).comments.filter(c => !c.resolved).length;
           if (open) throw new Error(`Review isn't done: ${open} ${open === 1 ? 'comment needs' : 'comments need'} an answer.`);
@@ -479,7 +484,7 @@
         }
         advance(job, target);
         if (job.workflowId === 'pitch-deck' && target === 'assemble') runDeckChecks(space, job);   // Auto check runs by itself
-        if (job.workflowId === 'website' && target === 'build') runSiteChecks(space, job);         // so does the site Check
+        if (job.workflowId === 'website' && target === 'build') websiteChecks(space, job);         // so does the site Check
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -624,12 +629,15 @@
         self.markBuildKit(space.id, job.id, out);
         return out;
       },
-      /** Part 2 (#252): the client site's PR link and preview link, from the build on Jax's PC. Once Design lock is done. */
+      /** Part 2 (#252): the client site's PR link and preview link, from the build on Jax's PC. Once Design lock is done.
+       *  A Job that finished Build on the practice site never takes them (#256); while Check is open, its checks run again. */
       async setBuildLinks(spaceId, jobId, links) {
         const { space, job } = websiteJob(spaceId, jobId);
         if (!job.done.includes('lock') || !job.design || !job.design.sent) throw new Error('Build links come after the client approves the design at Design lock.');
         if (job.stageId === null) throw new Error('This job is finished.');
+        if (job.done.includes('build') && !realSite(job)) throw new Error('This Job was built as a practice site, so it can\'t take a real build\'s links.');
         job.buildLinks = { ...BuildPrompt.checkLinks(links, BuildPrompt.repoName(space.name)), at: new Date(now()).toISOString() };
+        if (openStages(job).includes('check')) runRealChecks(space, job);
         emit('jobs-changed', { spaceId: space.id });
         return clone(job.buildLinks);
       },
@@ -1014,7 +1022,7 @@
       async runChecks(spaceId, jobId) {
         const { space, job } = checkedJob(spaceId, jobId);
         if (job.done.includes('check')) throw new Error('Auto check is finished.');
-        return clone((job.workflowId === 'website' ? runSiteChecks(space, job) : runDeckChecks(space, job)).flags.map(flagView));
+        return clone((job.workflowId === 'website' ? websiteChecks(space, job) : runDeckChecks(space, job)).flags.map(flagView));
       },
       /** The last Auto check: { ranAt, flags, notRun, log } (log: every flag a person resolved, with their note). */
       async getChecks(spaceId, jobId) {
@@ -1026,7 +1034,7 @@
        *  board flags; one a person resolved stays resolved when the same thing is found again. */
       addBoardChecks(spaceId, jobId, result) {
         const { space, job } = checkedJob(spaceId, jobId);
-        if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object') return null;
+        if (!job.checks || job.done.includes('check') || !result || typeof result !== 'object' || realSite(job)) return null;
         const ran = (Array.isArray(result.ran) ? result.ran : []).filter(x => CHECKS_NOT_RUN.includes(x));
         const before = new Map(job.checks.flags.map(f => [f.key, f]));
         const fresh = (Array.isArray(result.flags) ? result.flags : []).filter(f => f && BOARD_CHECKS.includes(f.check)).slice(0, 50).map(f => {
@@ -1046,6 +1054,7 @@
         const flag = job.checks && job.checks.flags.find(f => f.id === flagId);
         if (!flag) throw new Error('Flag not found.');
         if (flag.resolved) throw new Error('This flag is already resolved.');
+        if (flag.check === 'preview') throw new Error('Paste the preview link on the Build kit; this flag clears by itself.');
         const why = text(note, 'Note', 500);
         if (!why) throw new Error('Say why this is OK.');
         const at = new Date(now()).toISOString();
@@ -1223,7 +1232,7 @@
         stageIds: Object.freeze(ids), stageDefs: Object.freeze(stages), templateVersion: s.templateVersion, done, stageId,
         waitingOnJax: !!s.waitingOnJax && stageId !== null && stages.find(st => st.id === stageId).approver === 'jax', needs, assignees, timing,
         checks: Array.isArray(c.flags) ? { ranAt: str(c.ranAt, 40), flags: entries(c.flags).map(flag),
-          notRun: Array.isArray(c.notRun) ? CHECKS_NOT_RUN.filter(x => c.notRun.includes(x)) : CHECKS_NOT_RUN } : null,
+          notRun: Array.isArray(c.notRun) ? NOT_RUN_KINDS.filter(x => c.notRun.includes(x)) : CHECKS_NOT_RUN } : null,
         checkLog: entries(s.checkLog).map(x => ({ at: str(x.at, 40), flagId: str(x.flagId, 40), check: str(x.check, 40), where: str(x.where, 200),
           message: str(x.message), note: str(x.note) })),
         deck: null, evidence: [], research: null, story: null, look: null, review: null };
@@ -1489,10 +1498,20 @@
       const sizes = Object.fromEntries(job.site.pages.map(p => [p.id, new TextEncoder().encode(Engine.renderPage(job.site, p.id, { assets })).length]));
       return storeChecks(space, job, SiteCheck.checkSite(job.site, { sizes }));
     }
-    function storeChecks(space, job, found) {
+    // The real site (#256): Claude Code built it from the build kit, and the Job has its PR link. Until the server reads
+    // GitHub, a person confirms the PR's own checks. The preview link must be there: the screenshots and Review need it.
+    function realSite(job) { return job.workflowId === 'website' && !!(job.buildLinks && job.buildLinks.pr); }
+    function websiteChecks(space, job) { return realSite(job) ? runRealChecks(space, job) : runSiteChecks(space, job); }
+    function runRealChecks(space, job) {
+      const { pr, preview } = job.buildLinks, found = [{ check: 'pr', where: 'Pull request',
+        message: `Meridian can't read the pull request's checks yet: open ${pr} and confirm they passed (build and size budget).` }];
+      if (!preview) found.push({ check: 'preview', where: 'Preview link', message: 'Paste the preview link from Cloudflare Pages on the Build kit.' });
+      return storeChecks(space, job, found, REAL_NOT_RUN);
+    }
+    function storeChecks(space, job, found, notRun) {
       const last = job.checks || { flags: [], notRun: CHECKS_NOT_RUN };
       const before = new Map(last.flags.map(f => [f.key, f]));
-      job.checks = { ranAt: new Date(now()).toISOString(), notRun: last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
+      job.checks = { ranAt: new Date(now()).toISOString(), notRun: notRun || last.notRun || CHECKS_NOT_RUN, flags: [...found.map(f => {
         const key = `${f.check}|${f.where}|${f.message}`;
         return before.get(key) || { id: nextId('flag'), key, ...f, resolved: null };
       }), ...last.flags.filter(f => BOARD_CHECKS.includes(f.check))] };
@@ -1540,6 +1559,7 @@
       return { id: job.id, spaceId: job.spaceId, workflowId: job.workflowId, tier: job.tier, name: job.name,
         stageId: job.stageId, openStageIds: open, waitingOnJax: job.waitingOnJax, finished: job.stageId === null,
         locked: !!job.locked, template: job.template || null, templateVersion: job.templateVersion,
+        ...(job.workflowId === 'website' ? { realSite: realSite(job) } : {}),
         stages: job.stageDefs.map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
           assignee: st.approver === 'jax' ? 'jax' : (job.assignees[st.id] || null), timing: timingView(job.timing[st.id]),
           hasNotes: !!job.notes[st.id], status: job.done.includes(st.id) ? 'done'
@@ -1772,7 +1792,7 @@
           await saveJobs(spaceId);
         }
         if (out && out.workflowId === 'website') {
-          if (out.stageId === 'check') await siteBoardChecks(spaceId, jobId);   // Build just finished
+          if (out.stageId === 'check' && !out.realSite) await siteBoardChecks(spaceId, jobId);   // Build just finished on the practice site
           await saveJobs(spaceId, 'website');
         }
         return out;
@@ -1863,8 +1883,9 @@
       async runChecks(spaceId, jobId) {
         await loadSaved(spaceId);
         await local.runChecks(spaceId, jobId);
-        const kind = (await local.getJob(spaceId, jobId)).workflowId;
-        if (kind === 'website') await siteBoardChecks(spaceId, jobId); else await boardChecks(spaceId, jobId);
+        const job = await local.getJob(spaceId, jobId), kind = job.workflowId;
+        if (kind !== 'website') await boardChecks(spaceId, jobId);
+        else if (!job.realSite) await siteBoardChecks(spaceId, jobId);   // the real site's screenshots come with the preview check
         await saveJobs(spaceId, kind);
         return (await local.getChecks(spaceId, jobId)).flags;
       },
