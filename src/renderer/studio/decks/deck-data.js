@@ -87,7 +87,7 @@
   const SHAPE = obj({
     version: oneOf([1]),
     client: obj({ name: str(120), town: str(80), preparedOn: str(40), placeId: placeId() }),
-    // parts: how the score was reached (shown on the board), e.g. Reputation 22 of 30.
+    // parts: how the score was reached (shown on the board), e.g. Website 21 of 35 (#287: no ratings-based part).
     score: obj({ value: num(0, 100, { integer: true }), band: oneOf(SCORE_BANDS),
       parts: list(obj({ name: str(40), points: num(0, 100), max: num(1, 100) }), 1, 6) }),
     bottomLine: obj({ headline: headline(), text: blurb(),
@@ -142,8 +142,8 @@
       version: 1,
       client: { name, town, preparedOn, placeId: null },
       score: { value: 0, band: 'Fair', parts: [
-        { name: 'Reputation', points: 0, max: 30 }, { name: 'Google profile', points: 0, max: 25 },
-        { name: 'Website', points: 0, max: 25 }, { name: 'Visibility', points: 0, max: 20 }] },
+        { name: 'Google profile', points: 0, max: 35 },
+        { name: 'Website', points: 0, max: 35 }, { name: 'Visibility', points: 0, max: 30 }] },
       bottomLine: { headline: '', text: '', findings: three(() => ({ icon: 'search', title: '', text: '' })) },
       market: { headline: '', stats: [{ icon: 'people', value: 0, prefix: '', unit: '', label: '', note: '', estimate: false, source: src() }] },
       demand: { headline: '', change: '', text: '', series: [], basis: '', source: src() },

@@ -23,7 +23,9 @@
   });
   const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
   const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
-  const SCORE_PARTS = Object.freeze([['Reputation', 30], ['Google profile', 25], ['Website', 25], ['Visibility', 20]]);
+  // #287 (Jax 2026-10-29): Google ratings and review counts are never stored and a published deck can't load them, so
+  // the stored score doesn't use them at all (no 'Reputation' part scored as 0). Three visible parts, same proportions.
+  const SCORE_PARTS = Object.freeze([['Google profile', 35], ['Website', 35], ['Visibility', 30]]);
 
   const httpUrl = v => { try { const u = new URL(v); return u.protocol === 'https:' || u.protocol === 'http:'; } catch (_) { return false; } };
 
@@ -69,40 +71,30 @@
       val(ev, 'website', 'social', s, id) === true ? 100 : 0, val(ev, 'website', 'adsPixel', s, id) === true ? 100 : 0];
   }
 
-  /** The 4-part score. liveValues: { [placeId]: { rating, reviews } } fetched live for this moment only.
+  /** The 3-part score from stored evidence only. liveValues is kept for callers but no longer used (#287).
    *  Returns { value, band, parts: [{ name, points, max }], missing: [what couldn't be scored] }. */
   function scoreFromEvidence(ev, liveValues = {}) {
     const missing = [];
     const me = clientPlace(ev);
-    const live = id => (id && liveValues && liveValues[id]) || {};
-    // Reputation (30): rating vs competitors' average (15), review count vs theirs (15).
-    let reputation = 0;
-    const mine = me ? live(me.placeId) : {};
-    const rivals = places(ev).filter(p => p.subject === 'competitor').map(p => live(p.placeId));
-    const avg = key => { const xs = rivals.map(r => r[key]).filter(Number.isFinite); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; };
-    if (Number.isFinite(mine.rating) && avg('rating') !== null) reputation += clamp(7.5 + (mine.rating - avg('rating')) * 15, 0, 15);
-    else missing.push('Rating compared with competitors');
-    if (Number.isFinite(mine.reviews) && avg('reviews')) reputation += clamp((mine.reviews / avg('reviews')) * 7.5, 0, 15);
-    else missing.push('Review count compared with competitors');
-    // Google profile (25): 5 points per item present.
+    // Google profile (35): 7 points per item present.
     let profile = 0;
     for (const f of KINDS.profile) {
       const v = val(ev, 'profile', f, 'client');
       if (v === undefined) missing.push(`Google profile: ${f}`);
-      else if (v === true) profile += 5;
+      else if (v === true) profile += 7;
     }
-    // Website (25): mobile speed (10), HTTPS (5), phone link (5), contact or booking form (5).
+    // Website (35): mobile speed (14), HTTPS (7), phone link (7), contact or booking form (7).
     let website = 0;
     const speed = val(ev, 'website', 'speed', 'client');
-    if (typeof speed === 'number') website += clamp(speed, 0, 100) / 10; else missing.push('Website speed');
+    if (typeof speed === 'number') website += clamp(speed, 0, 100) * 0.14; else missing.push('Website speed');
     for (const f of ['https', 'phoneLink', 'contactForm']) {
       const v = val(ev, 'website', f, 'client');
-      if (v === undefined) missing.push(`Website: ${f}`); else if (v === true) website += 5;
+      if (v === undefined) missing.push(`Website: ${f}`); else if (v === true) website += 7;
     }
-    // Visibility (20): rank among the 4 in the category search.
+    // Visibility (30): rank among the 4 in the category search.
     let visibility = 0;
-    if (me) visibility = rankScore(me.rank) / 5; else missing.push('Search rank');
-    const points = [reputation, profile, website, visibility].map(round1);
+    if (me) visibility = rankScore(me.rank) * 0.3; else missing.push('Search rank');
+    const points = [profile, website, visibility].map(round1);
     const parts = SCORE_PARTS.map(([name, max], i) => ({ name, points: points[i], max }));
     const value = Math.round(points.reduce((a, b) => a + b, 0));
     const band = value >= 80 ? 'Strong' : value >= 60 ? 'Healthy' : value >= 40 ? 'Fair' : 'Weak';
