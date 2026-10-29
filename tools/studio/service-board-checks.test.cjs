@@ -35,7 +35,7 @@ test('finishing Assemble board sends the rendered board and its links to Connect
   const job = await toAutoCheck(s);
   const [req] = s.requests;
   assert.equal(req.projectId, 'sample-home'); assert.equal(req.fileName, 'Pitch deck v1 - Board on a phone.png');
-  assert.match(req.html, /^<!doctype html>/); assert.match(req.html, /Live from Google Maps/);
+  assert.match(req.html, /^<!doctype html>/); assert.match(req.html, /Market Opportunity Analysis/);   // #283: no rating placeholder any more
   assert.ok(req.links.some(l => l.url === 'https://data.census.gov/' && /^market\.stats\.\d\.source\.url$/.test(l.where)));
   let checks = await s.server.getChecks('sample-home', job.id);
   assert.deepEqual(checks.notRun, []);
