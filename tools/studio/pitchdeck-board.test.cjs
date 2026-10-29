@@ -9,6 +9,7 @@ async function sampleDeck() {   // synthetic: the practice deck for a made-up "C
   const job = await s.startJob('client-a', 'pitch-deck', 'deck');
   return (await s.useSampleResearch('client-a', job.id)).deck;
 }
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';   // 1×1 sample
 const SECTIONS = ['s-score', 's-market', 's-demand', 's-saturation', 's-competitors', 's-reputation', 's-visibility', 's-gaps', 's-homepages', 's-plan'];
 
 test('a synthetic deck renders every section, the score total and its parts', async () => {
@@ -41,10 +42,12 @@ test('<script> in any deck text renders as text, never as HTML', async () => {
   assert.ok((html.match(/&lt;script&gt;alert\(1\)&lt;\/script&gt;/g) || []).length >= 10);
 });
 
-test('Google rating and review count say "Live from Google Maps" with the credit; no numbers stored', async () => {
+test('a rating that is not there yet is left out (no placeholder); rows keep their place ID; no numbers stored', async () => {
   const deck = await sampleDeck(), html = renderDeck(deck);
-  const live = html.match(/<b data-place-id="[^"]+" data-field="(rating|reviews)">Live from Google Maps<\/b>/g) || [];
-  assert.equal(live.length, deck.competitors.rows.filter(r => r.placeId).length * 2);
+  const reviews = html.slice(html.indexOf('id="s-reputation"'), html.indexOf('id="s-visibility"'));
+  assert.doesNotMatch(html, /Live from Google Maps|data-field=/);
+  assert.equal((reviews.match(/<li[^>]* data-place-id="[^"]+">/g) || []).length, deck.competitors.rows.filter(r => r.placeId).length);
+  assert.equal((reviews.match(/Not on Google Maps/g) || []).length, deck.competitors.rows.filter(r => !r.placeId).length);
   assert.match(html, /<p class="credit">Google Maps<\/p>/);
   assert.doesNotMatch(html, /★|\d\.\d\s*stars?/i);
 });
@@ -63,16 +66,31 @@ test('tiers sit at the bottom with captures and links; a missing tier says "In p
   assert.equal((tiers.match(/In progress/g) || []).length, 2);   // unknown asset and no asset both wait
 });
 
-test('images come only from assets as links; data: and script URLs are refused', async () => {
-  for (const bad of ['data:image/png;base64,AAAA', 'javascript:alert(1)', '//evil.example/x.png', '../secret.png', 'a b.png']) {
-    assert.equal(assetUrl({ hero: bad }, 'hero'), '', bad);
+test('images come only from assets; SVG, other data: types and script URLs are refused', async () => {
+  for (const bad of ['data:image/svg+xml;base64,PHN2Zz4=', 'data:text/html;base64,PGI+', 'data:image/png,raw', 'data:image/png;base64,AA"A',
+    'data:image/png;base64,' + 'A'.repeat(10000000), 'javascript:alert(1)', '//evil.example/x.png', '../secret.png', 'a b.png']) {
+    assert.equal(assetUrl({ hero: bad }, 'hero'), '', bad.slice(0, 40));
   }
   assert.equal(assetUrl({ hero: 'https://cdn.example.com/hero.jpg' }, 'hero'), 'https://cdn.example.com/hero.jpg');
-  const html = renderDeck(await sampleDeck(), { hero: 'data:image/png;base64,AAAA', closing: 'https://cdn.example.com/close.jpg', logo: 'logo.png' });
-  assert.doesNotMatch(html, /data:image|base64/);
+  assert.equal(assetUrl({ hero: { url: PNG } }, 'hero'), PNG);
+  const html = renderDeck(await sampleDeck(), { hero: 'data:image/svg+xml;base64,PHN2Zz4=', closing: 'https://cdn.example.com/close.jpg', logo: 'logo.png' });
+  assert.doesNotMatch(html, /svg\+xml/);
   assert.match(html, /<img class="bg" src="https:\/\/cdn\.example\.com\/close\.jpg"/); assert.match(html, /<img class="logo" src="logo\.png"/);
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/);
   assert.match(html, /@media \(max-width:760px\)/);
+});
+
+test('self-contained for the decks site: embedded pictures, no outside images, fonts or styles, no placeholder (#283)', async () => {
+  const deck = await sampleDeck(), assets = { hero: PNG, logo: PNG, closing: PNG };
+  deck.homePages.tiers.forEach((t, i) => { t.desktopAsset = `cap-${i}`; t.phoneAsset = `cap-${i}p`; assets[`cap-${i}`] = PNG; assets[`cap-${i}p`] = { url: PNG }; });
+  const html = renderDeck(deck, assets);
+  // hero, closing, the logo at the top and bottom, and each tier on a computer and a phone
+  assert.equal((html.match(/<img [^>]*src="data:image\/png;base64,/g) || []).length, 4 + 2 * deck.homePages.tiers.length);
+  assert.doesNotMatch(html, /<img [^>]*src="(?!data:)/);
+  assert.doesNotMatch(html, /<link\b|@import|@font-face|url\(|fonts\.g|Figtree|Newsreader/i);
+  assert.doesNotMatch(html, /\s(?:src|srcset|poster)="https?:/i);
+  assert.match(html, /img-src data: /); assert.doesNotMatch(html, /fonts\.googleapis|font-src/);
+  assert.doesNotMatch(html, /Live from Google Maps|In progress/);
 });
 
 test('a deck that fails the checker is refused', async () => {

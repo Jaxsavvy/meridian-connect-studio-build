@@ -13,9 +13,12 @@
     window: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>', star: '<path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.2-5.5-3-5.5 3 1-6.2L3 9.7l6.2-.9z"/>' });
   const icon = name => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[name] || ICON.search}</svg>`;
 
-  /** An image URL from the assets argument: web links or plain relative paths only (never data: or script URLs). */
+  // Embedded pictures (#283): the decks site only loads images inside the page. Raster base64 only, never SVG or other data: types.
+  const DATA_IMAGE = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/, DATA_MAX = 10000000;
+  /** An image URL from the assets argument: an embedded data: picture, a web link or a plain relative path (never script URLs). */
   function assetUrl(assets, key) {
     const raw = assets && key ? assets[key] : null, value = typeof raw === 'string' ? raw : raw && typeof raw.url === 'string' ? raw.url : '';
+    if (value.startsWith('data:')) return value.length <= DATA_MAX && DATA_IMAGE.test(value) ? value : '';
     if (/^https?:\/\//i.test(value)) { try { return new URL(value).href; } catch (_) { return ''; } }
     return /^(?!\/\/)(?!.*\.\.)[A-Za-z0-9_./-]{1,300}$/.test(value) ? value : '';
   }
@@ -108,11 +111,10 @@
         + rows.map(r => `<tr${r.you ? ' class="you"' : ''}><th>${esc(r.name)}</th>${r.presence.map(p => `<td class="${level(p)}"></td>`).join('')}</tr>`).join('')
         + `</tbody></table><p class="legend"><i class="p3"></i>Strong <i class="p2"></i>Moderate <i class="p1"></i>Weak</p>${source(d.competitors.source)}</section>`,
       `<section id="s-reputation">${head(6, 'Reviews and reputation', d.reputation.headline, d.reputation.text)}<ul class="reviews">`
-        // Ratings and review counts are never stored: #127 fills each [data-field] live from Google Maps.
-        + rows.map(r => `<li${r.you ? ' class="you"' : ''}><span>${esc(r.name)}</span>${r.placeId
-          ? ['rating', 'reviews'].map(f => `<span class="live"><small>${f === 'rating' ? 'Rating' : 'Reviews'}</small>`
-            + `<b data-place-id="${esc(r.placeId)}" data-field="${f}">Live from Google Maps</b></span>`).join('')
-          : '<span class="live">Not on Google Maps</span>'}</li>`).join('') + '</ul><p class="credit">Google Maps</p></section>',
+        // Ratings and review counts are never stored, and a rating that isn't there yet is left out (no placeholder, #283).
+        // The row keeps its place ID so a live filler can add them later.
+        + rows.map(r => `<li${r.you ? ' class="you"' : ''}${r.placeId ? ` data-place-id="${esc(r.placeId)}"` : ''}><span>${esc(r.name)}</span>`
+          + `${r.placeId ? '' : '<span class="live">Not on Google Maps</span>'}</li>`).join('') + '</ul><p class="credit">Google Maps</p></section>',
       `<section id="s-visibility">${head(7, 'Online visibility', d.visibility.headline, d.visibility.text)}`
         + rows.map(r => bar(r.name, r.visibility, r.you ? 'you' : '', fmt(r.visibility))).join('') + '<p class="src">Visibility rating out of 100.</p></section>',
       `<section id="s-gaps">${head(8, 'Opportunity gap', d.gaps.headline, d.gaps.text)}<div class="lanes">`
@@ -127,16 +129,16 @@
         + '<p class="privacy">No third-party trackers.</p></div></footer>',
     ];
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\' https: http:; style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com">'
-      + `<title>Market Opportunity Analysis · ${esc(c.name)}</title>`
-      + '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap">'
-      + `<style>${BOARD_CSS}</style></head><body>${sections.join('')}</body></html>`;
+      // Self-contained (#283): no outside fonts or styles; pictures can be embedded.
+      + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: \'self\' https: http:; style-src \'unsafe-inline\'">'
+      + `<title>Market Opportunity Analysis · ${esc(c.name)}</title><style>${BOARD_CSS}</style></head><body>${sections.join('')}</body></html>`;
   }
 
-  const BOARD_CSS = `:root{--navy:#050b16;--panel:#0b1526;--line:#1b2a42;--text:#eef3fa;--muted:#9fb0c6;--blue:#3d8bff;--sky:#5fb4ff}
-*{box-sizing:border-box}body{margin:0;background:var(--navy);color:var(--text);font:16px/1.55 Figtree,system-ui,sans-serif}
-h1,h2,h3{font-family:Newsreader,Georgia,serif;font-weight:400;margin:0 0 .6rem}h2{font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.12}
-h3{font-family:Figtree,system-ui,sans-serif;font-weight:600;font-size:1.05rem}a{color:var(--sky)}
+  const BOARD_CSS = `:root{--navy:#050b16;--panel:#0b1526;--line:#1b2a42;--text:#eef3fa;--muted:#9fb0c6;--blue:#3d8bff;--sky:#5fb4ff;
+--sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--serif:Georgia,"Times New Roman",serif}
+*{box-sizing:border-box}body{margin:0;background:var(--navy);color:var(--text);font:16px/1.55 var(--sans)}
+h1,h2,h3{font-family:var(--serif);font-weight:400;margin:0 0 .6rem}h2{font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.12}
+h3{font-family:var(--sans);font-weight:600;font-size:1.05rem}a{color:var(--sky)}
 section{max-width:1080px;margin:0 auto;padding:4.5rem 1.25rem;border-top:1px solid var(--line)}
 .eyebrow{color:var(--sky);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;margin:0 0 .6rem}.lede,.src,.basis,.legend,.ticks{color:var(--muted)}
 .src,.legend,.credit{font-size:.8rem}.ic{width:22px;height:22px;fill:none;stroke:var(--sky);stroke-width:1.6;flex:none}
