@@ -1808,6 +1808,17 @@
         if (res && res.success) local.addBoardChecks(spaceId, jobId, res);
       } catch (_) { /* the deck checker already flags a deck that can't render */ }
     }
+    // #281 (pitch plan F2): the finished board as one page in the project's Docs ("Pitch deck v1 - Board.html"), the
+    // same page the board check sees, ready to publish from the Decks panel. A deck that can't render yet or a failed
+    // save never blocks Assemble; the checks flag the deck.
+    async function saveBoard(spaceId, jobId) {
+      const Board = board || (typeof window === 'undefined' ? null : window.MeridianPitchBoard);
+      if (!Board) return;
+      try {
+        const html = Board.renderDeck(await local.getDeck(spaceId, jobId));
+        await saveProjectFiles(spaceId, jobId, [{ name: 'Board.html', content: html }]);
+      } catch (_) { /* nothing saved; Assemble still finishes */ }
+    }
     // Website Check (#206): Connect checks every page at phone width (a screenshot of each goes to Docs) and every
     // outside link once. The phone check counts as run only when every page ran.
     async function siteBoardChecks(spaceId, jobId) {
@@ -1914,7 +1925,10 @@
         await loadSaved(spaceId);
         const out = await local.completeStage(spaceId, jobId, stageId);
         if (out && out.workflowId === 'pitch-deck') {
-          if (out.stageId === 'check') await boardChecks(spaceId, jobId);   // Assemble board just finished
+          if (out.stageId === 'check') {   // Assemble board just finished
+            await saveBoard(spaceId, jobId);   // #281
+            await boardChecks(spaceId, jobId);
+          }
           await saveJobs(spaceId);
         }
         if (out && out.workflowId === 'website') {
