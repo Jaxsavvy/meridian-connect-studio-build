@@ -49,23 +49,21 @@ test('valid evidence passes; broken records are named by index', () => {
   assert.equal(validateEvidence('nope').ok, false);
 });
 
-test('score: four visible parts that add up, with the formula applied', () => {
+test('score: three visible parts that add up, with the formula applied; ratings are never part of it (#287)', () => {
   const s = scoreFromEvidence(evidence(), live);
-  assert.deepEqual(s.parts.map(p => [p.name, p.max]), [['Reputation', 30], ['Google profile', 25], ['Website', 25], ['Visibility', 20]]);
-  // Reputation: rating 4.8 vs avg 4.567 -> 7.5 + 0.233*15 = 11; reviews 90 vs avg 200 -> 3.375. Total 14.4
-  assert.equal(s.parts[0].points, 14.4);
-  assert.equal(s.parts[1].points, 20);                   // 4 of 5 profile items
-  assert.equal(s.parts[2].points, 16.2);                 // speed 6.2 + https 5 + phone link 5
-  assert.equal(s.parts[3].points, 10);                   // rank 3 of 4 -> 50 -> 10 of 20
-  assert.equal(s.value, Math.round(14.4 + 20 + 16.2 + 10));
+  assert.deepEqual(s.parts.map(p => [p.name, p.max]), [['Google profile', 35], ['Website', 35], ['Visibility', 30]]);
+  assert.equal(s.parts[0].points, 28);                   // 4 of 5 profile items x 7
+  assert.equal(s.parts[1].points, 22.7);                 // speed 62 x 0.14 = 8.68 + https 7 + phone link 7
+  assert.equal(s.parts[2].points, 15);                   // rank 3 of 4 -> 50 -> 15 of 30
+  assert.equal(s.value, Math.round(28 + 22.7 + 15));
   assert.equal(s.band, 'Healthy');
   assert.deepEqual(s.missing, []);
+  assert.deepEqual(scoreFromEvidence(evidence(), {}), s, 'live Google values change nothing');
 });
 
 test('missing data scores zero and is listed, never guessed', () => {
-  const s = scoreFromEvidence(evidence(), {});           // live Google values unavailable
-  assert.equal(s.parts[0].points, 0);
-  assert.ok(s.missing.includes('Rating compared with competitors'));
+  const s = scoreFromEvidence(evidence(), {});
+  assert.ok(!s.missing.some(m => /Rating|Review count/.test(m)), 'ratings are not a gap: they are not scored');
   const bare = scoreFromEvidence([], {});
   assert.equal(bare.value, 0); assert.equal(bare.band, 'Weak');
   assert.ok(bare.missing.includes('Search rank') && bare.missing.includes('Website speed'));

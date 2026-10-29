@@ -33,7 +33,7 @@ test('start research: the person confirms which business it is, then research is
   assert.equal(validateEvidence(r.evidence).ok, true);
   assert.equal(r.evidence.find(e => e.kind === 'place' && e.subject === 'client').placeId, 'sample-place-you-0002');
   assert.equal(r.score.parts.reduce((t, p) => t + p.max, 0), 100);
-  assert.ok(r.score.missing.includes('Rating compared with competitors'));   // live Google values come with #127
+  assert.ok(!r.score.missing.some(m => /Rating|Review count/.test(m)));   // #287: ratings aren't scored, so never a gap
   assert.equal(r.summary, null);                                             // the deck doesn't pass yet
   assert.doesNotMatch(JSON.stringify(r), /cost|price|spend/i);               // no costs shown
   off();
@@ -60,7 +60,7 @@ test('apply research to the deck: numbers from the evidence, draft words in the 
   assert.equal(out.deck.client.placeId, 'sample-place-you-0001');
   assert.deepEqual(out.deck.market.stats.map(x => x.value), [48.2, 18.1, 1.9]);
   assert.equal(out.deck.competitors.rows.find(r => r.placeId === 'sample-place-rival-1').name, 'Summit Services');
-  assert.ok(out.missing.length > 0); assert.equal('missing' in out.deck, false);
+  assert.ok(Array.isArray(out.missing)); assert.equal('missing' in out.deck, false);   // #287: the sample research has no gaps
   assert.equal(out.deck.competitors.rows.find(r => r.placeId === 'sample-place-rival-2').name, 'Valley Pros (sample)');
   assert.ok(out.deck.bottomLine.headline.length > 0);                        // Meridian drafted the blanks
   assert.deepEqual(out.errors, []); assert.equal(out.ok, true);              // every number backed, every field filled

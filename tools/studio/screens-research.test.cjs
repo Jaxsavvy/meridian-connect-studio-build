@@ -39,8 +39,7 @@ test('run -> needs-match -> confirm -> done -> use research -> finish', async ()
   assert.equal(match.research.candidates.length, 2);
   await s.model.confirm(match.research.candidates[0].placeId);
   const done = s.views.at(-1); assert.equal(done.research.status, 'done'); assert.equal(done.canFinish, true);
-  assert.deepEqual(done.research.score.parts.map(p => p.name), ['Reputation', 'Google profile', 'Website', 'Visibility']);
-  assert.ok(done.gaps.includes('Rating compared with competitors'));
+  assert.deepEqual(done.research.score.parts.map(p => p.name), ['Google profile', 'Website', 'Visibility']);   // Core #287
   await s.model.apply(); assert.deepEqual(s.views.at(-1).applied, { ok: true, errors: 0 });
   await s.model.finish(); assert.equal(s.views.at(-1).finished, true); assert.equal(s.views.at(-1).canFinish, false);
   const research = (await service.getJob('client-a', job.id)).stages.find(st => st.id === 'research');
@@ -67,7 +66,7 @@ test('evidence rows: source links, live Google values, plain text only', async (
   assert.ok(links.every(a => /^https?:\/\//.test(a.href) && a.rel === 'noopener noreferrer'));
   assert.ok(links.some(a => a.textContent === '<script>alert(1)</script>'));   // shown as text, never as HTML
   assert.match(text(el), /Live from Google Maps/); assert.match(text(el), /Score: \d+ of 100/);
-  assert.match(text(el), /Reputation: \d+ of 30/);
+  assert.match(text(el), /Google profile: \d+ of 35/);   // Core #287
   const source = fs.readFileSync(path.join(__dirname, '../../src/renderer/studio/screens/research.js'), 'utf8');
   assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|outerHTML/);
   assert.doesNotMatch(text(el), /\$|price|cost/i); cleanup();
