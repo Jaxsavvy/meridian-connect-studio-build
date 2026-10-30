@@ -31,6 +31,7 @@
   let serverService = null;
   let service = sampleService;   // switched by MeridianStudioUI.useServer() at sign-in (#48)
   let syncProjects = () => {};
+  let onSignedOut = null;   // SPACES-FIX 2026-10-25: Connect's sign-in-expired flow (set by useServer)
 
   // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
   // edits index.html or another lane's file. Files that don't exist yet are skipped.
@@ -172,13 +173,26 @@
       render();
     },
     /** Real sign-in: Studio uses Team Hub (real images, real cost). Sample sign-in: built-in sample data. */
-    useServer(on) {
+    // options (Connect, SPACES-FIX 2026-10-25): fileBase = Team Hub's address for images (Connect Web); onSignedOut =
+    // Connect's "sign in again" flow, called when the server says the sign-in is gone.
+    useServer(on, options = {}) {
       const bridge = window.meridian && window.meridian.api && window.meridian.api.studio;
-      const next = on && typeof bridge === 'function'
-        ? (serverService = serverService || window.MeridianStudioService.createServerService({ request: bridge,
+      onSignedOut = typeof options.onSignedOut === 'function' ? options.onSignedOut : null;
+      if (on && typeof bridge === 'function' && !serverService) {
+        serverService = window.MeridianStudioService.createServerService({ request: bridge, fileBase: options.fileBase,
           saveFile: window.meridian.api.studioSaveFile, readSave: window.meridian.api.studioReadSave,
-          checkBoard: window.meridian.api.studioCheckBoard, checkPreview: window.meridian.api.studioCheckPreview, openWindow }))
-        : sampleService;
+          checkBoard: window.meridian.api.studioCheckBoard, checkPreview: window.meridian.api.studioCheckPreview, openWindow });
+        serverService.on(event => { if (event === 'signed-out' && onSignedOut) onSignedOut(); });
+      }
+      const next = on && typeof bridge === 'function' ? serverService : sampleService;
+      if (next === service && service === serverService) {
+        // SPACES-FIX 2026-10-25: a new sign-in (after an expired one, or another person) starts Studio again at Home
+        // with a fresh Spaces load. It used to keep the old screen, still showing "Unable to load Spaces".
+        runCleanups(); dirtyOwners.clear();
+        view = { name: 'home', params: {} };
+        render();
+        return service.mode;
+      }
       if (next === service) return service.mode;
       runCleanups(); dirtyOwners.clear();
       service = next;

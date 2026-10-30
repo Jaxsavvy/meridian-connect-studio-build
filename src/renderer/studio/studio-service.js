@@ -1690,24 +1690,43 @@
    * there costs money. Approvals never happen here: Jax approves from Review in Connect (#273); a stage he approved
    * there moves on here, with the usual stage rules, the next time the project's Jobs are listed.
    */
-  function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, openWindow, board }) {
+  /** retryDelays: waits (ms) before re-trying a read that failed for a passing reason (offline, 502/503/504). */
+  function createServerService({ request, local, saveFile, readSave, checkBoard, checkPreview, openWindow, board, fileBase,
+    retryDelays = [800, 2500] }) {
     if (typeof request !== 'function') throw new TypeError('Server Studio needs a request function.');
     local = local || createSampleService({ practice: false, openWindow });   // nothing made-up in real mode
+    const delays = Array.isArray(retryDelays) ? retryDelays.filter(ms => Number.isFinite(ms) && ms >= 0) : [];
     const listeners = new Set();
     const emit = (event, detail) => { for (const fn of listeners) { try { fn(event, detail); } catch (_) { /* a listener failed */ } } };
     const enc = encodeURIComponent;
     const fail = res => {
       const error = new Error(res.error || 'Studio could not do that.');
-      error.code = res.code || ''; error.status = res.status || 0; error.uncertain = Boolean(res.uncertain);
+      error.code = res.status === 401 ? 'signed-out' : res.code || ''; error.status = res.status || 0;
+      error.uncertain = Boolean(res.uncertain);
       throw error;
     };
+    // SPACES-FIX 2026-10-25 (from Connect): reads ride out a dropped connection or a busy home base (GET only, so nothing
+    // is ever done twice). A 401 means the sign-in is gone: Connect is told ('signed-out') so it can show its sign-in screen.
+    const passing = res => Boolean(res && !res.success && (res.offline || [502, 503, 504].includes(res.status)));
     async function call(method, endpoint, body) {
-      const res = await request(method, endpoint, body);
+      let res = await request(method, endpoint, body);
+      for (let i = 0; method === 'GET' && passing(res) && i < delays.length; i++) {
+        await new Promise(done => setTimeout(done, delays[i]));
+        res = await request(method, endpoint, body);
+      }
+      if (res && res.status === 401) emit('signed-out');
       if (!res || !res.success) fail(res || {});
       return res.data;
     }
-    const fileUrl = a => `meridian-media://studio/${enc(a.spaceId)}/${enc(a.id)}`;
-    const asset = a => ({ ...a, url: fileUrl(a) });
+    let projectIds = null;
+    // Images: fileBase (the Team Hub address, e.g. https://host/connect) + /api/studio/files/...; the main process attaches
+    // the sign-in header to exactly that route, so the token never appears in a URL. Without a fileBase (the workshop
+    // build) images go through the app's private meridian-media: channel. STUDIO-AI 2026-10-25 (from Connect): a small
+    // WebP preview (~512 px) for the canvas and a thumb (~256 px) for lists; the full PNG only when opened or downloaded.
+    const base = typeof fileBase === 'string' && /^https?:\/\//.test(fileBase) ? fileBase.replace(/\/+$/, '') : '';
+    const fileUrl = (a, kind) => (base ? `${base}/api/studio/files/${enc(a.spaceId)}/${enc(a.id)}`
+      : `meridian-media://studio/${enc(a.spaceId)}/${enc(a.id)}`) + (kind ? `/${kind}` : '');
+    const asset = a => ({ ...a, url: fileUrl(a), previewUrl: fileUrl(a, 'preview'), thumbUrl: fileUrl(a, 'thumb') });
     // Same input -> same id, so a retry is recognised by the server and never paid twice.
     const safeRequestId = id => String(id || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(-128) || `r-${Date.now().toString(36)}`;
     const notOnServerYet = () => { throw new Error('Coming soon with the real server.'); };
@@ -1877,7 +1896,16 @@
 
     return Object.freeze({
       mode: 'server',
-      setProjects(list) { local.setProjects(list); emit('spaces-changed'); },
+      /** SPACES-FIX 2026-10-25 (from Connect): announces 'spaces-changed' only when the assigned projects really changed.
+       *  It used to announce every call, and each one restarted Home's load (Spaces cleared, "Loading Spaces…" again). */
+      setProjects(list) {
+        local.setProjects(list);
+        const ids = JSON.stringify((Array.isArray(list) ? list : []).map(p => String(p && p.id)).sort());
+        if (projectIds !== null && ids !== projectIds) emit('spaces-changed');
+        projectIds = ids;
+      },
+      /** Ask every screen to load its Spaces again (after a new sign-in). */
+      refresh() { emit('spaces-changed'); },
       async listSpaces() { return call('GET', '/api/studio/spaces'); },
       async getSpace(spaceId) {
         const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
@@ -1901,10 +1929,24 @@
         const out = await call('POST', `/api/studio/spaces/${enc(r.spaceId)}/generate`, {
           requestId: safeRequestId(r.requestId), presetId: r.presetId, description: r.description,
           count: [1, 2, 4].includes(r.count) ? r.count : 4, ...(r.jobId ? { jobId: r.jobId, stageId: r.stageId } : {}),
+          ...(typeof r.proposalId === 'string' ? { proposalId: r.proposalId } : {}),   // STUDIO-AI 2026-10-25
         });
         emit('assets-changed', { spaceId: r.spaceId });
         return { ...out, requestId: r.requestId || out.requestId,
-          results: (out.results || []).map(x => ({ ...x, url: fileUrl({ spaceId: r.spaceId, id: x.assetId }) })) };
+          results: (out.results || []).map(x => {
+            const a = { spaceId: r.spaceId, id: x.assetId };
+            return { ...x, url: fileUrl(a), previewUrl: fileUrl(a, 'preview'), thumbUrl: fileUrl(a, 'thumb') };
+          }) };
+      },
+      /** STUDIO-AI 2026-10-25: one turn with Meridian. { sessionId, message, toolId, presetId } ->
+       *  { sessionId, reply, suggestions:[{id,name}], proposal:{id,prompt,presetId,presetName,count,size,settings}|null,
+       *    needsQuestion }. Throws code 'studio_ai_off' (503) when the server has Meridian chat switched off. */
+      async chat(spaceId, { sessionId, message, toolId = 'image-gen', presetId } = {}) {
+        return call('POST', `/api/studio/spaces/${enc(spaceId)}/chat`, {
+          message: String(message || '').slice(0, 2000), tool: toolId,
+          ...(typeof sessionId === 'string' && sessionId ? { session_id: sessionId } : {}),
+          ...(typeof presetId === 'string' && presetId ? { preset_id: presetId } : {}),
+        });
       },
       saveVersion: notOnServerYet,
       copyToSpace: notOnServerYet,
@@ -2051,7 +2093,9 @@
       on(listener) {
         if (typeof listener !== 'function') throw new TypeError('Listener must be a function.');
         listeners.add(listener);
-        const offLocal = local.on((event, detail) => { if (event !== 'assets-changed') listener(event, detail); });
+        // SPACES-FIX 2026-10-25: the local copy's 'spaces-changed' comes from our own listSpaces/setProjects, so passing
+        // it on made Home reload (and throw away) the list it had just been given.
+        const offLocal = local.on((event, detail) => { if (event !== 'assets-changed' && event !== 'spaces-changed') listener(event, detail); });
         return () => { listeners.delete(listener); offLocal(); };
       },
     });

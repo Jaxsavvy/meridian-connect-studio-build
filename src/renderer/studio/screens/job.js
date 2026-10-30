@@ -147,7 +147,7 @@
           const thumbnails = node('div', '', 'studio-job-assets');
           const images = (assets[stage.id] || []).filter(asset => asset.kind === 'image' && safeUrl(asset.url));
           for (const asset of images) {
-            const image = node('img'); image.src = asset.url; image.alt = asset.name; image.loading = 'lazy';
+            const image = node('img'); image.src = (asset.thumbUrl && String(asset.thumbUrl).startsWith(asset.url + '/') ? asset.thumbUrl : asset.url); image.alt = asset.name; image.loading = 'lazy'; image.decoding = 'async';   // STUDIO-AI 2026-10-25: thumb
             image.addEventListener('error', () => image.replaceWith(node('p', 'Preview unavailable')), { once: true });
             thumbnails.appendChild(image);
           }

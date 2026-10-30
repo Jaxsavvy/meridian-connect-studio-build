@@ -43,12 +43,14 @@ test('empty and failed loads are safe and retry succeeds without leaking errors'
   fail = false; await s.model.load();
   assert.equal(s.views.at(-1).state, 'empty');
 });
-test('latest service event wins over an old load and cleanup ignores late results', async () => {
+test('a service event during a load waits for it, then refreshes once; cleanup ignores late results', async () => {
   const releases = [];
   const s = setup({ listSpaces: () => new Promise(r => releases.push(r)) });
-  const first = s.model.load(); s.emit('spaces-changed');
-  releases[1](spaces); await new Promise(r => setImmediate(r));
-  releases[0]([]); await first;
+  const first = s.model.load(); s.emit('spaces-changed'); s.emit('spaces-changed');
+  assert.equal(releases.length, 1);   // SPACES-FIX 2026-10-25: the load in flight is not thrown away
+  releases[0]([]); await new Promise(r => setImmediate(r));
+  assert.equal(releases.length, 2);   // one follow-up for both events
+  releases[1](spaces); await first;
   assert.equal(s.views.at(-1).state, 'ready');
   const late = s.model.load(); const count = s.views.length;
   s.model.dispose(); releases[2](spaces); await late;
