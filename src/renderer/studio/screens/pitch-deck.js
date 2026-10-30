@@ -13,10 +13,21 @@
   const NAMES = Object.freeze({ url: 'Link', placeId: 'Google place ID', bookingUrl: 'Booking link' });
   const nameOf = key => NAMES[key] || (/^\d+$/.test(key) ? `#${Number(key) + 1}` : String(key).replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()));
   function setAt(obj, path, value) { const keys = path.split('.'), last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; }
+  const getAt = (obj, path) => path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
+  /** The checked deck, but every field with a problem shows what the person typed (so nothing they wrote disappears). */
+  function keepTyped(checked, typed, errors) {
+    const out = JSON.parse(JSON.stringify(checked || typed));
+    for (const e of errors) {
+      const was = getAt(typed, e.path);
+      if (was === undefined || (was !== null && typeof was === 'object')) continue;
+      try { setAt(out, e.path, was); } catch (_) { /* the checked deck has no such field */ }
+    }
+    return out;
+  }
 
   function createPitchDeck({ service, spaceId, jobId, report }) {
-    let disposed = false, revision = 0, job = null, people = [], checks = null, busy = false;
-    const show = (error = '') => report({ state: 'ready', job, people, checks, busy, error });
+    let disposed = false, revision = 0, job = null, people = [], checks = null, busy = false, published = null;
+    const show = (error = '') => report({ state: 'ready', job, people, checks, busy, error, published });
     async function load() {
       if (disposed) return;
       const request = ++revision; if (!job) report({ state: 'loading' });
@@ -27,8 +38,10 @@
         if (next.workflowId !== 'pitch-deck') { report({ state: 'empty', message: 'This Job isn\'t a pitch deck.' }); return; }
         let found = null;
         try { found = await service.getChecks(spaceId, jobId); } catch (_) { /* no checks yet */ }
+        let live = null;   // U-D3 2026-10-29: the deck's live link and QR, once Jax has published it
+        try { live = await service.getPublished(spaceId, jobId); } catch (_) { /* not published */ }
         if (disposed || request !== revision) return;
-        job = next; people = (Array.isArray(team) ? team : []).filter(p => p?.id && p.name); checks = found; show();
+        job = next; people = (Array.isArray(team) ? team : []).filter(p => p?.id && p.name); checks = found; published = live || null; show();
       } catch (_) {
         if (!disposed && request === revision) report({ state: 'failed', message: 'Unable to open this pitch deck. Check your connection and access, then try again.' });
       }
@@ -46,10 +59,12 @@
       // Jax's stages always stay with Jax; finished stages keep their builder.
       assign: (stageId, personId) => act(async () => {
         const st = stage(stageId);
-        if (!st || st.approver === 'jax' || st.status === 'done') throw Error('This stage\'s builder can\'t change.');
+        if (!st || st.status === 'done') throw Error('This stage\'s builder can\'t change.');   // ASSIGN-MANY: Jax stages too
         await service.assignStage(spaceId, jobId, stageId, personId || null);
       }),
       finish: stageId => act(() => service.completeStage(spaceId, jobId, stageId)),
+      /** U-D3: Jax puts the assembled board on its public link (his own real click only), and Publish is done. */
+      publish: click => act(() => service.publishDeck(spaceId, jobId, { click: click === true })),
       resolve: (flagId, note) => act(() => service.resolveFlag(spaceId, jobId, flagId, String(note || '').trim())),
       dispose() { disposed = true; revision++; },
     };
@@ -99,8 +114,13 @@
       if (deck.saving || !deck.value || deck.locked) return;
       deck.saving = true; drawDeck();
       try {
+        const typed = JSON.parse(JSON.stringify(deck.value));
         const result = await studio.service.saveDeck(spaceId, jobId, deck.value);
-        deck.value = result.deck; deck.errors = Array.isArray(result.errors) ? result.errors : []; dirty(false);
+        deck.errors = Array.isArray(result.errors) ? result.errors : []; dirty(false);
+        // Jax 10-29: "if the info isn't perfect, Save wipes it". The checker blanks a value it can't use (a link that isn't
+        // https://...); keep what was typed on screen, with the message beside it, until it's fixed. A clean save shows
+        // the checked deck.
+        deck.value = deck.errors.length ? keepTyped(result.deck, typed, deck.errors) : result.deck;
         deck.message = result.ok ? 'Saved. The deck passes the checker.' : `Saved. ${deck.errors.length} thing(s) still to fix.`;
       } catch (error) {
         deck.message = error?.message || 'Unable to save. Try again.';
@@ -129,6 +149,15 @@
         wrap.append(node('span', numbers ? `${nameOf(key)} (numbers, commas between)` : nameOf(key)), input); errorsFor(path, wrap); return wrap;
       }
       function group(path, key, value) {
+        // NO-GOOGLE 2026-10-29: a section or number nobody measured stays "not checked" (typing in it would save a made-up 0).
+        if (value === null && (['demand', 'saturation'].includes(path) || /\.(presence\.\d+|visibility)$/.test(path))) {
+          const note = node('p', `${nameOf(key)}: not checked${['demand', 'saturation'].includes(path) ? ' (no free source yet)' : ''}`, 'studio-pitch-deck-unchecked');
+          errorsFor(path, note); return note;
+        }
+        if (Array.isArray(value) && value.some(v => v === null) && value.every(v => v === null || typeof v === 'number')) {
+          const box = node('fieldset', '', 'studio-pitch-deck-group'); box.appendChild(node('legend', nameOf(key))); errorsFor(path, box);
+          value.forEach((v, i) => box.appendChild(group(`${path}.${i}`, String(i), v))); return box;
+        }
         if (value === null || typeof value !== 'object' || (Array.isArray(value) && value.every(v => typeof v === 'number'))) return field(path, key, value);
         const box = node('fieldset', '', 'studio-pitch-deck-group'); box.appendChild(node('legend', nameOf(key))); errorsFor(path, box);
         for (const [k, v] of Object.entries(value)) if (k !== 'version') box.appendChild(group(path ? `${path}.${k}` : k, k, v));
@@ -155,16 +184,45 @@
       if (active && inputs[active] && !inputs[active].disabled) inputs[active].focus?.();
     }
     function builder(st, view) {
-      const label = node('label', '', 'studio-pitch-deck-builder'), select = node('select'), jax = st.approver === 'jax';
-      select.setAttribute('aria-label', `Who builds ${st.name}`);
-      const options = jax ? [['jax', 'Jax']] : [['', 'Unassigned'], ...view.people.map(p => [p.id, p.name])];
+      const label = node('label', '', 'studio-pitch-deck-builder'), select = node('select');
+      select.setAttribute('aria-label', `Who builds ${st.name}`);   // ASSIGN-MANY 2026-10-29: Jax's stages can be handed off too
+      const options = [['', st.approver === 'jax' ? 'Jax by default' : 'Unassigned'], ...view.people.map(p => [p.id, p.name])];
       for (const [value, name] of options) { const o = node('option', name); o.value = value; select.appendChild(o); }
-      select.value = jax ? 'jax' : st.assignee || ''; select.disabled = jax || st.status === 'done' || view.busy;
+      const who = Array.isArray(st.assignees) ? st.assignees : st.assignee ? [st.assignee] : [];
+      select.value = st.approver === 'jax' && who.join() === 'jax' ? '' : who[0] || ''; select.disabled = st.status === 'done' || view.busy;
       if (!select.disabled) listen(select, 'change', () => void model.assign(st.id, select.value));
       label.append(node('span', 'Built by'), select); return label;
     }
+    // U-D3 2026-10-29: the live link, its QR code and Copy link, shown on Publish once the deck is out.
+    function live(published) {
+      const box = node('div', '', 'studio-pitch-deck-live'), link = node('a', published.url);
+      link.href = published.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      box.append(node('p', 'Live link:'), link);
+      if (published.qrSvg) {
+        const qr = node('img'); qr.alt = 'QR code for the live link'; qr.width = 160; qr.height = 160;
+        qr.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(published.qrSvg); box.appendChild(qr);
+      }
+      const status = node('span', '', 'studio-pitch-deck-copied'); status.setAttribute('role', 'status');
+      box.append(button('Copy link', async () => {
+        try { await doc.defaultView.navigator.clipboard.writeText(published.url); status.textContent = 'Copied.'; }
+        catch (_) { status.textContent = "Couldn't copy. Select the link and copy it."; }
+      }), status);
+      return box;
+    }
     function actions(st, view) {
       const row = node('div', '', 'studio-pitch-deck-actions'), busy = view.busy;
+      if (st.id === 'publish' && view.published) row.appendChild(live(view.published));
+      if (st.id === 'publish' && st.status === 'current' && !view.published) {   // only Jax puts a deck out in public
+        if (studio.isOwner === true) {
+          row.appendChild(button(busy ? 'Publishing…' : 'Publish deck', e => {
+            if (!e || !e.isTrusted) return;   // a real click only
+            const ask = doc.defaultView && doc.defaultView.confirm;
+            if (typeof ask === 'function' && !ask.call(doc.defaultView, 'Publish this deck? Anyone with the link can open it.')) return;
+            void model.publish(true);
+          }, true, busy));
+        } else row.appendChild(node('p', 'Waiting on Jax to publish.'));
+        return row;
+      }
       if (st.status === 'waiting-on-jax') { row.appendChild(node('p', 'Waiting on Jax')); return row; }
       if (st.status !== 'current') return row;
       if (st.id === 'research') row.appendChild(button('Open research', () => studio.navigate('research', { spaceId, jobId }), false, busy));
@@ -172,7 +230,7 @@
         row.appendChild(button(open === st.id ? 'Opened' : 'Open', () => studio.navigate('pitch-deck', { spaceId, jobId, open: st.id }),
           false, busy || open === st.id, `Open ${st.name}`));
       }
-      if (st.id === 'publish') row.appendChild(node('p', 'Jax publishes it.'));
+      if (st.id === 'publish') { /* published above */ }
       else if (st.id === PRINT) { /* Finish stage lives in the Print card tool: it saves the card first */ }
       else if (st.id === 'review') row.appendChild(button('Send to Review', () => void model.finish(st.id), true, busy));
       else row.appendChild(button('Finish', () => void model.finish(st.id), true, busy, `Finish ${st.name}`));

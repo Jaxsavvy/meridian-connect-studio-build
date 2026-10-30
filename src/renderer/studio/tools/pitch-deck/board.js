@@ -56,9 +56,11 @@
 
   function gauge(score) {
     const C = 2 * Math.PI * 80, arc = C * 0.75, fill = arc * Math.min(Math.max(score.value, 0), 100) / 100;
-    return `<svg class="gauge" viewBox="0 0 200 200" role="img" aria-label="Score ${score.value} of 100, ${esc(score.band)}">`
+    // NO-WEBSITE: there's nothing to score, so the gauge says so instead of a bare 0.
+    const none = score.coverage === 'no-website', value = none ? '–' : score.value, band = none ? 'NO WEBSITE' : score.band.toUpperCase();
+    return `<svg class="gauge" viewBox="0 0 200 200" role="img" aria-label="${none ? 'No website found' : `Score ${score.value} of 100, ${esc(score.band)}`}">`
       + `<circle class="t" cx="100" cy="100" r="80" stroke-dasharray="${arc} ${C}"/><circle class="f" cx="100" cy="100" r="80" stroke-dasharray="${fill} ${C}"/>`
-      + `<text x="100" y="108" class="v">${score.value}</text><text x="100" y="136" class="b">${esc(score.band.toUpperCase())}</text></svg>`;
+      + `<text x="100" y="108" class="v">${value}</text><text x="100" y="136" class="b">${esc(band)}</text></svg>`;
   }
   function trend(series) {
     const max = Math.max(...series), min = Math.min(...series), span = max - min || 1;
@@ -66,7 +68,7 @@
     return `<svg class="trend" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}"/></svg>`;
   }
   const bar = (label, value, cls = '', tail = '') => `<div class="bar ${cls}"><span>${esc(label)}</span><i><b style="width:${Math.min(Math.max(Number(value) || 0, 0), 100)}%"></b></i><em>${tail}</em></div>`;
-  const level = p => p >= 67 ? 'p3' : p >= 34 ? 'p2' : p > 0 ? 'p1' : 'p0';
+  const level = p => p === null ? 'na' : p >= 67 ? 'p3' : p >= 34 ? 'p2' : p > 0 ? 'p1' : 'p0';
 
   function tierCard(t, assets) {
     // A tier with no capture yet shows "In progress"; its link shows as soon as it has one.
@@ -88,41 +90,52 @@
     if (!checked.ok) throw new Error(`The deck has ${checked.errors.length} thing(s) to fix before the board can be built.`);
     const d = checked.deck, c = d.client, rows = d.competitors.rows;
     const logo = img(assetUrl(assets, 'logo'), 'logo', 'Breakthrough Ventures');
+    // NO-GOOGLE 2026-10-29: sections with nothing measured are left out (and the numbering closes up); a part or a
+    // number that wasn't checked says so, never 0.
+    const webOnly = d.score.coverage === 'website-only' || d.score.coverage === 'no-website', noSite = d.score.coverage === 'no-website';
+    let n = 0;
+    const h = (label, title, text) => head(++n, label, title, text);
+    const part = p => p.checked === false ? '<strong class="nc">Not checked</strong>'
+      : noSite && p.name === 'Website' ? '<strong>No website found</strong>' : `<strong>${fmt(p.points)} of ${fmt(p.max)}</strong>`;
     const sections = [
       `<header class="hero">${img(assetUrl(assets, 'hero'), 'bg')}<div class="top">${logo}</div><div class="in"><p class="eyebrow">Prepared exclusively for</p>`
         + `<p class="who">${esc(c.name)}</p><h1>Market Opportunity Analysis</h1><p class="lede">${esc(c.town)} · ${esc(c.preparedOn)}</p>${sell(options, 'top')}</div></header>`,
       followUpPanel(options.followUp),
-      `<section id="s-score" class="split"><div>${head(1, 'The bottom line', d.bottomLine.headline, d.bottomLine.text)}</div>`
+      `<section id="s-score" class="split"><div>${h('The bottom line', d.bottomLine.headline, d.bottomLine.text)}</div>`
         + `<div class="score"><p class="eyebrow">Business success score</p>${gauge(d.score)}<ul class="parts">`
-        + d.score.parts.map(p => `<li><span>${esc(p.name)}</span><strong>${fmt(p.points)} of ${fmt(p.max)}</strong></li>`).join('') + '</ul></div>'
+        + d.score.parts.map(p => `<li><span>${esc(p.name)}</span>${part(p)}</li>`).join('') + '</ul>'
+        + (noSite ? '<p class="cover">No website found in a web search; Google profile and search rank not checked.</p>'
+          : webOnly ? '<p class="cover">Based on the website only; Google profile and search rank not checked.</p>' : '') + '</div>'
         + '<ul class="finds">' + d.bottomLine.findings.map(f => `<li>${icon(f.icon)}<div><h3>${esc(f.title)}</h3><p>${esc(f.text)}</p></div></li>`).join('') + '</ul></section>',
-      `<section id="s-market">${head(2, 'Market snapshot', d.market.headline)}<ul class="stats">`
+      d.market.stats.length ? `<section id="s-market">${h('Market snapshot', d.market.headline)}<ul class="stats">`
         + d.market.stats.map(s => `<li>${icon(s.icon)}<strong>${esc(s.prefix)}${fmt(s.value)}${esc(s.unit)}</strong><span>${esc(s.label)}</span>`
-          + `${s.note || s.estimate ? `<em>${esc(s.note || 'est.')}</em>` : ''}${source(s.source)}</li>`).join('') + '</ul></section>',
-      // Demand is always a labeled estimate with how it was estimated (Jax, 2026-10-27); never hidden.
-      `<section id="s-demand" class="split"><div>${head(3, 'Demand', d.demand.headline, d.demand.text)}`
+          + `${s.note || s.estimate ? `<em>${esc(s.note || 'est.')}</em>` : ''}${source(s.source)}</li>`).join('') + '</ul></section>' : '',
+      // Demand is always a labeled estimate with how it was estimated (Jax, 2026-10-27); left out only when not checked.
+      d.demand ? `<section id="s-demand" class="split"><div>${h('Demand', d.demand.headline, d.demand.text)}`
         + `<p class="basis">How it was estimated: ${esc(d.demand.basis)}</p>${source(d.demand.source)}</div>`
-        + `<div class="chart"><p class="change">${esc(d.demand.change)} <span class="tag">Estimate</span></p>${trend(d.demand.series)}</div></section>`,
-      `<section id="s-saturation">${head(4, 'Market saturation', d.saturation.headline)}<div class="scale"><u style="left:${d.saturation.level * 100}%"></u></div>`
+        + `<div class="chart"><p class="change">${esc(d.demand.change)} <span class="tag">Estimate</span></p>${trend(d.demand.series)}</div></section>` : '',
+      d.saturation ? `<section id="s-saturation">${h('Market saturation', d.saturation.headline)}<div class="scale"><u style="left:${d.saturation.level * 100}%"></u></div>`
         + `<p class="ticks"><span>Low</span><span>Medium</span><span>High</span><span>Oversaturated</span></p><p class="band">Overall: ${esc(d.saturation.band)}</p>`
-        + d.saturation.zones.map(z => bar(z.name, z.density, z.open ? 'open' : '', z.open ? 'Open' : '')).join('') + source(d.saturation.source) + '</section>',
-      `<section id="s-competitors">${head(5, 'Competitive landscape', d.competitors.headline, d.competitors.text)}<table class="grid"><thead><tr><th></th>`
+        + d.saturation.zones.map(z => bar(z.name, z.density, z.open ? 'open' : '', z.open ? 'Open' : '')).join('') + source(d.saturation.source) + '</section>' : '',
+      `<section id="s-competitors">${h('Competitive landscape', d.competitors.headline, d.competitors.text)}<table class="grid"><thead><tr><th></th>`
         + d.competitors.channels.map(ch => `<th>${esc(ch)}</th>`).join('') + '</tr></thead><tbody>'
-        + rows.map(r => `<tr${r.you ? ' class="you"' : ''}><th>${esc(r.name)}</th>${r.presence.map(p => `<td class="${level(p)}"></td>`).join('')}</tr>`).join('')
-        + `</tbody></table><p class="legend"><i class="p3"></i>Strong <i class="p2"></i>Moderate <i class="p1"></i>Weak</p>${source(d.competitors.source)}</section>`,
-      `<section id="s-reputation">${head(6, 'Reviews and reputation', d.reputation.headline, d.reputation.text)}<ul class="reviews">`
+        + rows.map(r => `<tr${r.you ? ' class="you"' : ''}><th>${esc(r.name)}</th>${r.presence.map(p => `<td class="${level(p)}"${p === null ? ' title="Not checked">–' : '>'}</td>`).join('')}</tr>`).join('')
+        + `</tbody></table><p class="legend"><i class="p3"></i>Strong <i class="p2"></i>Moderate <i class="p1"></i>Weak${rows.some(r => r.presence.includes(null)) ? ' · – not checked' : ''}</p>${source(d.competitors.source)}</section>`,
+      `<section id="s-reputation">${h('Reviews and reputation', d.reputation.headline, d.reputation.text)}<ul class="reviews">`
         // Ratings and review counts are never stored, and a rating that isn't there yet is left out (no placeholder, #283).
         // The row keeps its place ID so a live filler can add them later.
         + rows.map(r => `<li${r.you ? ' class="you"' : ''}${r.placeId ? ` data-place-id="${esc(r.placeId)}"` : ''}><span>${esc(r.name)}</span>`
-          + `${r.placeId ? '' : '<span class="live">Not on Google Maps</span>'}</li>`).join('') + '</ul><p class="credit">Google Maps</p></section>',
-      `<section id="s-visibility">${head(7, 'Online visibility', d.visibility.headline, d.visibility.text)}`
-        + rows.map(r => bar(r.name, r.visibility, r.you ? 'you' : '', fmt(r.visibility))).join('') + '<p class="src">Visibility rating out of 100.</p></section>',
-      `<section id="s-gaps">${head(8, 'Opportunity gap', d.gaps.headline, d.gaps.text)}<div class="lanes">`
+          + `${r.placeId ? '' : `<span class="live">${webOnly ? 'Google reviews not checked' : 'Not on Google Maps'}</span>`}</li>`).join('')
+        + `</ul>${webOnly ? '' : '<p class="credit">Google Maps</p>'}</section>`,
+      `<section id="s-visibility">${h('Online visibility', d.visibility.headline, d.visibility.text)}`
+        + rows.map(r => (r.visibility === null ? `<div class="bar ${r.you ? 'you' : ''}"><span>${esc(r.name)}</span><i></i><em>Not checked</em></div>`
+          : bar(r.name, r.visibility, r.you ? 'you' : '', fmt(r.visibility)))).join('') + '<p class="src">Visibility rating out of 100.</p></section>',
+      `<section id="s-gaps">${h('Opportunity gap', d.gaps.headline, d.gaps.text)}<div class="lanes">`
         + d.gaps.lanes.map(l => `<article>${icon(l.icon)}<h3>${esc(l.title)}</h3><p>${esc(l.problem)}</p><p class="k">Build</p><p>${esc(l.build)}</p>`
           + `<p class="k">Expected effect</p><p>${esc(l.effect)}</p></article>`).join('') + '</div></section>',
-      `<section id="s-homepages">${head(9, 'Home-page concepts', d.homePages.headline, d.homePages.text)}<div class="tiers">`
+      `<section id="s-homepages">${h('Home-page concepts', d.homePages.headline, d.homePages.text)}<div class="tiers">`
         + d.homePages.tiers.map(t => tierCard(t, assets)).join('') + '</div></section>',
-      `<section id="s-plan">${head(10, 'The plan', d.plan.headline)}<div class="moves">`
+      `<section id="s-plan">${h('The plan', d.plan.headline)}<div class="moves">`
         + d.plan.moves.map((m, i) => `<article><p class="eyebrow">0${i + 1}</p><h3>${esc(m.name)}</h3><p class="goal">${esc(m.goal)}</p><p>${esc(m.detail)}</p></article>`).join('')
         + '</div><ol class="timeline">' + d.plan.timeline.map(t => `<li><strong>${esc(t.when)}</strong><span>${esc(t.label)}</span></li>`).join('') + '</ol></section>',
       `<footer class="close">${img(assetUrl(assets, 'closing'), 'bg')}<div class="in">${logo}<p>Prepared for ${esc(c.name)}, ${esc(c.town)}. Every number on this page comes from the source shown with it.</p>${sell(options, 'bottom')}`
@@ -158,7 +171,8 @@ section{max-width:1080px;margin:0 auto;padding:4.5rem 1.25rem;border-top:1px sol
 .ticks{display:flex;justify-content:space-between;font-size:.8rem}.bar{display:grid;grid-template-columns:minmax(7rem,12rem) 1fr 3.5rem;gap:1rem;align-items:center;margin:.55rem 0}
 .bar i{height:8px;border-radius:4px;background:var(--line)}.bar b{display:block;height:100%;border-radius:4px;background:#7f8ea6}.bar.you span,.bar.open em{color:var(--sky)}.bar.you b,.bar.open b{background:var(--blue)}.bar em{font-style:normal;color:var(--muted)}
 .grid{border-spacing:6px;width:100%;max-width:560px}.grid th{font-weight:400;color:var(--muted);text-align:left;font-size:.85rem}.grid td{height:48px;border-radius:3px}.grid .you th{color:var(--sky)}
-.p3{background:#8392ad}.p2{background:#33435f}.p1{background:#18243a}.p0{background:#0d1626}.you .p3{background:var(--blue)}.you .p2{background:#1e4f9a}
+.p3{background:#8392ad}.p2{background:#33435f}.p1{background:#18243a}.p0{background:#0d1626}.na{background:transparent;border:1px dashed var(--line);color:var(--muted);text-align:center}
+.nc{color:var(--muted);font-weight:400}.cover{color:var(--muted);font-size:.85rem;margin:.6rem 0 0}.you .p3{background:var(--blue)}.you .p2{background:#1e4f9a}
 .legend i{display:inline-block;width:10px;height:10px;margin:0 .3rem 0 .8rem}.reviews li{display:grid;grid-template-columns:1fr auto auto;gap:1rem;padding:.8rem 1rem;border:1px solid var(--line);border-radius:8px;margin:.5rem 0}
 .reviews .you{border-color:var(--blue);color:var(--sky)}.live{color:var(--muted);font-size:.85rem}.live small{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase}.live b{font-weight:500}.credit{color:var(--muted)}
 .lanes article,.moves article{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.4rem}.lanes h3{color:var(--sky)}.lanes p{margin:.2rem 0 .6rem}.k{color:var(--muted);font-size:.72rem;letter-spacing:.15em;text-transform:uppercase}

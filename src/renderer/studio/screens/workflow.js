@@ -8,10 +8,12 @@
   function createWorkflow({ service, spaceId, workflowId, navigate, report }) {
     let disposed = false, revision = 0, workflow = null, tier = 'standard', busy = false, people = [], picks = {};
     function show(error = '') {
-      report({ state: 'ready', workflow, tier, stages: stagesFor(workflow, tier), people, picks: { ...picks }, busy, error });
+      report({ state: 'ready', workflow, tier, stages: stagesFor(workflow, tier), people,
+        picks: Object.fromEntries(Object.entries(picks).map(([id, who]) => [id, [...who]])), busy, error });
     }
-    // Picks only for stages the team builds; stages Jax approves always stay with him.
-    const pickable = id => stagesFor(workflow, tier).some(stage => stage.id === id && stage.approver !== 'jax');
+    // ASSIGN-MANY 2026-10-29 (Jax): every stage can have up to three builders, the ones Jax approves too; he still approves them.
+    const MAX = 3;
+    const pickable = id => stagesFor(workflow, tier).some(stage => stage.id === id);
     async function load() {
       if (disposed || busy) return;
       const request = ++revision; workflow = null; report({ state: 'loading' });
@@ -36,11 +38,15 @@
         picks = Object.fromEntries(Object.entries(picks).filter(([stageId]) => pickable(stageId)));
         show(); return true;
       },
-      pick(stageId, personId) {
+      /** Adds or removes one builder (on: true/false; left out, it flips). An empty personId clears the stage. */
+      pick(stageId, personId, on) {
         if (disposed || busy || !workflow || !pickable(stageId)) return false;
-        if (!personId) delete picks[stageId];
-        else if (people.some(person => person.id === personId)) picks[stageId] = personId;
-        else return false;
+        if (!personId) { delete picks[stageId]; show(); return true; }
+        if (!people.some(person => person.id === personId)) return false;
+        const who = picks[stageId] || [], has = who.includes(personId), want = on === undefined ? !has : !!on;
+        if (want && !has && who.length >= MAX) { show(`Pick up to ${MAX} people for a stage.`); return false; }
+        const next = want ? (has ? who : [...who, personId]) : who.filter(id => id !== personId);
+        if (next.length) picks[stageId] = next; else delete picks[stageId];
         show(); return true;
       },
       async start() {
@@ -50,7 +56,7 @@
           const job = await service.startJob(spaceId, workflowId, tier, { assignees: { ...picks } });
           if (disposed) return;
           if (!job?.id || job.spaceId !== spaceId || job.workflowId !== workflowId) throw Error('Unable to open this Job.');
-          navigate('work', { spaceId, jobId: job.id });
+          navigate(workflowId === 'pitch-deck' ? 'pitch-deck' : 'work', { spaceId, jobId: job.id });   // a deck has its own Job screen, as Space opens it
         } catch (error) { if (!disposed) { busy = false; show(error.message || 'Unable to start Job. Try again.'); } }
       },
       back() { if (!disposed) navigate('space', { spaceId }); },
@@ -74,14 +80,17 @@
       listen(item, 'click', action); return item;
     }
     function picker(stage, view) {
-      const label = node('label', '', 'studio-workflow-assign'), select = node('select');
-      select.name = `workflow-assign-${stage.id}`; select.setAttribute('aria-label', `Who builds ${stage.name}`);
-      const jax = stage.approver === 'jax';
-      const options = jax ? [['jax', 'Jax']] : [['', 'Unassigned'], ...view.people.map(person => [person.id, person.name])];
-      for (const [value, name] of options) { const option = node('option', name); option.value = value; select.appendChild(option); }
-      select.value = jax ? 'jax' : view.picks[stage.id] || ''; select.disabled = jax || view.busy;
-      if (!jax) listen(select, 'change', () => model.pick(stage.id, select.value));
-      label.append(node('span', 'Built by'), select); return label;
+      const group = node('fieldset', '', 'studio-workflow-assign'), who = view.picks[stage.id] || [];
+      group.setAttribute('aria-label', `Who builds ${stage.name}`); group.appendChild(node('legend', 'Built by'));
+      for (const person of view.people) {
+        const label = node('label'), box = node('input');
+        box.type = 'checkbox'; box.name = `workflow-assign-${stage.id}-${person.id}`; box.value = person.id;
+        box.checked = who.includes(person.id); box.disabled = view.busy;
+        listen(box, 'change', () => model.pick(stage.id, person.id, box.checked));
+        label.append(box, node('span', person.name)); group.appendChild(label);
+      }
+      if (!who.length) group.appendChild(node('span', stage.approver === 'jax' ? 'Jax, unless you pick someone' : 'Unassigned', 'studio-workflow-nobody'));
+      return group;
     }
     const model = createWorkflow({ service: studio.service, spaceId, workflowId, navigate: studio.navigate,
       report(view) {
@@ -106,13 +115,14 @@
           label.append(input, node('strong', tier.name), node('span', tier.description)); tiers.appendChild(label);
           if (tier.id === activeTier) selected = input;
         }
-        root.append(tiers, node('h2', 'Stages'), node('p', 'Pick who builds each stage. Stages Jax approves stay with him.'));
+        root.append(tiers, node('h2', 'Stages'), node('p', 'Pick who builds each stage, up to three people. Jax still approves the stages marked "Jax approves".'));
         const list = node('ol', '', 'studio-workflow-stages');
         for (const stage of view.stages) {
           const item = node('li', '', 'studio-card'); item.append(node('h3', stage.name), node('p', stage.goal));
           if (stage.approver === 'jax') item.appendChild(node('p', 'Jax approves', 'studio-chip'));
           const pick = picker(stage, view); item.appendChild(pick); list.appendChild(item);
-          if (pick.children?.[1]?.name === activePick) selected = pick.children[1];
+          const again = activePick && [...pick.querySelectorAll?.('input') || []].find(box => box.name === activePick);
+          if (again) selected = again;
         }
         const start = button(view.busy ? 'Starting Job…' : 'Start job', () => void model.start());
         start.disabled = view.busy; start.className = 'studio-button is-primary'; root.append(list, start);

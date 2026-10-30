@@ -41,7 +41,7 @@ test('pitch decks only run in client projects, one at a time, with valid builder
   const s = service();
   await assert.rejects(s.startJob('sandbox-me', 'pitch-deck', 'deck'), /client project/);
   await assert.rejects(s.startJob('sample-home', 'pitch-deck', 'standard'), /Pick a tier/);
-  await assert.rejects(start(s, { assignees: { review: 'tyler' } }), /stays with him/);
+  await assert.rejects(start(s, { assignees: { review: ['jax', 'tyler', 'jax', 'tyler'] } }), /up to 3/);   // ASSIGN-MANY: Jax stages can be handed off
   await assert.rejects(start(s, { assignees: { research: 'stranger' } }), /someone on the team/);
   await assert.rejects(start(s, { assignees: { launch: 'tyler' } }), /Unknown stage/);
   await assert.rejects(start(s, { assignees: ['tyler'] }), /must be an object/);
@@ -58,17 +58,20 @@ test('the Job is locked: a caller\'s copy can\'t change its stages', async () =>
   assert.deepEqual((await s.getJob('sample-home', job.id)).stages.map(st => st.id), STAGES);
 });
 
-test('builders can be changed later; Jax stages stay with Jax; finished stages lock', async () => {
+test('builders can be changed later, Jax stages too; finished stages lock', async () => {
   const s = service();
   const job = await start(s);
-  assert.deepEqual((await s.listPeople('pitch-deck')).map(p => p.id), ['jax', 'tyler']);
+  assert.deepEqual((await s.listPeople('pitch-deck')).map(p => p.id), ['jax', 'tyler', 'cassy']);
   assert.deepEqual((await s.listPeople()).map(p => p.id), ['jax', 'tyler', 'cassy']);
-  await assert.rejects(s.assignStage('sample-home', job.id, 'assemble', 'cassy'), /someone on the team/);   // Jax and Tyler only
+  await assert.rejects(s.assignStage('sample-home', job.id, 'assemble', 'stranger'), /someone on the team/);   // the pitch deck team only
   let view = await s.assignStage('sample-home', job.id, 'home-t2', 'tyler');
   assert.equal(view.stages.find(st => st.id === 'home-t2').assignee, 'tyler');
   view = await s.assignStage('sample-home', job.id, 'home-t2', null);
   assert.equal(view.stages.find(st => st.id === 'home-t2').assignee, null);
-  await assert.rejects(s.assignStage('sample-home', job.id, 'review', 'tyler'), /stays with him/);
+  view = await s.assignStage('sample-home', job.id, 'review', ['tyler', 'jax']);
+  assert.deepEqual(view.stages.find(st => st.id === 'review').assignees, ['tyler', 'jax']);
+  view = await s.assignStage('sample-home', job.id, 'review', null);
+  assert.deepEqual(view.stages.find(st => st.id === 'review').assignees, ['jax'], 'back to Jax');
   await assert.rejects(s.assignStage('sample-home', job.id, 'research', 'stranger'), /someone on the team/);
   await s.useSampleResearch('sample-home', job.id);                                       // practice deck passes the check (#119)
   await s.completeStage('sample-home', job.id);                                           // Research done

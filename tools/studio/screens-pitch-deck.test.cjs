@@ -19,22 +19,26 @@ const text = el => (el.textContent || '') + el.children.map(text).join('');
 const find = (el, label) => walk(el).find(n => n.tag === 'button' && (n.attrs['aria-label'] || text(n)) === label);
 const stageItem = (el, name) => walk(el).find(n => n.tag === 'li' && n.children[0]?.children?.[0]?.textContent === name);
 const status = (el, name) => text(stageItem(el, name).children[0].children[1]);
-async function setup({ override = s => s, params = {}, clock } = {}) {
+async function setup({ override = s => s, params = {}, clock, owner = false } = {}) {
   const service = createSampleService(clock ? { now: () => clock.t } : {}); service.setProjects([{ id: 'client-a', name: 'Client A' }]);
   const job = await service.startJob('client-a', 'pitch-deck', 'deck');
   const el = dom(), routes = [], mounts = [];
-  const studio = { service: override(service), navigate: (...r) => routes.push(r), mountInto: (...m) => mounts.push(m) };
+  const studio = { service: override(service), navigate: (...r) => routes.push(r), mountInto: (...m) => mounts.push(m), isOwner: owner };
   const cleanup = render(el, { spaceId: 'client-a', jobId: job.id, ...params }, studio);
   await settle(); return { service, job, el, routes, mounts, cleanup };
 }
 
-test('the stage list is locked, with builders: Jax and Tyler only; Jax stages fixed', async () => {
+test('the stage list is locked, with builders: Jax, Tyler and Cassy; Jax stages can be handed off', async () => {
   const { el, service, job, cleanup } = await setup();
   const list = walk(el).find(n => n.tag === 'ol');
   assert.equal(list.children.length, 9); assert.equal(walk(list).filter(n => n.tag === 'button' && /move|up|down|edit|delete/i.test(text(n))).length, 0);
   const picker = name => walk(stageItem(el, name)).find(n => n.tag === 'select');
-  assert.deepEqual(picker('Research + write').children.map(text), ['Unassigned', 'Jax', 'Tyler']);   // never Cassy
-  for (const name of ['Review', 'Publish']) { assert.equal(picker(name).disabled, true); assert.equal(picker(name).value, 'jax'); }
+  assert.deepEqual(picker('Research + write').children.map(text), ['Unassigned', 'Jax', 'Tyler', 'Cassy']);   // the pitch deck team
+  for (const name of ['Review', 'Publish']) {   // ASSIGN-MANY 2026-10-29: Jax's by default, open to hand off; he still approves
+    assert.equal(picker(name).disabled, false); assert.equal(picker(name).value, ''); assert.equal(text(picker(name).children[0]), 'Jax by default');
+  }
+  const r = picker('Review'); r.value = 'tyler'; r.events.change(); await settle();
+  assert.deepEqual((await service.getJob('client-a', job.id)).stages.find(st => st.id === 'review').assignees, ['tyler']);
   const p = picker('Home page: Tier 2'); p.value = 'tyler'; p.events.change(); await settle();
   assert.equal((await service.getJob('client-a', job.id)).stages.find(st => st.id === 'home-t2').assignee, 'tyler');
   assert.equal(picker('Home page: Tier 2').value, 'tyler');
@@ -79,7 +83,7 @@ test('Open mounts the Home page builder for that tier in the workspace', async (
   cleanup();
 });
 
-test('Review shows Send to Review; Publish stays with Jax; no approve buttons', async () => {
+test('Review shows Send to Review; Publish waits on Jax for the team; no approve buttons', async () => {
   const fakeJob = async (service, jobId, current) => {
     const real = await service.getJob('client-a', jobId);
     return { ...real, openStageIds: [current], stages: real.stages.map(st => ({ ...st, status: st.id === current ? 'current' : 'upcoming' })) };
@@ -91,9 +95,30 @@ test('Review shows Send to Review; Publish stays with Jax; no approve buttons', 
   assert.equal(walk(el).some(n => n.tag === 'button' && /approve/i.test(text(n))), false);
   cleanup();
   const pub = await setup({ override: s => ({ ...s, getJob: (sp, id) => fakeJob(s, id, 'publish') }) });
-  assert.match(text(stageItem(pub.el, 'Publish')), /Jax publishes it\./);
+  assert.match(text(stageItem(pub.el, 'Publish')), /Waiting on Jax to publish\./);
   assert.equal(walk(stageItem(pub.el, 'Publish')).some(n => n.tag === 'button'), false);
   pub.cleanup();
+});
+
+test('U-D3: Jax publishes from the Publish stage with a real click; then the live link, QR and Copy link show', async () => {
+  let live = null, sent = null;
+  const { el, cleanup } = await setup({ owner: true, override: s => ({ ...s,
+    getJob: async (sp, id) => { const real = await s.getJob('client-a', id);
+      return { ...real, openStageIds: ['publish'], stages: real.stages.map(st => ({ ...st, status: st.id === 'publish' ? (live ? 'done' : 'current') : 'upcoming' })) }; },
+    getPublished: async () => live,
+    publishDeck: async (...a) => { sent = a; live = { url: 'https://decks.example.com/d/TESTtoken', qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>' }; return live; } }) });
+  const go = find(el, 'Publish deck');
+  assert.ok(go, 'Jax sees Publish deck');
+  go.events.click({ isTrusted: false }); await settle();
+  assert.equal(sent, null, 'a scripted click publishes nothing');
+  go.events.click({ isTrusted: true }); await settle();
+  assert.deepEqual(sent.slice(0, 2), ['client-a', sent[1]]); assert.deepEqual(sent[2], { click: true });
+  const row = stageItem(el, 'Publish');
+  assert.match(text(row), /Live link:https:\/\/decks\.example\.com\/d\/TESTtoken/);
+  assert.ok(walk(row).some(n => n.tag === 'img' && /^data:image\/svg\+xml/.test(n.src)), 'the QR shows');
+  assert.ok(find(el, 'Copy link'));
+  assert.equal(find(el, 'Publish deck'), undefined, 'published once: no second Publish');
+  cleanup();
 });
 
 test('Auto check flags show on the Auto check stage; Mark OK sends the note', async () => {
@@ -193,4 +218,19 @@ test('cleanup removes the deck form listeners too', async () => {
   assert.ok(controls.some(n => n.attrs['data-path'])); cleanup();
   assert.ok(controls.every(n => !n.events.input && !n.events.click && !n.events.change));
   assert.equal(dirty.at(-1), false);   // leaving the page clears this page's unsaved mark
+});
+
+test('KEEP-TYPED: Save deck with something wrong keeps what was typed and says what to fix', async () => {
+  const { el, cleanup } = await setup();
+  const box = path => walk(el).find(n => n.attrs?.['data-path'] === path);
+  const link = box('demand.source.url'), label = box('demand.source.label');
+  assert.ok(link && label, 'the deck form shows the demand source');
+  link.value = 'not a link'; link.events.input(); label.value = 'TEST source (delete me)'; label.events.input();
+  find(el, 'Save deck').click(); await settle();
+  assert.equal(box('demand.source.url').value, 'not a link', 'the bad link is still there');
+  assert.equal(box('demand.source.label').value, 'TEST source (delete me)');
+  assert.equal(box('demand.source.url').attrs['aria-invalid'], 'true');
+  assert.match(text(el), /Must be a web link starting with http:\/\/ or https:\/\//);
+  assert.match(text(el), /Saved\. \d+ thing\(s\) still to fix\./);
+  cleanup();
 });

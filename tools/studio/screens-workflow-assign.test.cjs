@@ -1,5 +1,6 @@
 'use strict';
-// Tyler 12: pick who builds each stage when starting a workflow (#115).
+// Tyler 12: pick who builds each stage when starting a workflow (#115). ASSIGN-MANY 2026-10-29 (Jax): up to three
+// people per stage, a checkbox each, and the stages Jax approves can be handed off too (he still approves them).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSampleService } = require('../../src/renderer/studio/studio-service.js');
@@ -25,9 +26,9 @@ function dom() {
 }
 const walk = el => [el, ...el.children.flatMap(walk)];
 const text = el => (el.textContent || '') + el.children.map(text).join('');
-const pickers = el => walk(el).filter(n => n.tag === 'select');
-const picker = (el, stageId) => pickers(el).find(n => n.name === `workflow-assign-${stageId}`);
-const choose = (select, value) => { select.value = value; select.events.change(); };
+const boxes = el => walk(el).filter(n => n.tag === 'input' && n.type === 'checkbox');
+const box = (el, stageId, personId) => boxes(el).find(n => n.name === `workflow-assign-${stageId}-${personId}`);
+const tickBox = (input, on) => { input.checked = on; input.events.change(); };
 
 test('picks reach startJob and show on the Job stages; unpicked stages stay unassigned', async () => {
   const s = setup('pitch-deck'); let sent;
@@ -35,32 +36,47 @@ test('picks reach startJob and show on the Job stages; unpicked stages stay unas
   s.model = createWorkflow({ service: { ...s.service, startJob: (...args) => { sent = args; return startJob(...args); } },
     spaceId: 'client-a', workflowId: 'pitch-deck', report: v => s.views.push(v), navigate: (...r) => s.routes.push(r) });
   await s.model.load();
-  assert.deepEqual(s.views.at(-1).people.map(p => p.id), ['jax', 'tyler']);
+  assert.deepEqual(s.views.at(-1).people.map(p => p.id), ['jax', 'tyler', 'cassy']);
   assert.equal(s.model.pick('research', 'tyler'), true); assert.equal(s.model.pick('home-t2', 'jax'), true);
-  assert.equal(s.model.pick('home-t3', 'cassy'), false);   // not on the Pitch deck team
+  assert.equal(s.model.pick('home-t3', 'stranger'), false);   // not on the Pitch deck team
   s.model.pick('home-t2', ''); s.model.pick('home-t2', 'tyler');
+  assert.equal(s.model.pick('research', 'jax', true), true);   // two people on one stage
   await s.model.start();
-  assert.deepEqual(sent[3], { assignees: { research: 'tyler', 'home-t2': 'tyler' } });
-  const [route, params] = s.routes[0]; assert.equal(route, 'work');
-  const who = Object.fromEntries((await s.service.getJob('client-a', params.jobId)).stages.map(st => [st.id, st.assignee]));
-  assert.equal(who.research, 'tyler'); assert.equal(who['home-t2'], 'tyler'); assert.equal(who['home-t1'], null);
+  assert.deepEqual(sent[3], { assignees: { research: ['tyler', 'jax'], 'home-t2': ['tyler'] } });
+  const [route, params] = s.routes[0]; assert.equal(route, 'pitch-deck', 'a new deck opens its own Job screen');
+  const stages = (await s.service.getJob('client-a', params.jobId)).stages, of = id => stages.find(st => st.id === id);
+  assert.deepEqual(of('research').assignees, ['tyler', 'jax']); assert.equal(of('research').assignee, 'tyler');
+  assert.deepEqual(of('home-t2').assignees, ['tyler']); assert.equal(of('home-t1').assignee, null); assert.deepEqual(of('home-t1').assignees, []);
+  assert.deepEqual(of('review').assignees, ['jax'], 'a Jax stage nobody picked is his');
 });
 
-test('Jax stages show Jax, disabled, and can\'t be changed', async () => {
-  const s = setup('pitch-deck'); await s.model.load();
-  assert.equal(s.model.pick('review', 'tyler'), false); assert.equal(s.model.pick('publish', 'tyler'), false);
-  assert.deepEqual(s.views.at(-1).picks, {});
+test('stages Jax approves can be handed off; he still approves them', async () => {
+  const s = setup('website'); await s.model.load();
+  for (const id of ['brief', 'concept', 'storyboard', 'lock']) assert.equal(s.model.pick(id, 'tyler'), true, id);
+  s.model.pick('brief', 'cassy');
+  assert.deepEqual(s.views.at(-1).picks.brief, ['tyler', 'cassy']);
+  const el = dom(); const cleanup = render(el, { spaceId: 'client-a', workflowId: 'website' }, { service: service(), navigate() {} });
+  await tick();
+  const kickoff = box(el, 'brief', 'tyler');
+  assert.equal(kickoff.disabled, false); assert.equal(kickoff.checked, false);
+  assert.match(text(walk(el).find(n => n.tag === 'fieldset' && n.attrs['aria-label'] === 'Who builds Kickoff')), /Jax, unless you pick someone/);
+  tickBox(kickoff, true); tickBox(box(el, 'brief', 'cassy'), true);
+  assert.equal(box(el, 'brief', 'tyler').checked, true); assert.equal(box(el, 'brief', 'cassy').checked, true);
+  assert.match(text(el), /Jax approves/);
+  cleanup();
+});
+
+test('up to three people per stage; the pitch deck team is Jax, Tyler and Cassy', async () => {
+  const s = setup('website'); await s.model.load();
+  for (const id of ['jax', 'tyler', 'cassy']) assert.equal(s.model.pick('plan', id), true);
+  assert.deepEqual(s.views.at(-1).picks.plan, ['jax', 'tyler', 'cassy']);
+  assert.equal(s.model.pick('plan', 'tyler'), true, 'picking again takes them off');
+  assert.deepEqual(s.views.at(-1).picks.plan, ['jax', 'cassy']);
+  await assert.rejects(s.service.startJob('client-a', 'website', 'standard', { assignees: { plan: ['jax', 'tyler', 'cassy', 'jax'] } }), /up to 3/);
   const el = dom(); const cleanup = render(el, { spaceId: 'client-a', workflowId: 'pitch-deck' }, { service: service(), navigate() {} });
   await tick();
-  for (const id of ['review', 'publish']) {
-    const select = picker(el, id);
-    assert.equal(select.disabled, true); assert.equal(select.value, 'jax'); assert.equal(text(select), 'Jax');
-    assert.equal(select.events.change, undefined);
-  }
-  const research = picker(el, 'research');
-  assert.deepEqual(research.children.map(text), ['Unassigned', 'Jax', 'Tyler']);   // never anyone else
-  assert.equal(research.attrs['aria-label'], 'Who builds Research + write');
-  assert.equal(pickers(el).length, 9); cleanup();
+  assert.deepEqual(boxes(el).filter(n => n.name.startsWith('workflow-assign-research-')).map(n => n.value), ['jax', 'tyler', 'cassy']);   // never anyone else
+  assert.equal(boxes(el).length, 9 * 3); cleanup();
 });
 
 test('a second pitch deck in the same project shows the service error on screen', async () => {
@@ -70,18 +86,18 @@ test('a second pitch deck in the same project shows the service error on screen'
   await tick(); walk(el).find(n => n.tag === 'button' && text(n) === 'Start job').click(); await tick();
   const alert = walk(el).find(n => n.attrs.role === 'alert');
   assert.match(text(alert), /already has a pitch deck in progress/); assert.equal(routes.length, 0);
-  assert.equal(picker(el, 'research').disabled, false); cleanup();
+  assert.equal(box(el, 'research', 'tyler').disabled, false); cleanup();
 });
 
 test('tier change keeps picks for stages that still exist and drops the rest', async () => {
   const s = setup('website'); await s.model.load(); s.model.choose('cinematic');
   s.model.pick('motion', 'cassy'); s.model.pick('plan', 'tyler');
-  s.model.choose('standard'); assert.deepEqual(s.views.at(-1).picks, { plan: 'tyler' });
-  s.model.choose('cinematic'); assert.deepEqual(s.views.at(-1).picks, { plan: 'tyler' });
+  s.model.choose('standard'); assert.deepEqual(s.views.at(-1).picks, { plan: ['tyler'] });
+  s.model.choose('cinematic'); assert.deepEqual(s.views.at(-1).picks, { plan: ['tyler'] });
   const el = dom(); const cleanup = render(el, { spaceId: 'client-a', workflowId: 'website' }, { service: service(), navigate() {} });
-  await tick(); choose(picker(el, 'plan'), 'jax');
+  await tick(); tickBox(box(el, 'plan', 'jax'), true);
   const radio = walk(el).find(n => n.value === 'cinematic'); radio.checked = true; radio.events.change();
-  assert.equal(picker(el, 'plan').value, 'jax'); assert.equal(picker(el, 'motion').value, '');
+  assert.equal(box(el, 'plan', 'jax').checked, true); assert.equal(box(el, 'motion', 'cassy').checked, false);
   cleanup();
 });
 
@@ -89,11 +105,11 @@ test('busy state disables pickers and Start; focus stays on the changed picker',
   let release; const s = service();
   const busy = { ...s, startJob: () => new Promise(resolve => { release = resolve; }) };
   const el = dom(); const cleanup = render(el, { spaceId: 'client-a', workflowId: 'pitch-deck' }, { service: busy, navigate() {} });
-  await tick(); const research = picker(el, 'research'); research.focus(); choose(research, 'tyler');
-  assert.equal(el.ownerDocument.activeElement.name, 'workflow-assign-research');
-  assert.equal(picker(el, 'research').value, 'tyler');
+  await tick(); const research = box(el, 'research', 'tyler'); research.focus(); tickBox(research, true);
+  assert.equal(el.ownerDocument.activeElement.name, 'workflow-assign-research-tyler');
+  assert.equal(box(el, 'research', 'tyler').checked, true);
   walk(el).find(n => n.tag === 'button' && text(n) === 'Start job').click();
-  assert.ok(pickers(el).every(n => n.disabled));
+  assert.ok(boxes(el).every(n => n.disabled));
   assert.equal(walk(el).find(n => text(n) === 'Starting Job…').disabled, true);
   release(null); await tick(); cleanup();
 });

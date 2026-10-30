@@ -55,6 +55,7 @@
 
   function mountCanvas(el, ctx) {
     const studio = ctx.studio || {}, doc = el.ownerDocument, win = doc.defaultView, root = doc.createElement('section');
+    const soon = id => Array.isArray(studio.service?.soon) && studio.service.soon.includes(id);   // AUDIT 2026-10-29: not on the real server yet: greyed, says soon
     root.className = 'studio-look-frames'; root.setAttribute('aria-label', 'Look frames'); el.replaceChildren(root);
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const DIRECTIONS = (win?.MeridianLookFrames || require('../website/look-frames.js')).DIRECTIONS;
@@ -91,9 +92,9 @@
         listen(input, 'change', () => { if (input.checked) ticked.add(d.id); else ticked.delete(d.id); });
         label.append(input, node('span', d.name)); set.appendChild(label);
       }
-      box.append(set, button(view.busy ? 'Designing…' : 'Design the look with Meridian', async () => {
+      box.append(set, button(soon('makeLookFrames') ? 'Design the look with Meridian (soon)' : view.busy ? 'Designing…' : 'Design the look with Meridian', async () => {
         if (await model.make(DIRECTIONS.map(d => d.id).filter(id => ticked.has(id)))) marked.get('make')?.focus?.();
-      }, { primary: true, focus: 'make', disabled: view.busy }));
+      }, { primary: true, focus: 'make', disabled: view.busy || soon('makeLookFrames') }));
       return box;
     }
     function frameCard(f, view) {
@@ -108,7 +109,7 @@
         card.appendChild(button(chosen ? 'Picked' : 'Pick this look', async () => {
           if (chosen) return;
           if (await model.choose(f.id)) marked.get(`pick:${f.id}`)?.focus?.();   // focus stays on the frame you picked
-        }, { focus: `pick:${f.id}`, label: `Pick this look: ${name}`, pressed: chosen, disabled: view.busy }));
+        }, { focus: `pick:${f.id}`, label: `Pick this look: ${name}`, pressed: chosen, disabled: view.busy || soon('chooseLookFrame') }));
       }
       return card;
     }

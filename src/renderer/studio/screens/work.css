@@ -27,3 +27,6 @@
 
 #studioCenter .studio-work-header h1 { flex: 1 1 14rem; }
 #studioCenter .studio-work-slot > * { min-width: 0; max-width: 100%; }
+/* OWNER-JUMP 2026-10-29: the note when Jax opens a stage the Job isn't on */
+.studio-work-jump { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: .5rem 0; }
+.studio-work-jump p { margin: 0; }

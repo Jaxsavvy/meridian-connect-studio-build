@@ -4,7 +4,11 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.MeridianStudio.registerScreen('work', { render: api.render });
 })(typeof window === 'undefined' ? null : window, function () {
-  function createWork({ service, spaceId, toolId, jobId, stageId, navigate, report }) {
+  // AUDIT 2026-10-29: a stage only offers tools that work there: the Copywriter is Kickoff's brief form (on Story and
+  // Words it only said "open it from Kickoff"), and a tool that isn't built yet ('video') is left out.
+  const usableTools = (stage, hasTool) => (stage?.tools || []).filter(id => (id !== 'copywriter' || stage.id === 'brief')
+    && (typeof hasTool !== 'function' || hasTool(id)));
+  function createWork({ service, spaceId, toolId, jobId, stageId, navigate, report, owner = false, hasTool }) {
     let disposed = false, revision = 0;
     return {
       async load() {
@@ -18,10 +22,13 @@
           if (!space || space.id !== spaceId) throw Error('Space unavailable');
           if (jobId) {
             if (!job || job.spaceId !== spaceId || job.id !== jobId) throw Error('Job unavailable');
-            const stage = job.stages.find(item => item.id === job.stageId);
+            // OWNER-JUMP 2026-10-29: Jax can open any stage to look at it and work on it; everyone else sees the current one.
+            const picked = owner && stageId ? job.stages.find(item => item.id === stageId) : null;
+            const found = picked || job.stages.find(item => item.id === job.stageId);
+            const stage = found && { ...found, tools: usableTools(found, hasTool) };
             const selected = stageId === stage?.id && stage?.tools.includes(toolId) ? toolId : stage?.tools[0];
-            report({ state: 'ready', space, job, stage, tools, tool: tools.find(item => item.id === selected)
-              || (selected ? { id: selected, name: selected } : null) }); return;
+            report({ state: 'ready', space, job, stage, tools, jumped: Boolean(picked && picked.id !== job.stageId),
+              tool: tools.find(item => item.id === selected) || (selected ? { id: selected, name: selected } : null) }); return;
           }
           const tool = tools.find(item => item.id === toolId);
           if (!tool || tool.state !== 'available') {
@@ -63,6 +70,7 @@
       backButton?.removeEventListener('click', back);
     }
     const model = createWork({ service: studio.service, spaceId, toolId, jobId, stageId, navigate: studio.navigate,
+      owner: studio.isOwner === true, hasTool: studio.hasTool,
       report(view) {
         const restoreFocus = focus();
         removeListeners(); root.replaceChildren();
@@ -75,6 +83,17 @@
           root.appendChild(states.panel(doc, view.state, view.state === 'loading' ? 'Loading Work view…' : view.message,
             () => void model.load()));
           restoreFocus(); return;
+        }
+        if (view.jumped) {   // OWNER-JUMP: say plainly that this isn't where the Job is
+          const current = view.job.stages.find(item => item.id === view.job.stageId);
+          const note = node('div', '', 'studio-work-jump'); note.setAttribute('role', 'status');
+          note.appendChild(node('p', `You're looking at ${view.stage.name}. The Job is on ${current ? current.name : 'its last stage'}.`));
+          if (current) {
+            const backTo = node('button', `Back to ${current.name}`, 'studio-button is-secondary'); backTo.type = 'button';
+            backTo.addEventListener('click', () => studio.navigate('work', { spaceId, jobId, stageId: current.id }));
+            note.appendChild(backTo);
+          }
+          root.appendChild(note);
         }
         const stage = node('section', '', 'studio-work-stage-bar'); stage.hidden = !jobId;
         stage.setAttribute('aria-label', 'Workflow stage'); root.appendChild(stage);
@@ -100,7 +119,7 @@
           else toolSlot.appendChild(node('p', 'Nothing to make in this stage'));
           studio.mountInto(conversation.slot, 'part', 'conversation', ctx);
           studio.mountInto(assets.slot, 'part', 'assets-strip', ctx);
-          studio.mountInto(stage, 'part', 'stage-bar', { spaceId, jobId, onStage(job) {
+          studio.mountInto(stage, 'part', 'stage-bar', { spaceId, jobId, viewing: view.stage?.id || null, onStage(job) {
             if (!disposed && job.spaceId === spaceId && job.id === jobId && job.stageId !== view.job.stageId) {
               const next = job.stages.find(item => item.id === job.stageId);
               studio.navigate('work', { spaceId, jobId, stageId: job.stageId, toolId: next?.tools[0] });

@@ -83,11 +83,12 @@
 
   function mountCanvas(el, ctx) {
     const studio = ctx.studio || {}, doc = el.ownerDocument, win = doc.defaultView, root = doc.createElement('section');
+    const soon = id => Array.isArray(studio.service?.soon) && studio.service.soon.includes(id);   // AUDIT 2026-10-29: not on the real server yet: greyed, says soon
     root.className = 'studio-concept'; root.setAttribute('aria-label', 'Concept'); el.replaceChildren(root);
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const Concept = win?.MeridianConcept || require('../website/concept.js'), LIMITS = Concept.LIMITS;
     const focus = states.focus(root), marked = new Map();
-    let listeners = [], focusNext = null;
+    let listeners = [], focusNext = null, moodDraft = '';   // KEEP-TYPED 2026-10-29: a mood word typed but not added yet survives redraws
     const listen = (item, type, fn) => { item.addEventListener(type, fn); listeners.push([item, type, fn]); };
     const unlisten = () => { for (const [item, type, fn] of listeners) item.removeEventListener?.(type, fn); listeners = []; };
     function node(tag, text, className) {
@@ -140,10 +141,11 @@
         words.appendChild(li);
       }
       const add = node('label', '', 'studio-concept-field'), input = mark(node('input'), 'mood-input');
-      input.maxLength = LIMITS.word; input.disabled = view.busy || f.mood.length >= 6;
+      input.maxLength = LIMITS.word; input.disabled = view.busy || f.mood.length >= 6; input.value = moodDraft;
+      listen(input, 'input', () => { moodDraft = input.value; });
       listen(input, 'keydown', event => {
         if (event.key !== 'Enter') return;
-        event.preventDefault?.(); focusNext = 'mood-input'; if (model.addMood(input.value)) input.value = '';
+        event.preventDefault?.(); focusNext = 'mood-input'; if (model.addMood(input.value)) { input.value = ''; moodDraft = ''; }
       });
       add.append(node('span', 'Add a mood word, then press Enter'), input);
       mood.append(words, add); parts.push(mood, ...needed(view.gaps, 'mood'));
@@ -166,12 +168,15 @@
           const status = node('p', view.locked, 'studio-concept-locked'); status.setAttribute('role', 'status');
           parts.push(status, readOnly(view));
         } else {
-          parts.push(button(view.busy ? 'Working…' : 'Draft with Meridian', async () => { if (await model.draft()) focusTo('line'); }, { focus: 'draft', disabled: view.busy }));
+          parts.push(button(soon('draftConcept') ? 'Draft with Meridian (soon)' : view.busy ? 'Working…' : 'Draft with Meridian', async () => { if (await model.draft()) focusTo('line'); }, { focus: 'draft', disabled: view.busy || soon('draftConcept') }));
           if (view.note) { const n = node('p', view.note, 'studio-concept-note'); n.setAttribute('role', 'status'); parts.push(n); }
           parts.push(...form(view));
           const actions = node('div', '', 'studio-concept-actions'), status = node('span', view.dirty ? 'Unsaved changes' : '', 'studio-concept-status');
           status.setAttribute('role', 'status');
-          actions.append(button(view.busy ? 'Saving…' : 'Save', async () => { await model.save(); focusTo('save'); }, { primary: true, focus: 'save', disabled: view.busy }), status);
+          actions.append(button(view.busy ? 'Saving…' : 'Save', async () => {
+            if (moodDraft.trim() && model.addMood(moodDraft)) moodDraft = '';   // Save also adds the word in the box
+            await model.save(); focusTo('save');
+          }, { primary: true, focus: 'save', disabled: view.busy }), status);
           parts.push(actions);
           if (!view.gaps.length) { const ready = node('p', 'Ready to send to Jax', 'studio-concept-ready'); ready.setAttribute('role', 'status'); parts.push(ready); }
           else if (view.saved) {

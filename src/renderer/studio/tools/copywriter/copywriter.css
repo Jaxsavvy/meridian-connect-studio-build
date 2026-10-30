@@ -1,0 +1,13 @@
+/* Copywriter (#105): plain layout; Studio's theme supplies colours and fonts. */
+.copywriter { display: flex; flex-direction: column; gap: 12px; max-width: 760px; padding: 16px; }
+.copywriter h2 { margin: 0; }
+.copywriter-field { display: flex; flex-direction: column; gap: 4px; }
+.copywriter-field input, .copywriter-field textarea, .copywriter-pages input { padding: 8px 10px; border-radius: 8px; font: inherit; }
+.copywriter-pages { border: 1px solid currentColor; border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.copywriter-pages ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.copywriter-pages li { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.copywriter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.copywriter-draft { border-left: 3px solid currentColor; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.copywriter-draft blockquote { margin: 0; }
+.copywriter-error { color: #ff8a80; }
+.copywriter-note, .copywriter-status { opacity: .8; margin: 0; }
