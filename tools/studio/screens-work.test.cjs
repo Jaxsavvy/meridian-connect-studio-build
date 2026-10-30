@@ -87,3 +87,28 @@ test('ready view mounts each region with the requested context; failure retry bu
     { kind: 'part', id: 'assets-strip', ctx: { spaceId: 'sandbox-me', toolId: 'asset-library' } },
   ]); cleanup();
 });
+test('U-W6: Build offers the Website builder and no Build kit; every other stage keeps its tools', async () => {
+  const { stages } = await createSampleService().getWorkflow('website');
+  const expected = { brief: ['copywriter'], concept: ['concept'], plan: ['chapter-cards'], words: ['chapter-cards'],
+    storyboard: ['storyboard', 'image-gen', 'chapter-cards'], look: ['image-gen', 'video', 'asset-library', 'chapter-cards', 'look-frames'],
+    motion: ['video'], lock: ['design-lock'], build: ['website'], check: ['site-check'], review: ['site-review', 'website'], launch: [] };
+  assert.deepEqual(stages.map(s => s.id), Object.keys(expected));
+  const job = stageId => async () => ({ id: 'job-w6', spaceId: 'sample-client', workflowId: 'website', stageId, stages });
+  for (const stage of stages) {
+    const views = [];
+    const model = createWork({ service: { ...createSampleService(), getJob: job(stage.id) }, spaceId: 'sample-client', jobId: 'job-w6',
+      toolId: 'build-kit', stageId: stage.id, report: v => views.push(v), navigate() {} });
+    await model.load();
+    assert.deepEqual(views.at(-1).stage.tools, expected[stage.id], stage.id);
+  }
+  // Asking for the Build kit on Build (an old link, or Jax opening Build himself) lands on the Website builder instead.
+  for (const owner of [false, true]) {
+    const views = [];
+    const model = createWork({ service: { ...createSampleService(), getJob: job(owner ? 'review' : 'build') }, spaceId: 'sample-client',
+      jobId: 'job-w6', toolId: 'build-kit', stageId: 'build', owner, report: v => views.push(v), navigate() {} });
+    await model.load();
+    assert.equal(views.at(-1).stage.id, 'build');
+    assert.equal(views.at(-1).tool.id, 'website');
+    assert.ok(!views.at(-1).stage.tools.includes('build-kit'));
+  }
+});
