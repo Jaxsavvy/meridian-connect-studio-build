@@ -124,7 +124,7 @@
         for (const asset of assets) {
           const figure = node('figure');
           if (asset.kind === 'image' && asset.url) {
-            const image = node('img'); image.src = asset.url; image.alt = asset.name; image.loading = 'lazy';
+            const image = node('img'); image.src = (asset.thumbUrl && String(asset.thumbUrl).startsWith(asset.url + '/') ? asset.thumbUrl : asset.url); image.alt = asset.name; image.loading = 'lazy'; image.decoding = 'async';   // STUDIO-AI 2026-10-25: thumb
             image.addEventListener('error', () => { image.replaceWith(node('p', 'Preview unavailable')); }, { once: true });
             figure.appendChild(image);
           }

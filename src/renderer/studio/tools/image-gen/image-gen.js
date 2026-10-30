@@ -17,6 +17,13 @@
     if (typeof settings.model === 'string' && /^[A-Za-z][A-Za-z0-9._-]{0,59}$/.test(settings.model)) rows.push(['Model', settings.model]);
     return rows;
   }
+  // STUDIO-AI 2026-10-25: the server's [{label, value}] list ("Size: 16:9 (1536x1024)"), never anything about cost.
+  const LABELS = ['Preset', 'Size', 'Count', 'Options', 'Brand DNA', 'Model'];
+  function serverRows(list) {
+    return (Array.isArray(list) ? list : []).filter(r => r && LABELS.includes(r.label) && typeof r.value === 'string' && r.value && r.value.length <= 60 && !/[$\u20ac\u00a3]|cost|usd/i.test(r.value)).map(r => [r.label, r.value]);
+  }
+  const SAFE_IMG = /^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i;
+  const dim = n => Number.isInteger(n) && n > 0 && n <= 10000 ? n : null;
   const scoped = (assets, spaceId) => {
     if (!Array.isArray(assets)) throw new Error('Invalid asset list.');
     return assets.filter(a => a && a.spaceId === spaceId && !a.trashed && typeof a.id === 'string');
@@ -25,18 +32,22 @@
     [401, 403, 404].includes(error?.status) ? 'This Space is unavailable or access has changed. Try again or choose another Space.' : 'Image gen could not finish this action. Try again.';
   function createCanvas({ spaceId, jobId, stageId, service, onChange = () => {}, onDirty = () => {}, onSend = () => {} }) {
     const state = { phase: 'loading', ready: false, presets: [], assets: [], presetId: '', description: '', count: 4,
-      references: [], proposal: '', confirmed: false, results: [], settings: [], refinedDescription: '', dirty: false, error: '' };
+      references: [], proposal: '', confirmed: false, results: [], settings: [], refinedDescription: '', dirty: false, error: '', proposalId: '' };
+    let canvasSession = null;   // STUDIO-AI 2026-10-25: this canvas's own Meridian conversation
     let closed = false, epoch = 0, assetRead = 0, assetsPending = false, request = null, retry = () => start(), space = null, queued = null;
     const snapshot = () => ({ ...state, results: [...state.results], assets: [...state.assets], references: [...state.references] });
     const notify = () => { if (!closed) onChange(snapshot()); };
-    const busy = () => ['loading', 'generating', 'saving'].includes(state.phase);
+    const busy = () => ['loading', 'generating', 'saving', 'sharpening'].includes(state.phase);
     const dirty = value => { if (value !== state.dirty) { state.dirty = value; onDirty(value); } };
     function failed(error, again, message = failureText(error)) { state.phase = 'failed'; state.error = message; retry = again; notify(); return false; }
     function present(payload) {
       if (closed || !matchesResults(payload, spaceId)) return false;
       state.results = payload.results.filter(r => r && typeof r.assetId === 'string' && typeof r.url === 'string')
-        .map(r => ({ assetId: r.assetId, url: r.url, note: typeof r.note === 'string' ? r.note : '' }));
-      state.settings = settingsRows(payload.settingsUsed || {});
+        .map(r => ({ assetId: r.assetId, url: r.url, note: typeof r.note === 'string' ? r.note : '',
+          previewUrl: typeof r.previewUrl === 'string' ? r.previewUrl : '', width: dim(r.width), height: dim(r.height) }));
+      const listed = serverRows(payload.settings);   // STUDIO-AI 2026-10-25
+      state.settings = listed.length ? listed : settingsRows(payload.settingsUsed || {});
+      state.proposalId = typeof payload.proposalId === 'string' ? payload.proposalId : '';
       state.refinedDescription = typeof payload.refinedDescription === 'string' ? payload.refinedDescription : '';
       state.phase = 'ready'; state.error = ''; notify(); return true;
     }
@@ -93,7 +104,37 @@
       if (changes.references) state.references = changes.references.filter(id => state.assets.some(a => a.id === id && a.kind === 'image'));
       request = null; state.proposal = ''; state.confirmed = false; state.error = ''; state.phase = 'ready'; dirty(Boolean(state.description.trim())); notify(); return true;
     }
-    function sharpen() {
+    /** STUDIO-AI 2026-10-25: Meridian rewrites the description (the server stores it as a proposal; Generate makes
+     *  exactly that). If Meridian chat is off, the old local sharpening below is used. */
+    async function sharpenWithMeridian() {
+      if (closed || busy() || !state.description.trim() || typeof service.chat !== 'function') return sharpenLocal();
+      const preset = state.presets.find(p => p.id === state.presetId); if (!preset) return false;
+      const turn = ++epoch; state.phase = 'sharpening'; state.error = ''; notify();
+      let out;
+      try {
+        out = await service.chat(spaceId, { sessionId: canvasSession, toolId: 'image-gen', presetId: preset.id,
+          message: `Sharpen this image description for ${state.count} image${state.count === 1 ? '' : 's'}: ${state.description.trim()}` });
+      } catch (error) {
+        if (closed || turn !== epoch) return false;
+        state.phase = 'ready';
+        if (error?.code === 'studio_ai_off' || error?.status === 503) return sharpenLocal();
+        return failed(error, () => sharpenWithMeridian(), 'Meridian couldn\'t sharpen that just now. Try again.');
+      }
+      if (closed || turn !== epoch) return false;
+      state.phase = 'ready';
+      if (typeof out?.sessionId === 'string') canvasSession = out.sessionId;
+      const p = out?.proposal;
+      if (!p || typeof p.id !== 'string' || typeof p.prompt !== 'string') {
+        state.error = typeof out?.reply === 'string' && out.reply ? out.reply : 'Meridian needs a little more detail. Add to the description and try again.';
+        notify(); return false;
+      }
+      state.proposal = p.prompt;
+      request = { spaceId, requestId: `${spaceId}:${Date.now().toString(36)}:${++counter}`, presetId: p.presetId || state.presetId, description: p.prompt, proposalId: p.id,
+        count: [1, 2, 4].includes(p.count) ? p.count : state.count, references: [...state.references], ...(jobId ? { jobId, stageId } : {}) };
+      state.confirmed = false; dirty(true); notify(); return true;
+    }
+    function sharpen() { return typeof service.chat === 'function' ? sharpenWithMeridian() : sharpenLocal(); }
+    function sharpenLocal() {
       if (closed || busy() || !state.description.trim()) return false;
       const preset = state.presets.find(p => p.id === state.presetId); if (!preset) return false;
       state.proposal = [state.description.trim(), `${preset.name} composition, ${preset.size} frame`,
@@ -110,7 +151,8 @@
         state.assets = assets;
         if (!made.length) return false;
         return finish({ spaceId, toolId: 'image-gen', requestId: original.requestId, refinedDescription: original.description,
-          settingsUsed: made[0].settingsUsed, results: made.map(a => ({ assetId: a.id, url: a.url, note: '' })) });
+          settingsUsed: made[0].settingsUsed, settings: made[0].settings, proposalId: original.proposalId,
+          results: made.map(a => ({ assetId: a.id, url: a.url, previewUrl: a.previewUrl, width: a.width, height: a.height, note: '' })) });
       } catch { return null; }
     }
     async function generate() {
@@ -165,8 +207,11 @@
       if (closed || busy() || state.dirty || !state.results.some(r => r.assetId === id) || !state.assets.some(a => a.id === id && a.kind === 'image')) return false;
       const used = state.settings.find(([key]) => key === 'Preset')?.[1];
       const description = state.refinedDescription || state.description; if (!description.trim()) return false;
+      const proposalId = state.proposalId;   // STUDIO-AI 2026-10-25: variations re-make the approved proposal
       update({ description, presetId: state.presets.find(p => p.name === used)?.id || state.presetId });
-      state.references = [id]; sharpen(); state.proposal = request.description = description; notify(); return true;
+      state.references = [id]; sharpenLocal(); state.proposal = request.description = description;
+      if (proposalId) request.proposalId = proposalId;
+      notify(); return true;
     }
     return { snapshot, start, update, sharpen, generate, receive, keep, review: (id, note = '') => keep(id, state.dirty, note), variations, assetsChanged, retry: () => retry(),
       confirm(value) { if (!busy() && request) { state.confirmed = Boolean(value); notify(); } },
@@ -194,7 +239,24 @@
     const countLabel = node('label', 'Number of images'), count = node('select');
     for (const n of [1, 2, 4]) { const option = node('option', String(n)); option.value = String(n); count.append(option); } countLabel.append(count);
     const referenceLabel = node('label', 'Reference image (or drag an asset here)'), reference = node('select'); referenceLabel.append(reference);
-    const sharpen = button('Sharpen my description', () => { controller.sharpen(); confirm.focus(); });
+    const sharpen = button('Sharpen my description', async () => { await controller.sharpen(); confirm.focus(); });
+    // STUDIO-AI 2026-10-25: one <img> per result, reused across re-renders (no re-download, no re-decode, no flicker).
+    const shown = new Map();
+    function picture(r, alt) {
+      const src = SAFE_IMG.test(r.previewUrl || '') ? r.previewUrl : r.url;
+      const key = `${r.assetId}|${src}`;
+      if (shown.has(key)) return shown.get(key);
+      const image = node('img', undefined, 'image-gen-img is-placeholder');
+      image.loading = 'lazy'; image.decoding = 'async'; image.alt = alt;
+      if (r.width && r.height) { image.width = 512; image.height = Math.round(512 * r.height / r.width); }
+      image.addEventListener('load', () => image.classList.remove('is-placeholder'), { once: true });
+      image.addEventListener('error', () => { if (image.src !== r.url && SAFE_IMG.test(r.url)) image.src = r.url; }, { once: true });
+      // Full size only when someone opens it.
+      image.title = 'Open full size'; image.tabIndex = 0;
+      const open = () => { if (SAFE_IMG.test(r.url) && image.src !== r.url) { image.src = r.url; image.classList.add('is-full'); } };
+      image.addEventListener('click', open); image.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+      image.src = src; shown.set(key, image); return image;
+    }
     const proposal = node('blockquote', undefined, 'image-gen-proposal'), approve = node('label', 'I approve this description'), confirm = node('input'); confirm.type = 'checkbox'; approve.append(confirm);
     const generate = button('Generate', () => controller.generate()), discard = button('Discard description', () => { reviews.discard(); controller.discard(); });
     const status = node('p'); status.setAttribute('aria-live', 'polite'); const retry = button('Try again', async () => { if (await controller.retry()) description.focus(); });
@@ -210,7 +272,7 @@
     let actionFocus = null;
     function render(s) {
       if (section.contains(doc.activeElement) && doc.activeElement?.dataset.focus) actionFocus = doc.activeElement.dataset.focus;
-      const loading = ['loading', 'generating', 'saving'].includes(s.phase), locked = !s.ready || loading;
+      const loading = ['loading', 'generating', 'saving', 'sharpening'].includes(s.phase), locked = !s.ready || loading;
       section.classList.toggle('is-loading', loading); section.setAttribute('aria-busy', String(loading)); chips.replaceChildren();
       for (const p of s.presets) { const b = button(p.name, () => controller.update({ presetId: p.id })); b.setAttribute('aria-pressed', String(p.id === s.presetId)); b.dataset.focus = p.id; b.disabled = locked; chips.append(b); }
       hints.textContent = s.presets.find(p => p.id === s.presetId)?.questions?.join(' ') || 'No Image gen presets are available.';
@@ -221,13 +283,13 @@
       sharpen.disabled = locked || !s.description.trim() || !s.presetId; generate.disabled = locked || !s.confirmed; discard.disabled = locked || (!s.dirty && !reviews.hasDrafts());
       proposal.hidden = approve.hidden = !s.proposal; proposal.textContent = s.proposal; confirm.checked = s.confirmed; confirm.disabled = locked;
       status.setAttribute('role', s.error ? 'alert' : 'status'); retry.hidden = s.phase !== 'failed';
-      status.textContent = s.error || (s.phase === 'generating' ? 'Generating images…' : s.phase === 'loading' ? 'Loading Image gen…' : s.phase === 'saving' ? 'Saving…' : s.results.length ? `${s.results.length} images` : 'No images yet. Describe an image, review the sharper description, then confirm.');
+      status.textContent = s.error || (s.phase === 'sharpening' ? 'Meridian is sharpening the description…' : s.phase === 'generating' ? 'Generating images…' : s.phase === 'loading' ? 'Loading Image gen…' : s.phase === 'saving' ? 'Saving…' : s.results.length ? `${s.results.length} images` : 'No images yet. Describe an image, review the sharper description, then confirm.');
       refined.textContent = s.refinedDescription; settings.replaceChildren(); for (const [key, value] of s.settings) settings.append(node('dt', key), node('dd', value)); drawer.hidden = !s.settings.length;
       results.replaceChildren();
       for (const r of s.results) {
         const a = s.assets.find(item => item.id === r.assetId), card = node('article', undefined, 'image-gen-result'); card.classList.toggle('is-kept', Boolean(a?.kept));
         card.append(node('h3', a?.name || r.assetId));
-        if (/^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i.test(r.url)) { const image = node('img'); image.src = r.url; image.alt = a?.name || r.assetId; card.append(image); }
+        if (SAFE_IMG.test(r.url)) card.append(picture(r, a?.name || r.assetId));   // STUDIO-AI 2026-10-25: preview, lazy, sized
         if (r.note) card.append(node('p', r.note));
         if (a?.kept) card.append(node('span', 'Kept', 'asset-kept-badge'));
         else { const keep = button('Keep', () => controller.keep(r.assetId)); keep.dataset.focus = `${r.assetId}:keep`; keep.disabled = locked; card.append(keep); }
@@ -246,5 +308,5 @@
     }); controller.start();
     return () => { reviews.dispose(); off(); offService(); controller.dispose(); el.replaceChildren(); };
   }
-  return { matchesResults, settingsRows, createCanvas, mountCanvas };
+  return { matchesResults, settingsRows, serverRows, createCanvas, mountCanvas };
 });

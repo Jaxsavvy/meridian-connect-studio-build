@@ -65,7 +65,7 @@
     compare.setAttribute('aria-label', 'Compare A and B'); section.append(heading, status, retry, list, compare); el.replaceChildren(section);
     const preview = (v, target) => {
       if (v.kind !== 'image' || !safePreview(v.url)) { target.append(node('p', 'Preview unavailable.')); return; }
-      const img = node('img'); img.src = v.url; img.alt = v.name;
+      const img = node('img'); img.src = (v.previewUrl && String(v.previewUrl).startsWith(v.url + '/') ? v.previewUrl : v.url); img.alt = v.name; img.decoding = 'async';   // STUDIO-AI 2026-10-25: preview
       img.addEventListener('error', () => { img.hidden = true; target.append(node('p', 'Preview unavailable.')); }); target.append(img);
     };
     let disposed = false;

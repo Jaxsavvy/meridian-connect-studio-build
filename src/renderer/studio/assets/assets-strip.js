@@ -153,7 +153,7 @@
         const row = node('li', undefined, 'asset-thumb');
         row.classList.toggle('is-kept', Boolean(asset.kept)); row.classList.toggle('is-trashed', Boolean(asset.trashed));
         if (typeof asset.url === 'string' && /^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i.test(asset.url)) {
-          const image = node('img'); image.src = asset.url; image.alt = asset.name;
+          const image = node('img'); image.src = (asset.thumbUrl && String(asset.thumbUrl).startsWith(asset.url + '/') ? asset.thumbUrl : asset.url); image.alt = asset.name; image.loading = 'lazy'; image.decoding = 'async';   // STUDIO-AI 2026-10-25: thumb
           image.addEventListener('error', () => { image.hidden = true; }); row.append(image);
         }
         row.draggable = !asset.trashed;

@@ -77,7 +77,7 @@
     layout.append(grid, details); section.append(node('h2', 'Asset Library'), form, status, retry, discard, retention, layout); section.append(historySlot); el.replaceChildren(section);
     const preview = (asset, target, className) => {
       if (asset.kind !== 'image' || typeof asset.url !== 'string' || !/^(https:\/\/|blob:|data:image\/(png|jpeg|webp|gif|svg\+xml)[;,])/i.test(asset.url)) return;
-      const image = node('img', undefined, className); image.src = asset.url; image.alt = asset.name;
+      const image = node('img', undefined, className); image.src = (asset.previewUrl && String(asset.previewUrl).startsWith(asset.url + '/') ? asset.previewUrl : asset.url); image.alt = asset.name; image.loading = 'lazy'; image.decoding = 'async';   // STUDIO-AI 2026-10-25: preview, not the full PNG
       const unavailable = node('span', 'Preview unavailable.'); unavailable.hidden = true;
       const again = button('Try preview again', () => controller.load()); again.hidden = true;
       image.addEventListener('error', () => { image.hidden = true; unavailable.hidden = again.hidden = false; }); target.append(image, unavailable, again);

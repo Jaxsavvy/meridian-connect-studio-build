@@ -10,6 +10,7 @@
   // Shared by the three screens; no shell or panel state is changed here.
   const screenStates = {
     failure(error, subject) {
+      if (error?.status === 401 || error?.code === 'signed-out') return `Your sign-in has expired. Sign in again to see ${subject}.`;
       if (error?.status === 403 || error?.code === 'NO_ACCESS') return `You no longer have access to ${subject}.`;
       return `Unable to load ${subject}. Check your connection and access, then try again.`;
     },
@@ -50,12 +51,13 @@
     return [...spaces].sort((a, b) => (rank[a.type] ?? 3) - (rank[b.type] ?? 3));
   }
   function createHome({ service, storage, navigate, report }) {
-    let disposed = false, revision = 0, spaces = [];
-    async function load() {
-      if (disposed) return;
-      spaces = [];
+    let disposed = false, revision = 0, spaces = [], running = null, again = false;
+    // SPACES-FIX 2026-10-25: one load at a time. A 'spaces-changed' during a load used to clear the list and start
+    // over, throwing the answer away; with frequent events Home never got past "Loading Spaces…". Now the event
+    // waits for the load in flight, then refreshes once, quietly, keeping the shown list until the new one arrives.
+    async function attempt(quiet) {
       const request = ++revision;
-      report({ state: 'loading' });
+      if (!quiet) { spaces = []; report({ state: 'loading' }); }
       try {
         const next = orderSpaces(await service.listSpaces());
         if (disposed || request !== revision) return;
@@ -65,13 +67,28 @@
         report({ state: spaces.length ? 'ready' : 'empty', spaces,
           previous: spaces.find(space => space.id === last) });
       } catch (error) {
-        if (!disposed && request === revision) {
-          spaces = [];
-          report({ state: 'failed', message: screenStates.failure(error, 'Spaces') });
-        }
+        if (disposed || request !== revision) return;
+        const lost = error?.status === 401 || error?.status === 403 || error?.code === 'signed-out' || error?.code === 'NO_ACCESS';
+        if (quiet && spaces.length && !lost) return;   // a background refresh failed: keep the list that works
+        spaces = [];
+        report({ state: 'failed', message: screenStates.failure(error, 'Spaces') });
       }
     }
-    const off = service.on(event => { if (event === 'spaces-changed') void load(); });
+    function run(quiet) {
+      if (disposed) return Promise.resolve();
+      if (running) { again = true; return running; }
+      running = (async () => {
+        let q = quiet && spaces.length > 0;
+        do {
+          again = false;
+          await attempt(q);
+          q = spaces.length > 0;
+        } while (again && !disposed);
+      })().finally(() => { running = null; });
+      return running;
+    }
+    const load = () => run(false);
+    const off = service.on(event => { if (event === 'spaces-changed') void run(true); });
     return {
       load,
       open(spaceId) {

@@ -14,3 +14,8 @@
 .image-gen-coming-soon { display: block; margin-block: .5rem; }
 .image-gen.is-loading { cursor: progress; }
 .image-gen [hidden] { display: none; }
+/* STUDIO-AI 2026-10-25: sized preview with a soft placeholder until it arrives; click for full size */
+.image-gen-result img { block-size: auto; cursor: zoom-in; }
+.image-gen-img.is-placeholder { background: linear-gradient(135deg, rgba(98, 216, 195, 0.10), rgba(26, 132, 248, 0.10)); filter: blur(6px); }
+.image-gen-img { transition: filter 0.25s ease; }
+.image-gen-img.is-full { cursor: default; }

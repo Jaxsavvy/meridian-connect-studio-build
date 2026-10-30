@@ -18,3 +18,8 @@
 .mc-input { flex: 1; resize: vertical; min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--studio-line, #263d5b); background: var(--studio-night, #07101d); color: inherit; font: inherit; }
 .mc-panel :focus-visible { outline: 2px solid var(--studio-sky, #71c5ff); outline-offset: 2px; }
 .mc-send:disabled { opacity: 0.5; cursor: wait; }
+/* STUDIO-AI 2026-10-25: preset suggestions as chips */
+.mc-suggestions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.mc-chip { border-radius: 999px; padding: 4px 10px; border: 1px solid var(--studio-line, #263d5b); background: transparent; color: inherit; cursor: pointer; font: inherit; font-size: 0.85em; }
+.mc-chip:hover:not(:disabled) { border-color: var(--studio-teal, #62d8c3); }
+.mc-actions button[aria-pressed="true"] { border-color: var(--studio-teal, #62d8c3); }

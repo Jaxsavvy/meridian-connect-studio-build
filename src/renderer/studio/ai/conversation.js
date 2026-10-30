@@ -1,9 +1,10 @@
 /* Meridian Studio conversation panel (left side of every tool). Core lane.
- * Today it runs a scripted sample flow for Image gen on the sample service:
- *   describe -> pick preset -> ask what's missing -> suggest a sharper description
- *   -> generate only when the person says yes -> results go to the canvas.
- * Wave 1 (#48) swaps the scripted replies for the real model through the server router;
- * the flow and the rules stay the same: propose, preview, apply on yes, never mention cost. */
+ * STUDIO-AI 2026-10-25: Meridian itself answers (POST /api/studio/spaces/<id>/chat). The server keeps the whole
+ * conversation, so follow-ups ("the rest need to be cats too") change the last proposal instead of starting over.
+ * Meridian rewrites the description; the person approves it; images are made only on a clear yes, from the stored
+ * proposal (proposalId), never from raw chat text. Presets show as clickable suggestions.
+ * The old scripted flow below is only the fallback when the server says Meridian chat is off (503 studio_ai_off)
+ * or on the sample service. Rules stay: propose, preview, apply on yes, never mention cost. */
 'use strict';
 
 (function (root, factory) {
@@ -76,12 +77,21 @@
     return questions[0] || null;
   }
 
-  /** Only these settings are ever shown to employees, whatever the service returns (no costs, keys, paths or diagnostics). */
+  /** Only these settings are ever shown to employees, whatever the service returns (no costs, keys, paths or diagnostics).
+   *  STUDIO-AI 2026-10-25: also takes the server's [{label, value}] list, and display-keyed objects (Preset/Size/...). */
+  const SETTING_LABELS = ['Preset', 'Size', 'Count', 'Options', 'Brand DNA', 'Model'];
   function safeSettings(settings) {
-    const s = settings && typeof settings === 'object' ? settings : {};
+    if (Array.isArray(settings)) {
+      return settings.filter(r => r && SETTING_LABELS.includes(r.label) && typeof r.value === 'string' && r.value
+        && r.value.length <= 60 && !/[$\u20ac\u00a3]|cost|usd/i.test(r.value)).map(r => [r.label, r.value]);
+    }
+    const raw = settings && typeof settings === 'object' ? settings : {};
+    const s = { preset: raw.preset ?? raw.Preset, size: raw.size ?? raw.Size, count: raw.count ?? raw.Options ?? raw.Count,
+      useBrandDna: raw.useBrandDna ?? (raw['Brand DNA'] === undefined ? undefined : raw['Brand DNA'] === 'On' || raw['Brand DNA'] === true) };
+    if (typeof s.count === 'string' && /^[124]$/.test(s.count)) s.count = Number(s.count);
     const out = [];
     if (typeof s.preset === 'string' && s.preset.length <= 60) out.push(['Preset', s.preset]);
-    if (typeof s.size === 'string' && /^\d{1,2}:\d{1,2}$/.test(s.size)) out.push(['Size', s.size]);
+    if (typeof s.size === 'string' && /^(\d{1,2}:\d{1,2}|\d{3,4}x\d{3,4})( \(\d{3,4}x\d{3,4}\))?$/.test(s.size)) out.push(['Size', s.size]);
     if ([1, 2, 4].includes(s.count)) out.push(['Options', String(s.count)]);
     if (typeof s.useBrandDna === 'boolean') out.push(['Brand DNA', s.useBrandDna ? 'On' : 'Off']);
     return out;
@@ -93,7 +103,11 @@
     generateFailed: 'Meridian couldn\'t make the images just now. Nothing new was saved. Try again in a moment.',
     displayFailed: 'Your images were made and saved to this Space\'s assets, but couldn\'t be shown here. Open the Asset Library to see them.',
     reconciled: 'The images were made after all and are saved in this Space. Showing them now.',
+    aiOff: 'Meridian\'s chat isn\'t available right now, so I\'ll use the quick guided steps instead.',   // STUDIO-AI 2026-10-25
+    chatFailed: 'Meridian couldn\'t answer just now. Nothing was made. Try sending that again.',
+    allowanceUsed: 'Your Meridian allowance is used up for now. Ask Jax if you need more.',
   });
+  const YES = /^(yes|y|yep|yeah|go|generate|do it|ok|okay|sure|make it|approved?|looks good)\b/i;
 
   let requestCounter = 0;
 
@@ -102,8 +116,11 @@
     const messages = [];
     let presets = [];
     let space = null;
-    let pending = null;   // { step: 'answer' | 'confirm', description, preset, answer, sharpened, requestId }
+    let pending = null;   // { step: 'answer' | 'confirm', description, preset, answer, sharpened, requestId, proposalId?, approved? }
     let busy = false;
+    // STUDIO-AI 2026-10-25: 'meridian' = the server's Meridian chat; 'script' = the old guided steps (fallback only).
+    let mode = typeof service.chat === 'function' ? 'meridian' : 'script';
+    let sessionId = null;   // kept after generating, so follow-ups carry the whole conversation
     let ready = false;
     let disposed = false;
 
@@ -116,8 +133,8 @@
 
     async function start() {
       try {
-        space = await service.getSpace(spaceId);
-        if (toolId === 'image-gen') presets = await service.listPresets('image-gen');
+        [space, presets] = await Promise.all([service.getSpace(spaceId),   // STUDIO-AI 2026-10-25: in parallel
+          toolId === 'image-gen' ? service.listPresets('image-gen') : Promise.resolve([])]);
       } catch (error) {
         report(error);
         say('meridian', COPY.startFailed, { status: 'error' });
@@ -129,7 +146,8 @@
       } else {
         say('meridian', space.type === 'client'
           ? `What image do you need for ${space.name}? Describe it in your own words.`
-          : 'What image do you want to try? Describe it in your own words.');
+          : 'What image do you want to try? Describe it in your own words.',
+        mode === 'meridian' ? { suggestions: presets.map(p => ({ id: p.id, name: p.name })) } : {});
       }
       ready = true;
       return true;
@@ -140,7 +158,70 @@
       if (!ready || disposed || !input || busy) return false;
       say('you', input);
       if (toolId !== 'image-gen') { say('meridian', 'That tool is coming soon. Open Image gen and I can help there.'); return true; }
+      if (mode === 'meridian') {   // STUDIO-AI 2026-10-25
+        if (pending && pending.proposalId && YES.test(input) && input.split(/\s+/).length <= 4) {
+          pending.approved = true;
+          await confirm();
+          return true;
+        }
+        await ask(input);
+        if (mode === 'meridian') return true;   // else Meridian chat is off: the guided steps take this message
+      }
+      return scriptSend(input);
+    }
 
+    /** STUDIO-AI 2026-10-25: one turn with Meridian. The server stores the conversation and the proposal. */
+    async function ask(input, presetId) {
+      busy = true;
+      const working = say('meridian', 'Thinking...', { status: 'working' });
+      let out;
+      try {
+        out = await service.chat(spaceId, { sessionId, message: input, toolId, presetId });
+      } catch (error) {
+        if (working) { const i = messages.indexOf(working); if (i !== -1) messages.splice(i, 1); }
+        busy = false;
+        if (error && (error.code === 'studio_ai_off' || error.status === 503 || error.status === 404)) {   // 0.2.32 integrator: 404 = server half not deployed yet -> old guided steps
+          mode = 'script';
+          say('meridian', COPY.aiOff);
+          return false;
+        }
+        report(error);
+        say('meridian', error && error.code === 'allowance_used' ? COPY.allowanceUsed : COPY.chatFailed, { status: 'error' });
+        return false;
+      }
+      if (working) { const i = messages.indexOf(working); if (i !== -1) messages.splice(i, 1); }
+      busy = false;
+      if (disposed || !out) return false;
+      if (typeof out.sessionId === 'string') sessionId = out.sessionId;
+      const suggestions = (Array.isArray(out.suggestions) ? out.suggestions : [])
+        .filter(x => x && presets.some(p => p.id === x.id)).map(x => ({ id: x.id, name: presets.find(p => p.id === x.id).name }));
+      const p = out.proposal;
+      if (p && typeof p.id === 'string' && typeof p.prompt === 'string') {
+        const preset = presets.find(x => x.id === p.presetId) || { id: p.presetId, name: p.presetName || '' };
+        pending = { step: 'confirm', proposalId: p.id, preset, count: [1, 2, 4].includes(p.count) ? p.count : 2,
+          sharpened: p.prompt, approved: false, requestId: `${spaceId}:${Date.now().toString(36)}:${(requestCounter += 1)}` };
+        say('meridian', String(out.reply || 'Here\'s how I\'d describe it.'), {
+          proposal: p.prompt, actions: ['I approve', 'Generate'], suggestions, settings: safeSettings(p.settings) });
+      } else {
+        pending = null;
+        say('meridian', String(out.reply || 'Tell me a bit more about the image you want.'), { suggestions });
+      }
+      return true;
+    }
+
+    /** A clicked preset chip: tells Meridian which preset to use (it rewrites the proposal for it). */
+    async function choosePreset(presetId) {
+      const preset = presets.find(p => p.id === presetId);
+      if (!ready || disposed || busy || !preset) return false;
+      if (mode !== 'meridian') { say('you', preset.name); return scriptSend(preset.name); }
+      say('you', `Use the ${preset.name} preset.`);
+      await ask(`Use the ${preset.name} preset.`, preset.id);
+      return true;
+    }
+
+    function approve() { if (pending && pending.proposalId && !busy) pending.approved = true; }
+
+    async function scriptSend(input) {
       if (pending && pending.step === 'answer') {
         pending.answer = input;
         propose();
@@ -185,7 +266,11 @@
         spaceId, toolId, requestId: out.requestId,
         refinedDescription: out.refinedDescription,
         results: Array.isArray(out.results) ? out.results : [],
-        settingsUsed: Object.fromEntries(safeSettings(out.settingsUsed).map(([k, v]) => [k, v])),
+        // STUDIO-AI 2026-10-25: the server's own settings go through unchanged (the canvas filters them again); the
+        // old code turned them into display keys here and then filtered those as raw keys, which emptied the list.
+        settingsUsed: rawSettings(out.settingsUsed),
+        settings: rowsFor(out).map(([label, value]) => ({ label, value })),
+        ...(out.proposalId ? { proposalId: out.proposalId } : {}),
       };
       if (disposed) return;   // the person left this Space: results stay saved there, nothing is shown elsewhere
       try {
@@ -197,11 +282,25 @@
       }
       const best = payload.results.find(r => r && r.note) || payload.results[0];
       say('meridian', `${payload.results.length} ready on the canvas. ${best && best.note ? `#${payload.results.indexOf(best) + 1} fits the brief best. ` : ''}Keep the ones you like, or tell me what to change.`,
-        { settings: safeSettings(out.settingsUsed) });
+        { settings: rowsFor(out) });
+    }
+
+    function rawSettings(raw) {   // STUDIO-AI 2026-10-25: only the known keys, never cost, keys or paths
+      const s = raw && typeof raw === 'object' ? raw : {}, out = {};
+      for (const k of ['preset', 'size', 'pixels', 'model']) if (typeof s[k] === 'string' && s[k].length <= 60 && !/[$]|cost/i.test(s[k])) out[k] = s[k];
+      if ([1, 2, 4].includes(s.count)) out.count = s.count;
+      if (typeof s.useBrandDna === 'boolean') out.useBrandDna = s.useBrandDna;
+      return out;
+    }
+
+    function rowsFor(out) {   // STUDIO-AI 2026-10-25: the server's list first, the raw settings otherwise
+      const list = safeSettings(Array.isArray(out.settings) ? out.settings : []);
+      return list.length ? list : safeSettings(out.settingsUsed);
     }
 
     async function confirm() {
       if (!ready || disposed || !pending || pending.step !== 'confirm' || busy) return;
+      if (pending.proposalId && !pending.approved) return;   // STUDIO-AI 2026-10-25: only after "I approve" or a typed yes
       busy = true;
       const request = pending;
       const working = say('meridian', 'Generating...', { status: 'working' });
@@ -211,7 +310,8 @@
         let out;
         try {
           out = await service.generateImage({ spaceId, requestId: request.requestId, presetId: request.preset && request.preset.id,
-            description: request.sharpened, count: [1, 2, 4].includes(request.count) ? request.count : 2, ...(jobId ? { jobId, stageId } : {}) });
+            description: request.sharpened, count: [1, 2, 4].includes(request.count) ? request.count : 2, ...(jobId ? { jobId, stageId } : {}),
+            ...(request.proposalId ? { proposalId: request.proposalId } : {}) });   // STUDIO-AI 2026-10-25: the server makes the stored proposal
         } catch (error) {
           report(error);
           // Uncertain outcome: check whether the images were made before offering a retry.
@@ -219,7 +319,8 @@
           if (made.length) {
             pending = null;
             say('meridian', COPY.reconciled);
-            deliver({ requestId: request.requestId, results: made.map(a => ({ assetId: a.id, url: a.url, note: '' })), settingsUsed: made[0].settingsUsed });
+            deliver({ requestId: request.requestId, results: made.map(a => ({ assetId: a.id, url: a.url, previewUrl: a.previewUrl, width: a.width, height: a.height, note: '' })),
+              settingsUsed: made[0].settingsUsed, settings: made[0].settings, proposalId: request.proposalId });
           } else {
             say('meridian', COPY.generateFailed, { status: 'error' });   // same proposal (and requestId) stays retryable
           }
@@ -252,8 +353,11 @@
     function dispose() { disposed = true; ready = false; }
 
     return {
-      start, send, confirm, cancel, dispose,
+      start, send, confirm, cancel, dispose, choosePreset, approve,
       get messages() { return messages.slice(); },
+      get mode() { return mode; },
+      get sessionId() { return sessionId; },
+      get approved() { return Boolean(pending && pending.approved); },
       get hasDraft() { return Boolean(pending); },
       get busy() { return busy; },
       get ready() { return ready; },
@@ -306,7 +410,33 @@
           box.textContent = m.proposal;
           row.appendChild(box);
         }
-        if (m.actions && m === convo.messages[convo.messages.length - 1] && convo.hasDraft) {
+        const last = m === convo.messages[convo.messages.length - 1];
+        if (m.suggestions && m.suggestions.length && last) {   // STUDIO-AI 2026-10-25: presets as clickable chips
+          const chips = document.createElement('div');
+          chips.className = 'mc-suggestions';
+          for (const sug of m.suggestions) {
+            const chip = document.createElement('button');
+            chip.type = 'button'; chip.className = 'mc-chip'; chip.textContent = sug.name;
+            chip.disabled = convo.busy;
+            chip.addEventListener('click', () => run(() => convo.choosePreset(sug.id)));
+            chips.appendChild(chip);
+          }
+          row.appendChild(chips);
+        }
+        if (m.actions && m.actions[0] === 'I approve' && last && convo.hasDraft) {   // STUDIO-AI 2026-10-25
+          const bar = document.createElement('div');
+          bar.className = 'mc-actions';
+          const ok = document.createElement('button');
+          ok.type = 'button'; ok.textContent = convo.approved ? 'Approved' : 'I approve';
+          ok.setAttribute('aria-pressed', String(convo.approved));
+          ok.addEventListener('click', () => { convo.approve(); render(); });
+          const go = document.createElement('button');
+          go.type = 'button'; go.textContent = 'Generate'; go.className = 'mc-primary';
+          go.disabled = !convo.approved || convo.busy;
+          go.addEventListener('click', () => run(() => convo.confirm()));
+          bar.append(ok, go);
+          row.appendChild(bar);
+        } else if (m.actions && last && convo.hasDraft) {
           const bar = document.createElement('div');
           bar.className = 'mc-actions';
           const go = document.createElement('button');
@@ -364,5 +494,5 @@
     return () => { convo.dispose(); studio.setDirty(false); };
   }
 
-  return { pickPreset, pickCount, sharpenDescription, chooseQuestion, safeSettings, COPY, createConversation, mountConversation };
+  return { pickPreset, pickCount, sharpenDescription, chooseQuestion, safeSettings, COPY, YES, createConversation, mountConversation };
 });
