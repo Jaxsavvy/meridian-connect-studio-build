@@ -103,7 +103,7 @@
     'pitch-deck': Object.freeze({
       // version: bump when the stages change; running Jobs keep the stages they started with.
       id: 'pitch-deck', name: 'Pitch deck', version: 1, clientOnly: true, locked: true, oneAtATime: true,
-      people: Object.freeze(['jax', 'tyler']), // Pitch deck project: Jax and Tyler only
+      people: Object.freeze(['jax', 'tyler', 'cassy']), // Pitch deck team: Jax, Tyler and Cassy (Jax 10-29 added Cassy)
       tiers: Object.freeze([
         Object.freeze({ id: 'deck', name: 'Market Opportunity', description: 'A hosted page built from the prospect\'s own numbers, plus a printed QR card.' }),
       ]),
@@ -299,11 +299,16 @@
     const nextId = prefix => `${prefix}-${++counter}`;
     const emit = (event, detail) => { for (const fn of listeners) fn(event, detail); };
 
+    // SANDBOX-JOBS 2026-10-29: the real server names each person's sandbox ("sandbox-<hash>"); when it sent its sandboxes,
+    // those replace the sample ones, so a Job can start in "My sandbox" (Jax: "Space not found or not assigned to you").
+    const SANDBOX_TYPES = ['sandbox-personal', 'sandbox-team'];
     function spaceList() {
+      const own = projects.filter(p => SANDBOX_TYPES.includes(p.type)), clients = projects.filter(p => !SANDBOX_TYPES.includes(p.type));
       return [
-        { id: 'sandbox-me', type: 'sandbox-personal', name: 'My sandbox' },
-        { id: 'sandbox-team', type: 'sandbox-team', name: 'Team sandbox' },
-        ...(projects.length ? projects : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
+        ...(own.length ? own.map(p => ({ id: p.id, type: p.type, name: p.name })) : [
+          { id: 'sandbox-me', type: 'sandbox-personal', name: 'My sandbox' },
+          { id: 'sandbox-team', type: 'sandbox-team', name: 'Team sandbox' }]),
+        ...(clients.length ? clients : [{ id: 'sample-client', name: 'Sample Client (demo)' }])
           .map(p => ({ id: p.id, type: 'client', name: p.name })),
       ];
     }
@@ -327,14 +332,29 @@
       if (input === undefined || input === null) return {};
       if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Assignments must be an object.');
       const stages = stagesFor(workflow, tier), out = {};
-      for (const [stageId, personId] of Object.entries(input)) {
-        const stage = stages.find(st => st.id === stageId);
-        if (!stage) throw new Error('Unknown stage.');
-        if (stage.approver === 'jax') throw new Error('Jax approves this stage; it stays with him.');
-        if (personId !== null && !peopleFor(workflow).some(x => x.id === personId)) throw new Error('Pick someone on the team.');
-        out[stageId] = personId;
+      for (const [stageId, who] of Object.entries(input)) {
+        if (!stages.some(st => st.id === stageId)) throw new Error('Unknown stage.');
+        out[stageId] = builders(workflow, who);
       }
       return out;
+    }
+    // ASSIGN-MANY 2026-10-29 (Jax): up to three people build a stage, Kickoff, Concept, Storyboard and Design lock included,
+    // so he can hand one off. Jax still approves the stages he approves. A save from before (one id) reads as a list of one.
+    const MAX_BUILDERS = 3;
+    function builders(workflow, who) {
+      const ids = who === null || who === undefined || who === '' ? [] : Array.isArray(who) ? who : [who];
+      if (ids.length > MAX_BUILDERS) throw new Error(`Pick up to ${MAX_BUILDERS} people.`);
+      const team = peopleFor(workflow), out = [];
+      for (const id of ids) {
+        if (!team.some(x => x.id === id)) throw new Error('Pick someone on the team.');
+        if (!out.includes(id)) out.push(id);
+      }
+      return out;
+    }
+    function buildersOf(job, stage) {
+      const who = job.assignees[stage.id];
+      const list = Array.isArray(who) ? who : who ? [who] : [];
+      return list.length ? list : stage.approver === 'jax' ? ['jax'] : [];
     }
 
     function peopleFor(workflow) {
@@ -374,7 +394,7 @@
       setProjects(list) {
         projects = (Array.isArray(list) ? list : [])
           .filter(p => p && SAFE_ID.test(String(p.id)))
-          .map(p => ({ id: String(p.id), name: String(p.name || 'Untitled project') }));
+          .map(p => ({ id: String(p.id), name: String(p.name || 'Untitled project'), ...(SANDBOX_TYPES.includes(p.type) ? { type: p.type } : {}) }));
         emit('spaces-changed');
       },
       async listSpaces() { return clone(spaceList()); },
@@ -390,13 +410,17 @@
       /** Workflow definition with its stages; null if that workflow isn't built yet. */
       async getWorkflow(workflowId) { return WORKFLOWS[workflowId] ? clone(WORKFLOWS[workflowId]) : null; },
       /** Starts a Job (one workflow run). tier: 'standard' | 'cinematic' (Pitch deck: 'deck').
-       *  options.assignees: { stageId: personId } picks who builds each stage at the start. */
+       *  options.assignees: { stageId: personId | [personIds] } picks who builds each stage at the start (up to three). */
       async startJob(spaceId, workflowId, tier, options = {}) {
         const space = requireSpace(spaceId);
         const workflow = WORKFLOWS[workflowId];
         if (!workflow) throw new Error('That workflow is coming soon.');
         if (!workflow.tiers.some(t => t.id === tier)) throw new Error(workflowId === 'website' ? 'Pick Standard or Cinematic.' : 'Pick a tier.');
-        if (workflow.clientOnly && space.type !== 'client') throw new Error(`${workflow.name} only runs inside a client project.`);
+        if (workflow.clientOnly && space.type !== 'client') {   // Jax 10-29: say where to go instead
+          throw new Error(workflowId === 'pitch-deck'
+            ? "A pitch deck only runs inside a client project. Open the client's Pitch deck project from Studio's Spaces, or on Clients turn on Build a pitch deck and add a town."
+            : `${workflow.name} only runs inside a client project.`);
+        }
         if (workflow.oneAtATime && spaceJobs(space.id).some(j => j.workflowId === workflowId && j.stageId !== null)) {
           throw new Error(`This project already has a ${workflow.name.toLowerCase()} in progress.`);
         }
@@ -406,20 +430,18 @@
         emit('jobs-changed', { spaceId: space.id });
         return clone(jobView(job));
       },
-      /** Who stages can be assigned to; pass a workflowId for that workflow's team (Pitch deck: Jax and Tyler). */
+      /** Who stages can be assigned to; pass a workflowId for that workflow's team (Pitch deck: Jax, Tyler and Cassy). */
       async listPeople(workflowId) { return clone(peopleFor(WORKFLOWS[workflowId])); },
       /** BV's contact for anything a prospect or client holds, like the Print card: { name, email }. */
       async getContact() { return { ...CONTACT }; },
-      /** Assigns one stage of a Job to a person (or null to unassign). Stages Jax approves always stay with Jax. */
+      /** Assigns one stage of a Job to up to three people (a person id, a list, or null to unassign). */
       async assignStage(spaceId, jobId, stageId, personId) {
         requireSpace(spaceId);
         const job = requireJob(spaceId, jobId);
         const stage = stageOf(job, stageId);
         if (!stage) throw new Error('Unknown stage.');
-        if (stage.approver === 'jax') throw new Error('Jax approves this stage; it stays with him.');
         if (job.done.includes(stageId)) throw new Error('This stage is finished.');
-        if (personId !== null && !peopleFor(WORKFLOWS[job.workflowId]).some(x => x.id === personId)) throw new Error('Pick someone on the team.');
-        job.assignees[stageId] = personId;
+        job.assignees[stageId] = builders(WORKFLOWS[job.workflowId], personId);
         emit('jobs-changed', { spaceId });
         return clone(jobView(job));
       },
@@ -520,6 +542,15 @@
         if (job.workflowId !== 'pitch-deck' || !job.done.includes('publish')) return null;
         const url = `https://decks.example.com/u/${encodeURIComponent(job.id)}`;
         return { url, qrSvg: Qr.svg(url) };
+      },
+      /** U-D3: practice publish: Publish is done and the made-up link above appears. */
+      async publishDeck(spaceId, jobId) {
+        requireSpace(spaceId);
+        const job = requireJob(spaceId, jobId);
+        if (job.workflowId !== 'pitch-deck' || job.stageId !== 'publish') throw new Error('Publish opens after Jax approves Review.');
+        job.waitingOnJax = false; advance(job, 'publish');
+        emit('jobs-changed', { spaceId });
+        return this.getPublished(spaceId, jobId);
       },
       /** Ticks or unticks one "This stage needs" item (by index) on an open stage (default: the current one). */
       async setStageNeed(spaceId, jobId, index, checked, stageId) {
@@ -987,6 +1018,62 @@
         emit('research-changed', { spaceId: space.id, jobId: job.id });
         return clone({ runId: run.runId, status: run.status });
       },
+      /** Core only (NO-GOOGLE 2026-10-29): stores what Team Hub's research found (meridian-27's POST .../research):
+       *  { business: {name, town, kind, website}, evidence, competitors: [{name, site, facts, source}], words, missing, sources }.
+       *  The business and each competitor are known by their website ('site' evidence); facts that don't pass the
+       *  research model are left out and listed in missing. No confirmed website: research can't score it, and says so. */
+      importResearch(spaceId, jobId, found) {
+        const { space, job } = deckJob(spaceId, jobId);
+        if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
+        if (!found || typeof found !== 'object') throw new Error('Research came back empty. Try again.');
+        const at = new Date(now()).toISOString(), business = found.business && typeof found.business === 'object' ? found.business : {};
+        const site = Research.origin(business.website), missing = (Array.isArray(found.missing) ? found.missing : []).map(m => String(m).slice(0, 300)).slice(0, 40);
+        // NO-WEBSITE (Jax 10-29: "that's why I picked this one... they need one"): searched and nothing local is the finding,
+        // and the deck goes on. Only a site someone typed that can't be read stops research.
+        const status = String(business.websiteStatus || (site ? 'found' : 'not-found'));
+        const bizName = String(business.name || space.name).slice(0, 80);
+        const searched = (Array.isArray(found.sources) ? found.sources : []).find(x => x && Research.origin(x.url));
+        const evidence = (Array.isArray(found.evidence) ? found.evidence : []).filter(e => e && typeof e === 'object' && e.kind !== 'site');
+        if (site && status !== 'unreadable') evidence.push({ id: 'site-client', kind: 'site', subject: 'client', field: 'url', value: site, method: 'page-read',
+          source: { label: `${bizName} website`, url: site }, fetchedAt: at });
+        if (!site && status === 'not-found') {
+          evidence.push({ id: 'site-none', kind: 'site', subject: 'client', field: 'none', value: true, method: 'page-read', fetchedAt: at,
+            source: searched ? { label: String(searched.label || 'Web search').slice(0, 120), url: String(searched.url) }
+              : { label: 'Web search', url: `https://duckduckgo.com/?q=${encodeURIComponent(`${bizName} ${String(business.town || '')}`.trim())}` } });
+          const elsewhere = (Array.isArray(business.elsewhere) ? business.elsewhere : []).map(h => String(h).replace(/[^A-Za-z0-9.-]/g, '').slice(0, 80)).filter(Boolean).slice(0, 3);
+          missing.unshift(`Confirm ${bizName} has no website${elsewhere.length ? ` (we found ${elsewhere.join(', ')}, but ${elsewhere.length > 1 ? 'those are other businesses' : "that's a different business"} elsewhere)` : ''}.`);
+        }
+        const names = {};
+        (Array.isArray(found.competitors) ? found.competitors : []).slice(0, 4).forEach((c, i) => {
+          const where = Research.origin(c && c.site);
+          if (!where || where === site) return;
+          const src = c.source && Research.origin(c.source.url) ? { label: String(c.source.label || c.name || 'Website').slice(0, 120), url: c.source.url }
+            : { label: `${String(c.name || 'Competitor').slice(0, 80)} website`, url: where };
+          names[where] = String(c.name || '').slice(0, 60);
+          evidence.push({ id: `site-rival-${i + 1}`, kind: 'site', subject: 'competitor', field: 'url', value: where, site: where, method: 'page-read', source: src, fetchedAt: at });
+          for (const [field, value] of Object.entries(c.facts && typeof c.facts === 'object' ? c.facts : {})) {
+            if (typeof value === 'boolean' && Research.KINDS.website.includes(field)) {
+              evidence.push({ id: `rival-${i + 1}-${field}`, kind: 'website', subject: 'competitor', field, value, site: where, method: 'page-read', source: src, fetchedAt: at });
+            }
+          }
+        });
+        const ids = new Set(), kept = [];
+        for (const e of evidence) {   // each record on its own: one bad fact doesn't sink the rest
+          const rec = { ...e, id: SAFE_ID.test(String(e.id)) && !ids.has(e.id) ? e.id : `fact-${ids.size + 1}` };
+          if (Research.validateEvidence([...kept, rec]).ok) { kept.push(rec); ids.add(rec.id); }
+          else missing.push(`A ${String(e.kind || 'research')} fact couldn't be used (its source or value wasn't right).`);
+        }
+        const words = found.words && typeof found.words === 'object' && !Array.isArray(found.words) ? found.words : null;
+        const ok = status !== 'unreadable' && (site || status === 'not-found');
+        job.research = { runId: nextId('run'), category: String(business.kind || '').slice(0, 60), status: ok ? 'done' : 'failed', source: 'web',
+          candidates: [], placeId: null, business: { name: String(business.name || ''), town: String(business.town || ''), website: site || null },
+          names, words, missing: ok ? missing : [`Meridian couldn't read the website on the Clients page${site ? ` (${site})` : ''}. Check the address there, then press Run again.`, ...missing],
+          sources: (Array.isArray(found.sources) ? found.sources : []).filter(x => x && Research.origin(x.url)).slice(0, 20)
+            .map(x => ({ label: String(x.label || x.url).slice(0, 120), url: String(x.url) })) };
+        job.evidence = kept;
+        emit('research-changed', { spaceId: space.id, jobId: job.id });
+        return clone({ runId: job.research.runId, status: job.research.status });
+      },
       /** Where research stands. status: 'not-started' | 'running' | 'needs-match' | 'by-hand' | 'done' | 'failed'; candidates
        *  (businesses that could match), evidence, score (parts + what couldn't be found) and, once the deck passes, the summary. */
       async getResearch(spaceId, jobId) {
@@ -1061,17 +1148,21 @@
         if (job.done.includes('research')) throw new Error('The deck is locked once Research + write is done.');
         researchDone(job);
         const words = practice ? sampleDeck(space.name, job.evidence, new Date(now()).toISOString().slice(0, 10)) : null;
-        const current = words ? fillBlanks(deckOf(space, job), words) : deckOf(space, job);
-        const known = Object.fromEntries(current.competitors.rows.filter(r => r.placeId && r.name).map(r => [r.placeId, r.name]));
+        // NO-GOOGLE: Team Hub's research drafted the words; they fill only fields the person left blank.
+        const found = !practice && job.research.words ? job.research.words : null;
+        const current = words ? fillBlanks(deckOf(space, job), words) : found ? fillBlanks(deckOf(space, job), found) : deckOf(space, job);
+        const known = Object.fromEntries(current.competitors.rows.filter(r => (r.placeId || r.site) && r.name).map(r => [r.placeId || Research.origin(r.site), r.name]));
         const { missing, ...draft } = Research.draftDeckFromEvidence(job.evidence,
-          { ...current.client, names: { ...(words ? SAMPLE_RIVALS : {}), ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
+          { ...current.client, names: { ...(words ? SAMPLE_RIVALS : {}), ...(job.research.names || {}), ...known, ...(names && typeof names === 'object' ? names : {}) } }, {});
         const label = i => (current.market.stats[i] || {}).label || ((words && words.market.stats[i]) || {}).label || '';
+        const webOnly = ['website-only', 'no-website'].includes(draft.score.coverage);
         const checked = checkDeck(job, { ...current, client: { ...current.client, placeId: draft.client.placeId }, score: draft.score,
-          market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: label(i) })) },
+          market: { ...current.market, stats: draft.market.stats.map((s, i) => ({ ...s, label: label(i) || s.label })) },
+          ...(webOnly ? { demand: null, saturation: null } : {}),   // no free source: those sections say "not checked"
           competitors: { ...current.competitors, channels: draft.competitors.channels, rows: draft.competitors.rows, source: draft.competitors.source } });
         job.deck = checked.deck;
         emit('deck-changed', { spaceId: space.id, jobId: job.id });
-        return clone({ ok: checked.errors.length === 0, ...checked, missing });
+        return clone({ ok: checked.errors.length === 0, ...checked, missing: [...missing, ...(job.research.missing || [])] });
       },
       /** Auto check: runs every check on the deck by itself; a person only reviews what gets flagged. Returns the
        *  flags [{ id, check, message, where, resolved }]; check is 'deck' | 'evidence' | 'links' | 'internal-words'.
@@ -1279,7 +1370,8 @@
         const tm = obj(obj(s.timing)[st.id]), need = obj(s.needs)[st.id], who = obj(s.assignees)[st.id];
         if (Number.isFinite(tm.openedAt)) timing[st.id] = { openedAt: tm.openedAt, ...(Number.isFinite(tm.doneAt) ? { doneAt: tm.doneAt } : {}) };
         if (Array.isArray(need) && need.length === st.needs.length) needs[st.id] = need.map(Boolean);
-        if (st.approver !== 'jax' && peopleFor(workflow).some(x => x.id === who)) assignees[st.id] = who;
+        const team = (Array.isArray(who) ? who : [who]).filter((id, i, all) => peopleFor(workflow).some(x => x.id === id) && all.indexOf(id) === i);
+        if (team.length) assignees[st.id] = team.slice(0, MAX_BUILDERS);
       }
       const stageId = ids.find(id => !done.includes(id)) || null, c = obj(s.checks);
       const flag = f => ({ id: str(f.id, 40), key: str(f.key), check: str(f.check, 40), message: str(f.message), where: str(f.where, 200),
@@ -1658,7 +1750,7 @@
         locked: !!job.locked, template: job.template || null, templateVersion: job.templateVersion,
         ...(job.workflowId === 'website' ? { realSite: realSite(job) } : {}),
         stages: job.stageDefs.map(st => ({ ...st, needsDone: job.needs[st.id] ? [...job.needs[st.id]] : st.needs.map(() => false),
-          assignee: st.approver === 'jax' ? 'jax' : (job.assignees[st.id] || null), timing: timingView(job.timing[st.id]),
+          assignee: buildersOf(job, st)[0] || null, assignees: buildersOf(job, st), timing: timingView(job.timing[st.id]),
           hasNotes: !!job.notes[st.id], status: job.done.includes(st.id) ? 'done'
             : open.includes(st.id) ? (job.waitingOnJax ? 'waiting-on-jax' : 'current') : 'upcoming' })) };
     }
@@ -1708,8 +1800,13 @@
     // SPACES-FIX 2026-10-25 (from Connect): reads ride out a dropped connection or a busy home base (GET only, so nothing
     // is ever done twice). A 401 means the sign-in is gone: Connect is told ('signed-out') so it can show its sign-in screen.
     const passing = res => Boolean(res && !res.success && (res.offline || [502, 503, 504].includes(res.status)));
-    async function call(method, endpoint, body) {
-      let res = await request(method, endpoint, body);
+    function livePublished(p) {   // U-D3: only an https link, with a QR for it
+      if (!p || typeof p.url !== 'string' || !/^https:\/\/[^\s"'<>]+$/.test(p.url)) return null;
+      return { url: p.url, title: String(p.title || ''), publishedAt: p.publishedAt || null, expiresAt: p.expiresAt || null,
+        qrSvg: typeof p.qrSvg === 'string' && /^<svg[\s>]/.test(p.qrSvg.trim()) ? p.qrSvg : Qr.svg(p.url) };
+    }
+    async function call(method, endpoint, body, opts) {
+      let res = await request(method, endpoint, body, opts);
       for (let i = 0; method === 'GET' && passing(res) && i < delays.length; i++) {
         await new Promise(done => setTimeout(done, delays[i]));
         res = await request(method, endpoint, body);
@@ -1719,6 +1816,25 @@
       return res.data;
     }
     let projectIds = null;
+    // CORE-05: the client Spaces the local Job copy knows = the app's projects + the server's client Spaces (by id).
+    let appProjects = [], serverClients = [], localIds = '';
+    function syncLocal() {
+      const byId = new Map();
+      for (const p of [...appProjects, ...serverClients]) if (!byId.has(p.id)) byId.set(p.id, p);
+      const list = [...byId.values()], ids = JSON.stringify(list.map(p => p.id).sort());
+      if (ids !== localIds) { localIds = ids; local.setProjects(list); }
+    }
+    let spacesInFlight = null;
+    async function listSpacesOnce() {
+      const spaces = await call('GET', '/api/studio/spaces');
+      // CORE-05 2026-10-29 (from Connect's SPACES-FIX): the local Job copy also learns the client Spaces from the
+      // server's own list, so a Job can start even before (or without) the app's project list. Its 'spaces-changed'
+      // is never passed on (see on()), so this can't start a reload loop.
+      serverClients = (Array.isArray(spaces) ? spaces : []).filter(s => s && ['client', 'sandbox-personal', 'sandbox-team'].includes(s.type) && SAFE_ID.test(String(s.id)))
+        .map(s => ({ id: String(s.id), name: String(s.name || 'Project'), type: s.type }));
+      syncLocal();
+      return spaces;
+    }
     // Images: fileBase (the Team Hub address, e.g. https://host/connect) + /api/studio/files/...; the main process attaches
     // the sign-in header to exactly that route, so the token never appears in a URL. Without a fileBase (the workshop
     // build) images go through the app's private meridian-media: channel. STUDIO-AI 2026-10-25 (from Connect): a small
@@ -1738,8 +1854,10 @@
     const SAVE_FILES = Object.freeze({ 'pitch-deck': 'Pitch deck - Studio save.json', website: 'Website - Studio save.json' });
     const KINDS = Object.keys(SAVE_FILES), WHAT = { 'pitch-deck': 'this deck', website: 'this website' };
     const saves = new Map(); // `${kind}|${spaceId}` -> { revision, loading, dirty }
+    // SANDBOX-SAVES 2026-10-29: the server's own sandboxes (sandbox-<hash>, sandbox-team) keep their Job save files too,
+    // in Team Hub's sandbox Docs folder, so sandbox work survives a reload and reaches Jax's Review.
     const keeps = async spaceId => typeof readSave === 'function' && typeof saveFile === 'function'
-      && (await local.listSpaces()).some(s => s.id === spaceId && s.type === 'client');
+      && ((await local.listSpaces()).some(s => s.id === spaceId && s.type === 'client') || serverClients.some(s => s.id === spaceId));
     async function readSaved(spaceId, kind) {
       const res = await readSave(spaceId, SAVE_FILES[kind]);
       if (res && res.missing) return { revision: 0, jobs: [] };
@@ -1754,7 +1872,7 @@
       saves.set(`${kind}|${spaceId}`, entry);
       if (!entry.loading) {
         // No save file yet (revision 0): keep what this computer has; the next change writes the first save.
-        entry.loading = readSaved(spaceId, kind).then(data => { entry.revision = data.revision; if (data.revision > 0) local.importJobs(spaceId, data.jobs, kind); })
+        entry.loading = readSaved(spaceId, kind).then(data => { entry.revision = data.revision; entry.loadedAt = Date.now(); if (data.revision > 0) local.importJobs(spaceId, data.jobs, kind); })
           .catch(error => { entry.loading = null; throw error; });
       }
       await entry.loading;
@@ -1762,18 +1880,28 @@
     }
     async function loadSaved(spaceId) {
       if (!(await keeps(spaceId))) return null;
-      for (const kind of KINDS) await loadOne(spaceId, kind);
+      await Promise.all(KINDS.map(kind => loadOne(spaceId, kind)));   // AUDIT 2026-10-29: both files at once
       return true;
     }
     // When the project's Jobs are listed, pick up a newer save (e.g. Tyler's), unless this computer has a change still to save.
-    async function refreshSaved(spaceId) {
-      if (!(await loadSaved(spaceId))) return;
-      for (const kind of KINDS) {
-        const entry = saves.get(`${kind}|${spaceId}`);
-        if (entry.dirty) continue;
-        const remote = await readSaved(spaceId, kind);
-        if (remote.revision > entry.revision) { entry.revision = remote.revision; local.importJobs(spaceId, remote.jobs, kind); }
+    // AUDIT 2026-10-29: calls for the same Space at the same moment share one check (Studio Home asks for every Space's
+    // Jobs while the Space page asks too), and a file this very check just loaded isn't downloaded a second time.
+    const refreshing = new Map();
+    function refreshSaved(spaceId) {
+      if (!refreshing.has(spaceId)) {
+        refreshing.set(spaceId, refreshOnce(spaceId).finally(() => refreshing.delete(spaceId)));
       }
+      return refreshing.get(spaceId);
+    }
+    async function refreshOnce(spaceId) {
+      const started = Date.now();
+      if (!(await loadSaved(spaceId))) return;
+      await Promise.all(KINDS.map(async kind => {
+        const entry = saves.get(`${kind}|${spaceId}`);
+        if (entry.dirty || entry.loadedAt >= started) return;
+        const remote = await readSaved(spaceId, kind);
+        if (remote.revision > entry.revision && !entry.dirty) { entry.revision = remote.revision; local.importJobs(spaceId, remote.jobs, kind); }
+      }));
       await applyApprovals(spaceId);
     }
     // Stages Jax approved on Review in Connect (#273). Team Hub keeps his approvals and only he can add one; the Job moves on
@@ -1899,14 +2027,18 @@
       /** SPACES-FIX 2026-10-25 (from Connect): announces 'spaces-changed' only when the assigned projects really changed.
        *  It used to announce every call, and each one restarted Home's load (Spaces cleared, "Loading Spaces…" again). */
       setProjects(list) {
-        local.setProjects(list);
-        const ids = JSON.stringify((Array.isArray(list) ? list : []).map(p => String(p && p.id)).sort());
+        appProjects = (Array.isArray(list) ? list : []).filter(p => p && SAFE_ID.test(String(p.id))).map(p => ({ id: String(p.id), name: String(p.name || 'Project') }));
+        syncLocal();
+        const ids = JSON.stringify(appProjects.map(p => p.id).sort());
         if (projectIds !== null && ids !== projectIds) emit('spaces-changed');
         projectIds = ids;
       },
       /** Ask every screen to load its Spaces again (after a new sign-in). */
       refresh() { emit('spaces-changed'); },
-      async listSpaces() { return call('GET', '/api/studio/spaces'); },
+      listSpaces() {   // AUDIT 2026-10-29: calls at the same moment share one request (Home redrew ~20 times in a burst)
+        if (!spacesInFlight) spacesInFlight = listSpacesOnce().finally(() => { spacesInFlight = null; });
+        return spacesInFlight;
+      },
       async getSpace(spaceId) {
         const space = await call('GET', `/api/studio/spaces/${enc(spaceId)}`);
         let jobs = [];
@@ -1948,6 +2080,10 @@
           ...(typeof presetId === 'string' && presetId ? { preset_id: presetId } : {}),
         });
       },
+      // AUDIT 2026-10-29 (Jax: "a lot of buttons don't work"): what this server can't do yet; screens grey those buttons
+      // and say "soon" instead of answering "Coming soon" after a click.
+      soon: Object.freeze(['draftConcept', 'makeStoryboardFrame', 'makeLookFrames', 'chooseLookFrame', 'confirmMatch',
+        'answerDesign', 'saveVersion', 'copyToSpace']),
       saveVersion: notOnServerYet,
       copyToSpace: notOnServerYet,
       savePageAsset: notOnServerYet, // until Team Hub stores pages; Finish still saves them to the project folder
@@ -1956,7 +2092,27 @@
       assignStage: saved('assignStage'),
       approveAsset: notHere,
       approveStage: notHere,
-      async getPublished() { return null; },   // until publishing is on the server (#121)
+      // U-D3 2026-10-29: the deck's live link from Team Hub (meridian-27's /published and /publish, the decks site's
+      // real record); the QR is drawn here when the server sends none. A sandbox has no deck: null.
+      async getPublished(spaceId) {
+        let data = null;
+        try { data = await call('GET', `/api/studio/spaces/${enc(spaceId)}/published`); } catch (_) { return null; }
+        return livePublished(data && data.published);
+      },
+      /** Jax only, from his real click: publishes the newest assembled board, then Publish is done on the Job. */
+      async publishDeck(spaceId, jobId, options = {}) {
+        if (!options || options.click !== true) throw new Error('Publishing needs a click on Publish deck.');
+        await loadSaved(spaceId);
+        const job = await local.getJob(spaceId, jobId);
+        if (job.workflowId !== 'pitch-deck' || job.stageId !== 'publish') throw new Error('Publish opens after Jax approves Review.');
+        const data = await call('POST', `/api/studio/spaces/${enc(spaceId)}/publish`, {}, { click: true });
+        const published = livePublished(data && data.published);
+        if (!published) throw new Error("The decks site didn't send a link back. Check Pitch decks before trying again.");
+        await local.completeStage(spaceId, jobId, 'publish');   // Jax's stage: his click is the approval
+        if ((await local.getJob(spaceId, jobId)).waitingOnJax) await local.approveStage(spaceId, jobId);
+        await saveJobs(spaceId, 'pitch-deck');
+        return published;
+      },
       // Local until the server has Jobs (no cost involved).
       getWorkflow: (...a) => local.getWorkflow(...a),
       // Pitch deck Jobs are saved to the project folder after every change (#171).
@@ -2052,16 +2208,41 @@
         return saveInBatches(list => saveProjectFiles(spaceId, jobId, list), files);
       },
       saveStageNotes: saved('saveStageNotes'),
-      draftCopy: (...a) => local.draftCopy(...a),
-      // Real drafting comes with Meridian on the server; sample words must never reach a real client's site.
-      draftChapter: async () => notOnServerYet(),
+      // STUDIO-DRAFT 2026-10-29: Meridian drafts on the server (Team Hub studio_api /draft: a small model with fixed
+      // instructions, the Space's approved DNA, charged to the person's allowance). Never sample words in real mode;
+      // nothing is saved: the person accepts or changes the draft.
+      async draftCopy(request) {
+        const r = request && typeof request === 'object' ? request : {};
+        const kind = ['section', 'headline', 'brief-summary'].includes(r.kind) ? r.kind : 'section';
+        const i = r.input && typeof r.input === 'object' ? r.input : {};
+        const input = {};
+        for (const k of ['heading', 'kind', 'notes']) if (typeof i[k] === 'string' && i[k].trim()) input[k] = i[k].slice(0, 2000);
+        return call('POST', `/api/studio/spaces/${enc(String(r.spaceId || ''))}/draft`, { kind, input });
+      },
+      async draftChapter(spaceId, jobId, input) {
+        await loadSaved(spaceId);
+        const brief = await local.getStageNotes(spaceId, jobId, 'brief').catch(() => ({}));
+        const i = input && typeof input === 'object' ? input : {};
+        const body = {};
+        for (const k of ['page', 'name', 'job']) if (typeof i[k] === 'string' && i[k].trim()) body[k] = i[k].slice(0, 300);
+        for (const k of ['callToAction', 'goal', 'audience']) if (typeof brief[k] === 'string' && brief[k].trim()) body[k] = brief[k].slice(0, 300);
+        return call('POST', `/api/studio/spaces/${enc(String(spaceId || ''))}/draft`, { kind: 'chapter', input: body });
+      },
       getDeck: loaded('getDeck'),
       saveDeck: saved('saveDeck'),
       getResearchSummary: loaded('getResearchSummary'),
       getResearchFiles: loaded('getResearchFiles'),
       // Real decks get their evidence from the research agent on the server (#126), never from practice data.
       async useSampleResearch() { throw new Error('Practice research only runs in practice mode.'); },
-      startResearch: async () => notOnServerYet(),
+      // NO-GOOGLE 2026-10-29: Team Hub reads the client's website and up to 3 local competitors' (meridian-27's /research,
+      // 10-40 s), and drafts the words; it's stored on the Job and saved like any other change.
+      async startResearch(spaceId, jobId) {
+        await loadSaved(spaceId);
+        const data = await call('POST', `/api/studio/spaces/${enc(spaceId)}/research`, { jobId });
+        const out = local.importResearch(spaceId, jobId, data && data.research);
+        await saveJobs(spaceId, 'pitch-deck');
+        return out;
+      },
       confirmMatch: async () => notOnServerYet(),
       // Hand-entered research works now (local, like Jobs); the numbers go into the deck, never practice words.
       getResearch: loaded('getResearch'),

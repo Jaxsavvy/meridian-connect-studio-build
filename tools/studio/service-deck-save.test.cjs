@@ -70,7 +70,7 @@ test('nothing in the save file is trusted as-is; sandboxes never touch a project
   const f = folder(), jax = open(f);
   const job = await jax.startJob('sample-home', 'pitch-deck', 'deck');
   const data = f.saved(), j = data.jobs[0];
-  j.assignees = { research: 'cassy', review: 'tyler' };                            // not on the Pitch deck team; Review stays with Jax
+  j.assignees = { research: 'stranger', review: ['tyler', 'stranger', 'tyler'], 'home-t2': 'nobody' };   // off the team dropped; old one-id saves read
   j.evidence = [{ id: 'fact-90', kind: 'google', subject: 'client', field: 'rating', value: 4.9, placeId: 'ChIJtestClient0001',
     method: 'person', source: SRC, fetchedAt: '2026-10-27T00:00:00Z' }];        // a stored Google rating is refused
   j.deck = { ...(await jax.getDeck('sample-home', job.id)), pricing: 1500 };        // internal fields are dropped
@@ -81,7 +81,8 @@ test('nothing in the save file is trusted as-is; sandboxes never touch a project
   const back = await again.getJob('sample-home', job.id);
   assert.deepEqual((await again.listJobs('sample-home')).map(x => x.id), [job.id]);
   assert.equal(back.stages.find(st => st.id === 'research').assignee, null);
-  assert.equal(back.stages.find(st => st.id === 'review').assignee, 'jax');
+  assert.deepEqual(back.stages.find(st => st.id === 'review').assignees, ['tyler']);   // ASSIGN-MANY: Jax's stages can be handed off
+  assert.deepEqual(back.stages.find(st => st.id === 'home-t2').assignees, []);
   assert.equal(back.stageId, 'home-t1');                                              // from what's done, not from the file
   assert.deepEqual((await again.getResearch('sample-home', job.id)).evidence, []);
   assert.equal('pricing' in (await again.getDeck('sample-home', job.id)), false);

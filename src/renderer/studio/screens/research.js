@@ -60,8 +60,9 @@
         rows.push(...['rating', 'reviews'].map(field => evidenceRow({ id: `live-${field}`, kind: 'google', subject: 'client', field,
           method: 'api', source: { label: 'Google Maps', url: 'https://www.google.com/maps' } })));
       }
-      const gaps = [...(research.score?.missing || []), ...(rows.includes(null) ? ['A source could not be shown'] : [])];
-      const done = research.status === 'done' && !!research.placeId;
+      // NO-GOOGLE: what the website research couldn't check (meridian-27's missing list) shows with the rest.
+      const gaps = [...(research.missing || []), ...(research.score?.missing || []), ...(rows.includes(null) ? ['A source could not be shown'] : [])];
+      const done = research.status === 'done' && (!!research.placeId || research.source === 'web');   // web research: the business is known by its website
       // Google names aren't stored, so a person types each competitor's name for the deck.
       const competitors = (research.evidence || []).filter(e => e?.kind === 'place' && e.subject === 'competitor' && e.placeId)
         .map(e => ({ placeId: String(e.placeId), rank: Number(e.rank) || 0 })).sort((a, b) => a.rank - b.rank);
@@ -110,6 +111,7 @@
 
   function render(el, { spaceId, jobId }, studio) {
     const doc = el.ownerDocument, root = doc.createElement('section');
+    const soon = id => Array.isArray(studio.service?.soon) && studio.service.soon.includes(id);   // AUDIT 2026-10-29: not on the real server yet: greyed, says soon
     root.className = 'studio-research'; root.setAttribute('aria-label', 'Research'); el.replaceChildren(root);
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const focus = states.focus(root);
@@ -177,7 +179,8 @@
       report(view) {
         unlisten(); const restore = focus();
         root.setAttribute('aria-busy', String(view.state === 'loading' || !!view.busy));
-        root.replaceChildren(button('Back to Job', () => studio.navigate('work', { spaceId, jobId, stageId: 'research' })),
+        // U-D7: Research only belongs to a Pitch deck Job, so "Back to Job" returns to its own Job screen.
+        root.replaceChildren(button('Back to Job', () => studio.navigate('pitch-deck', { spaceId, jobId, open: 'research' })),
           node('h1', 'Research + write'));
         if (view.state !== 'ready') {
           root.appendChild(states.panel(doc, view.state, view.state === 'loading' ? 'Loading research…' : view.message, () => void model.load()));
@@ -188,7 +191,7 @@
         input.value = category || r.category || ''; input.disabled = locked; input.placeholder = 'roofer';
         listen(input, 'input', () => { category = input.value; });
         field.append(node('span', 'What kind of business?'), input);
-        form.append(field, button(['not-started', 'by-hand'].includes(r.status) ? 'Run research' : 'Run again', () => void model.run(input.value), true, locked));
+        form.append(field, button((view.busy ? 'Researching… (up to a minute)' : ['not-started', 'by-hand'].includes(r.status) ? 'Run research' : 'Run again') + (soon('startResearch') ? ' (soon)' : ''), () => void model.run(input.value), true, locked || soon('startResearch')));
         root.appendChild(form);
         const status = node('p', { 'not-started': 'Research hasn\'t run yet.', running: 'Research is running…',
           'needs-match': 'More than one business could match. Pick the right one.', done: 'Research is done.',
@@ -198,7 +201,7 @@
         if (r.status === 'needs-match') {
           root.appendChild(list('Which business is it?', r.candidates || [], c => {
             const li = node('li'); li.append(node('strong', c.name), node('span', c.address),
-              button('This one', () => void model.confirm(c.placeId), false, view.busy)); return li;
+              button('This one', () => void model.confirm(c.placeId), false, view.busy || soon('confirmMatch'))); return li;
           }));
         }
         if (view.rows.length) {

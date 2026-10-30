@@ -82,11 +82,11 @@ test('Research + write needs research done and a confirmed business', async () =
   assert.equal((await s.getResearch('sample-home', job.id)).status, 'done');
 });
 
-test('real mode: the research agent waits on the server (#126); hand-entered research works now', async () => {
+test('real mode: research with no answer stays not started; hand-entered research works now', async () => {
   const server = createServerService({ request: async () => ({ success: true, data: [] }) });
   server.setProjects([{ id: 'sample-home', name: 'Sample Home Services' }]);
   const job = await server.startJob('sample-home', 'pitch-deck', 'deck');
-  await assert.rejects(server.startResearch('sample-home', job.id, { category: 'plumber' }), /Coming soon/);
+  await assert.rejects(server.startResearch('sample-home', job.id, { category: 'plumber' }), /came back empty/);   // NO-GOOGLE: the real route now
   await assert.rejects(server.confirmMatch('sample-home', job.id, 'sample-place-you-0001'), /Coming soon/);
   assert.equal((await server.getResearch('sample-home', job.id)).status, 'not-started');
   await assert.rejects(server.applyResearchToDeck('sample-home', job.id), /run the research/);

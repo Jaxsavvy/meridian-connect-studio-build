@@ -45,7 +45,8 @@
       dispose() { disposed = true; revision++; job = null; off(); },
     };
   }
-  function mount(el, { spaceId, jobId, studio, onStage }) {
+  function mount(el, { spaceId, jobId, studio, onStage, viewing = null }) {
+    const owner = studio.isOwner === true;   // OWNER-JUMP 2026-10-29: Jax opens any stage and can skip ticks
     const doc = el.ownerDocument, root = doc.createElement('div'); root.className = 'studio-stage-bar'; el.replaceChildren(root);
     const states = doc.defaultView?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const focus = states.focus(root);
@@ -63,6 +64,13 @@
         for (const stage of job.stages) {
           const item = node('li', `${stage.name} — ${labels[stage.status] || 'Upcoming'}`);
           if (stage.id === job.stageId) item.setAttribute('aria-current', 'step');
+          if (owner) {   // a click opens that stage (the tools work on it; the Job itself stays where it is)
+            item.tabIndex = 0; item.setAttribute('role', 'button'); item.dataset.jump = stage.id; item.title = `Open ${stage.name}`;
+            if (stage.id === (viewing || job.stageId)) item.dataset.viewing = '1';
+            const go = () => studio.navigate('work', { spaceId, jobId, stageId: stage.id });
+            item.addEventListener('click', go);
+            item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+          }
           list.appendChild(item);
         }
         root.appendChild(list);
@@ -87,9 +95,14 @@
         const button = node('button', job.finished ? 'Job finished' : job.waitingOnJax ? 'Waiting on Jax'
           : view.busy ? 'Saving stage…' : 'Mark stage done');
         button.type = 'button'; button.className = 'studio-button is-secondary';
-        button.disabled = !!(view.busy || job.finished || job.waitingOnJax || !allTicked);
+        button.disabled = !!(view.busy || job.finished || job.waitingOnJax || (!allTicked && !owner));
         button.addEventListener('click', () => void model.complete()); root.appendChild(button);
-        if (!allTicked && !job.finished && !job.waitingOnJax) root.appendChild(node('p', 'Tick everything this stage needs first'));
+        if (!allTicked && !job.finished && !job.waitingOnJax) root.appendChild(node('p', owner ? 'You can mark it done without every tick.' : 'Tick everything this stage needs first'));
+        const win = doc.defaultView;
+        if (owner && job.waitingOnJax && win && typeof win.switchView === 'function') {   // his approval lives on Review
+          const review = node('button', 'Approve on Review'); review.type = 'button'; review.className = 'studio-button is-primary';
+          review.addEventListener('click', () => win.switchView('owner-studio')); root.appendChild(review);
+        }
         const jobPage = node('button', 'Job page'); jobPage.type = 'button'; jobPage.className = 'studio-button is-secondary';
         jobPage.addEventListener('click', () => studio.navigate('job', { spaceId, jobId })); root.appendChild(jobPage);
         if (job.finished || job.waitingOnJax) {

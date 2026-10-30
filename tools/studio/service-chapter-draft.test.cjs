@@ -41,6 +41,23 @@ test('only Website Jobs draft chapters; real sign-in waits for the server', asyn
   s.setProjects([{ id: 'sample-home', name: 'Sample Home Services' }]);
   const deck = await s.startJob('sample-home', 'pitch-deck', 'deck');
   await assert.rejects(s.draftChapter('sample-home', deck.id, { name: 'Hero' }), /Only Website Jobs/);
-  const server = createServerService({ request: async () => ({ success: true, data: [] }) });
-  await assert.rejects(server.draftChapter('sample-home', 'any-job', { name: 'Hero' }), /Coming soon/);
+});
+
+test('STUDIO-DRAFT: real sign-in drafts on the server (/draft), never with sample words, even when the server fails', async () => {
+  const calls = [];
+  let reply = { success: true, status: 200, data: { draft: { headline: 'H', body: 'B', button: 'Call' }, settingsUsed: { kind: 'chapter', model: 'meridian' } } };
+  const server = createServerService({ request: async (method, endpoint, body) => { calls.push({ method, endpoint, body }); return reply; }, retryDelays: [] });
+  const out = await server.draftChapter('sample-home', 'any-job', { name: 'Hero', page: 'Home', job: 'Say what we do', extra: 'dropped' });
+  assert.deepEqual(out.draft, { headline: 'H', body: 'B', button: 'Call' });
+  const last = calls.at(-1);
+  assert.equal(last.method, 'POST');
+  assert.equal(last.endpoint, '/api/studio/spaces/sample-home/draft');
+  assert.deepEqual(last.body, { kind: 'chapter', input: { page: 'Home', name: 'Hero', job: 'Say what we do' } });
+  reply = { success: true, status: 200, data: { draft: 'A site that books jobs.', settingsUsed: { kind: 'brief-summary' } } };
+  const copy = await server.draftCopy({ spaceId: 'sample-home', kind: 'brief-summary', input: { notes: 'Roofing, Eugene', secret: 'x' } });
+  assert.equal(copy.draft, 'A site that books jobs.');
+  assert.deepEqual(calls.at(-1).body, { kind: 'brief-summary', input: { notes: 'Roofing, Eugene' } });
+  reply = { success: false, status: 503, error: 'Meridian is switched off in Studio right now.', code: 'studio_ai_off' };
+  await assert.rejects(server.draftCopy({ spaceId: 'sample-home', kind: 'headline', input: { heading: 'Roofs' } }), /switched off/);
+  await assert.rejects(server.draftChapter('sample-home', 'any-job', { name: 'Hero' }), /switched off/);
 });

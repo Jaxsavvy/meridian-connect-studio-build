@@ -141,7 +141,9 @@
         return false;
       }
       if (disposed) return false;
-      if (toolId !== 'image-gen') {
+      if (toolId === 'copywriter') {
+        say('meridian', 'Fill in the brief on the canvas. "Ask Meridian for a summary" there drafts one from what you wrote.');
+      } else if (toolId !== 'image-gen') {
         say('meridian', `I can run Image gen for you today. Help with the ${String(toolId).replace(/-/g, ' ')} tool is coming soon.`);
       } else {
         say('meridian', space.type === 'client'
@@ -157,6 +159,7 @@
       const input = String(text || '').trim();
       if (!ready || disposed || !input || busy) return false;
       say('you', input);
+      if (toolId === 'copywriter') { say('meridian', 'Use "Ask Meridian for a summary" on the canvas for the brief. Open Image gen and I can make pictures there.'); return true; }
       if (toolId !== 'image-gen') { say('meridian', 'That tool is coming soon. Open Image gen and I can help there.'); return true; }
       if (mode === 'meridian') {   // STUDIO-AI 2026-10-25
         if (pending && pending.proposalId && YES.test(input) && input.split(/\s+/).length <= 4) {

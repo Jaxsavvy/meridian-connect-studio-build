@@ -107,6 +107,14 @@ test('rendered: Finish stays disabled until research is done and matched; real s
   await settle(); assert.match(text(other), /Coming soon with the real server/); done();
 });
 
+test('U-D7: Back to Job returns to the Pitch deck Job screen, not the generic work view', async () => {
+  const { service, job } = await started(), el = dom(), went = [];
+  const cleanup = render(el, { spaceId: 'client-a', jobId: job.id }, { service, navigate: (...a) => went.push(a) });
+  await settle(); find(el, 'Back to Job').click();
+  assert.deepEqual(went, [['pitch-deck', { spaceId: 'client-a', jobId: job.id, open: 'research' }]]);
+  cleanup();
+});
+
 test('cleanup removes listeners and stops listening for research changes', async () => {
   const { service, job } = await started(), el = dom(); let reads = 0;
   const counting = { ...service, getResearch: (...a) => { reads++; return service.getResearch(...a); } };

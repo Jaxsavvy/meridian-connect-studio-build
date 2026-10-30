@@ -54,6 +54,7 @@
 
   function mountCanvas(el, ctx) {
     const studio = ctx.studio || {}, doc = el.ownerDocument, win = doc.defaultView, root = doc.createElement('section');
+    const soon = id => Array.isArray(studio.service?.soon) && studio.service.soon.includes(id);   // AUDIT 2026-10-29: not on the real server yet: greyed, says soon
     root.className = 'studio-storyboard'; root.setAttribute('aria-label', 'Storyboard film strip'); el.replaceChildren(root);
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const clipboard = ctx.clipboard || win?.navigator?.clipboard;
@@ -105,7 +106,7 @@
       box.setAttribute('aria-label', `Frames for ${c.where}`);
       box.append(node('h3', c.where), node('p', c.job || ''));
       const tools = node('div', '', 'studio-storyboard-tools'), status = node('span', '', 'studio-storyboard-status'); status.setAttribute('role', 'status');
-      if (!view.locked) tools.appendChild(button(view.busy ? 'Making…' : 'Make a frame', async () => { if (await model.make()) focusTo('make'); }, { primary: true, focus: 'make', disabled: view.busy }));
+      if (!view.locked) tools.appendChild(button(soon('makeStoryboardFrame') ? 'Make a frame (soon)' : view.busy ? 'Making…' : 'Make a frame', async () => { if (await model.make()) focusTo('make'); }, { primary: true, focus: 'make', disabled: view.busy || soon('makeStoryboardFrame') }));
       tools.append(button('Copy prompt', async () => {
         try {
           if (typeof clipboard?.writeText !== 'function') throw Error('No clipboard');

@@ -9,3 +9,9 @@
 .studio-workflow-assign select { min-height: 2.25rem; padding-inline: .5rem; }
 .studio-workflow-assign select:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .studio-workflow-assign select:disabled { opacity: .7; }
+/* ASSIGN-MANY 2026-10-29: a checkbox per person, up to three per stage */
+.studio-workflow-assign { border: 0; padding: 0; margin: .5rem 0 0; }
+.studio-workflow-assign legend { padding: 0; margin-right: .5rem; float: left; }
+.studio-workflow-assign label { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.25rem; }
+.studio-workflow-assign input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.studio-workflow-nobody { opacity: .7; }

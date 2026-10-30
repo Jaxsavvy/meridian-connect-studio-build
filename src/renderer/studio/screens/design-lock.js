@@ -63,6 +63,7 @@
 
   function mountCanvas(el, ctx) {
     const studio = ctx.studio || {}, doc = el.ownerDocument, win = doc.defaultView, root = doc.createElement('section');
+    const soon = id => Array.isArray(studio.service?.soon) && studio.service.soon.includes(id);   // AUDIT 2026-10-29: not on the real server yet: greyed, says soon
     root.className = 'studio-design-lock'; root.setAttribute('aria-label', 'Design lock'); el.replaceChildren(root);
     const states = win?.MeridianStudioScreenStates || require('./home.js').screenStates;
     const ask = message => typeof win?.confirm === 'function' && win.confirm(message);
@@ -142,8 +143,9 @@
       listen(field, 'input', () => { note = field.value; });
       label.append(node('span', 'What should change? (needed to ask for changes)'), field);
       const tools = node('div', '', 'studio-design-lock-tools');
-      tools.append(button('Approve the design', () => void model.approve(), { primary: true, focus: 'approve', disabled: view.busy }),
-        button('Ask for changes', async () => { if (await model.askChanges(note)) note = ''; }, { focus: 'ask', disabled: view.busy }));
+      const later = soon('answerDesign');   // the client answers through a link the server will host
+      tools.append(button(later ? 'Approve the design (soon)' : 'Approve the design', () => void model.approve(), { primary: true, focus: 'approve', disabled: view.busy || later }),
+        button(later ? 'Ask for changes (soon)' : 'Ask for changes', async () => { if (await model.askChanges(note)) note = ''; }, { focus: 'ask', disabled: view.busy || later }));
       return [section('Practice: answer as the client', label, tools)];
     }
     function history(view) {

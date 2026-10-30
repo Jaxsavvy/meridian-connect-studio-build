@@ -7,3 +7,7 @@
 .studio-stage-bar input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .studio-stage-bar button { justify-self: start; }
 .studio-work-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-block-end: .75rem; }
+/* OWNER-JUMP 2026-10-29: Jax can click any stage */
+.studio-stage-list li[data-jump] { cursor: pointer; }
+.studio-stage-list li[data-jump]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.studio-stage-list li[data-viewing="1"] { outline: 1px solid currentColor; outline-offset: 2px; border-radius: 10px; }

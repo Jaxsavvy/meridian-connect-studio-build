@@ -35,8 +35,8 @@
     if (v < min || v > max) errors.push({ path, message: `Must be between ${min} and ${max}.` });
     return v;
   };
-  const bool = () => (v, path, errors) => {
-    if (v === undefined) return false;
+  const bool = (fallback = false) => (v, path, errors) => {
+    if (v === undefined) return fallback;
     if (typeof v !== 'boolean') errors.push({ path, message: 'Must be yes or no.' });
     return v === true;
   };
@@ -80,6 +80,12 @@
     return out;
   };
 
+  // NO-GOOGLE 2026-10-29 (Jax: no paid Google for now): a section with no free source is left out (null), a part of
+  // the score Google would give is "not checked", and a number nobody measured is null (shown as "Not checked", never 0).
+  const optional = check => (v, path, errors) => (v === undefined || v === null ? null : check(v, path, errors));
+  const numOrNull = (min, max) => (v, path, errors) => (v === null ? null : num(min, max)(v, path, errors));
+  const COVERAGE = Object.freeze(['full', 'website-only', 'no-website']);
+  const siteLink = () => (v, path, errors) => (v === undefined || v === null || v === '' ? null : link()(v, path, errors));
   const source = () => obj({ label: str(120), url: link() });
   const headline = () => str(160);
   const blurb = () => str(600);
@@ -88,21 +94,25 @@
     version: oneOf([1]),
     client: obj({ name: str(120), town: str(80), preparedOn: str(40), placeId: placeId() }),
     // parts: how the score was reached (shown on the board), e.g. Website 21 of 35 (#287: no ratings-based part).
+    // checked: false = this part wasn't measured (e.g. Google profile with no Google data); it's left out of the value.
     score: obj({ value: num(0, 100, { integer: true }), band: oneOf(SCORE_BANDS),
-      parts: list(obj({ name: str(40), points: num(0, 100), max: num(1, 100) }), 1, 6) }),
+      parts: list(obj({ name: str(40), points: num(0, 100), max: num(1, 100), checked: bool(true) }), 1, 6),
+      coverage: optional(oneOf(COVERAGE)) }),
     bottomLine: obj({ headline: headline(), text: blurb(),
       findings: list(obj({ icon: oneOf(ICONS), title: str(60), text: str(200) }), 3, 3) }),
     market: obj({ headline: headline(),
       stats: list(obj({ icon: oneOf(ICONS), value: num(0, 1e9), prefix: str(2, { optional: true }), unit: str(4, { optional: true }),
-        label: str(60), note: str(60, { optional: true }), estimate: bool(), source: source() }), 1, 4) }),
+        label: str(60), note: str(60, { optional: true }), estimate: bool(), source: source() }), 0, 4) }),
     // Demand is always shown as a labeled estimate (Jax, 2026-10-27); basis says how it was estimated.
-    demand: obj({ headline: headline(), change: str(12), text: blurb(), series: list(num(0, 1e9), 6, 36), basis: str(160), source: source() }),
-    saturation: obj({ headline: headline(), level: num(0, 1), band: oneOf(SATURATION_BANDS),
-      zones: list(obj({ name: str(40), density: num(0, 100), open: bool() }), 1, 6), source: source() }),
+    // Demand and saturation have no free source: null = not checked, and the board leaves the section out.
+    demand: optional(obj({ headline: headline(), change: str(12), text: blurb(), series: list(num(0, 1e9), 6, 36), basis: str(160), source: source() })),
+    saturation: optional(obj({ headline: headline(), level: num(0, 1), band: oneOf(SATURATION_BANDS),
+      zones: list(obj({ name: str(40), density: num(0, 100), open: bool() }), 1, 6), source: source() })),
     competitors: obj({ headline: headline(), text: blurb(), channels: list(str(20), 4, 4),
       // Rating and review count are NOT stored (Google terms): the board fills them live from placeId.
-      rows: list(obj({ name: str(60), you: bool(), placeId: placeId(), presence: list(num(0, 100), 4, 4),
-        visibility: num(0, 100) }), 2, 5), source: source() }),
+      // site: the business's own website (https), how a row is known when there's no Google place ID.
+      rows: list(obj({ name: str(60), you: bool(), placeId: placeId(), site: siteLink(), presence: list(numOrNull(0, 100), 4, 4),
+        visibility: numOrNull(0, 100) }), 2, 5), source: source() }),
     reputation: obj({ headline: headline(), text: blurb() }),
     visibility: obj({ headline: headline(), text: blurb() }),
     gaps: obj({ headline: headline(), text: blurb(),
@@ -126,9 +136,15 @@
     }
     const parts = Array.isArray(input?.score?.parts) ? input.score.parts : [];
     if (parts.length && parts.every(x => x && Number.isFinite(x.points) && Number.isFinite(x.max))) {
-      const sum = parts.reduce((t, x) => t + x.points, 0), max = parts.reduce((t, x) => t + x.max, 0);
+      const max = parts.reduce((t, x) => t + x.max, 0), used = parts.filter(x => x.checked !== false);
       if (max !== 100) errors.push({ path: 'score.parts', message: 'The parts must add up to 100 points in total.' });
-      if (Math.round(sum) !== input.score.value) errors.push({ path: 'score.value', message: 'Must equal the sum of the parts.' });
+      if (!used.length) errors.push({ path: 'score.parts', message: 'At least one part must be checked.' });
+      // All parts checked: the value is their sum. Some not checked: the checked parts scaled to 100.
+      const usedMax = used.reduce((t, x) => t + x.max, 0), sum = used.reduce((t, x) => t + x.points, 0);
+      const want = used.length === parts.length ? Math.round(sum) : usedMax ? Math.round((100 * sum) / usedMax) : 0;
+      if (used.length && want !== input.score.value) errors.push({ path: 'score.value', message: used.length === parts.length
+        ? 'Must equal the sum of the parts.' : `Must equal the checked parts scaled to 100 (${want}).` });
+      if (parts.some(x => x.checked === false && x.points !== 0)) errors.push({ path: 'score.parts', message: "A part that wasn't checked scores 0 points." });
       if (parts.some(x => x.points > x.max)) errors.push({ path: 'score.parts', message: 'A part can\'t score more than its maximum.' });
     }
     return { ok: errors.length === 0, errors, deck };
@@ -168,24 +184,30 @@
     const md = s => String(s).replace(/([\\`*_[\]#<>|])/g, '\\$1');
     const ref = s => `[${md(s.label)}](${s.url})`;
     const lines = [`# Research summary: ${md(deck.client.name)}, ${md(deck.client.town)}`, '', `Prepared ${md(deck.client.preparedOn)}.`, '',
-      `Business score: ${deck.score.value} (${deck.score.band}): ${deck.score.parts.map(x => `${md(x.name)} ${x.points} of ${x.max}`).join(', ')}`,
+      `Business score: ${deck.score.value} (${deck.score.band}): ${deck.score.parts.map(x => x.checked === false ? `${md(x.name)} not checked` : `${md(x.name)} ${x.points} of ${x.max}`).join(', ')}`
+        + (deck.score.coverage === 'website-only' ? ' (based on the website only)' : deck.score.coverage === 'no-website' ? ' (no website found)' : ''),
       '', '## Market', ''];
     for (const s of deck.market.stats) {
       lines.push(`- ${md(s.label)}: ${md(s.prefix)}${s.value}${md(s.unit)}${s.estimate ? ' (estimate)' : ''}. Source: ${ref(s.source)}`);
     }
-    lines.push('', '## Demand (estimate)', '', `- Change: ${md(deck.demand.change)} over ${deck.demand.series.length} points. Source: ${ref(deck.demand.source)}`,
-      `- How it was estimated: ${md(deck.demand.basis)}`,
-      '', '## Saturation', '', `- Overall: ${deck.saturation.band}. Source: ${ref(deck.saturation.source)}`);
-    for (const z of deck.saturation.zones) lines.push(`- ${md(z.name)}: density ${z.density}${z.open ? ' (open)' : ''}`);
+    if (deck.demand) {
+      lines.push('', '## Demand (estimate)', '', `- Change: ${md(deck.demand.change)} over ${deck.demand.series.length} points. Source: ${ref(deck.demand.source)}`,
+        `- How it was estimated: ${md(deck.demand.basis)}`);
+    } else lines.push('', '## Demand', '', '- Not checked (no free source).');
+    if (deck.saturation) {
+      lines.push('', '## Saturation', '', `- Overall: ${deck.saturation.band}. Source: ${ref(deck.saturation.source)}`);
+      for (const z of deck.saturation.zones) lines.push(`- ${md(z.name)}: density ${z.density}${z.open ? ' (open)' : ''}`);
+    } else lines.push('', '## Saturation', '', '- Not checked (no free source).');
     lines.push('', '## Competitors', '', `Source: ${ref(deck.competitors.source)}`, '');
     for (const r of deck.competitors.rows) {
-      const live = r.placeId ? `rating and reviews live from Google Maps (https://www.google.com/maps/place/?q=place_id:${r.placeId})` : 'not on Google Maps';
-      lines.push(`- ${md(r.name)}${r.you ? ' (this business)' : ''}: ${live}, visibility ${r.visibility}`);
+      const live = r.placeId ? `rating and reviews live from Google Maps (https://www.google.com/maps/place/?q=place_id:${r.placeId})`
+        : r.site ? `website ${r.site}` : 'not on Google Maps';
+      lines.push(`- ${md(r.name)}${r.you ? ' (this business)' : ''}: ${live}, visibility ${r.visibility === null ? 'not checked' : r.visibility}`);
     }
     lines.push('', '## Home-page builds', '');
     for (const t of deck.homePages.tiers) lines.push(`- ${md(t.name)}: ${t.url ? t.url : 'no live link yet'}`);
     return lines.join('\n') + '\n';
   }
 
-  return Object.freeze({ ICONS, SCORE_BANDS, SATURATION_BANDS, validateDeck, emptyDeck, researchSummary });
+  return Object.freeze({ ICONS, SCORE_BANDS, SATURATION_BANDS, COVERAGE, validateDeck, emptyDeck, researchSummary });
 });

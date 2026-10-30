@@ -32,6 +32,7 @@
   let service = sampleService;   // switched by MeridianStudioUI.useServer() at sign-in (#48)
   let syncProjects = () => {};
   let onSignedOut = null;   // SPACES-FIX 2026-10-25: Connect's sign-in-expired flow (set by useServer)
+  let ownerSignedIn = false;   // OWNER-JUMP 2026-10-29: Jax (Connect's owner sign-in) can open any stage and skip ticks
 
   // Lane files. Each Wave 1 issue creates its own file(s) from this list, so nobody
   // edits index.html or another lane's file. Files that don't exist yet are skipped.
@@ -127,6 +128,10 @@
   const api = Object.freeze({
     get service() { return service; },
     get context() { return window.meridianStudioContext; },
+    /** OWNER-JUMP: true for Jax's sign-in only; screens use it to let him open any stage and skip ticks. */
+    get isOwner() { return ownerSignedIn; },
+    /** Whether a tool is really built (a stage can list one that isn't yet, e.g. 'video'). */
+    hasTool: id => tools.has(id),
     registerScreen: (name, entry) => register(screens, 'screen', name, entry, 'render'),
     registerTool: (id, entry) => register(tools, 'tool', id, entry, 'mountCanvas'),
     registerPart: (name, entry) => register(parts, 'part', name, entry, 'mount'),
@@ -178,6 +183,7 @@
     useServer(on, options = {}) {
       const bridge = window.meridian && window.meridian.api && window.meridian.api.studio;
       onSignedOut = typeof options.onSignedOut === 'function' ? options.onSignedOut : null;
+      ownerSignedIn = Boolean(on && options.owner === true);
       if (on && typeof bridge === 'function' && !serverService) {
         serverService = window.MeridianStudioService.createServerService({ request: bridge, fileBase: options.fileBase,
           saveFile: window.meridian.api.studioSaveFile, readSave: window.meridian.api.studioReadSave,
