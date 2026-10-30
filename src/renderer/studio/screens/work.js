@@ -7,6 +7,7 @@
   // AUDIT 2026-10-29: a stage only offers tools that work there: the Copywriter is Kickoff's brief form (on Story and
   // Words it only said "open it from Kickoff"), and a tool that isn't built yet ('video') is left out.
   const usableTools = (stage, hasTool) => (stage?.tools || []).filter(id => (id !== 'copywriter' || stage.id === 'brief')
+    && (id !== 'build-kit' || stage.id !== 'build')   // U-W6 (Jax 10-29): Build has one path, the in-app Website builder
     && (typeof hasTool !== 'function' || hasTool(id)));
   function createWork({ service, spaceId, toolId, jobId, stageId, navigate, report, owner = false, hasTool }) {
     let disposed = false, revision = 0;
