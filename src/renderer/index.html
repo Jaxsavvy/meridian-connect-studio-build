@@ -8,6 +8,7 @@
   <link rel="icon" href="assets/meridian.ico">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="meridian-standard.css">
+  <link rel="stylesheet" href="time-page.css">
   <link rel="stylesheet" href="studio/studio.css">
 </head>
 <body class="home-view">
@@ -108,6 +109,10 @@
       <button type="button" class="nav-link" data-view="chat">
         <span class="nav-icon">✦</span>
         <span class="nav-text">Meridian AI</span>
+      </button>
+      <button type="button" class="nav-link" id="nav-time-link" data-view="time" style="display: none;" data-nav-aliases="time,timesheet,hours">
+        <span class="nav-icon">◷</span>
+        <span class="nav-text">Time</span>
       </button>
     </nav>
 
@@ -523,6 +528,7 @@
 
       <!-- Studio host. The new Studio frame (docs/PLAN.md, Wave 1) mounts here. -->
       <section id="studioCenter" aria-label="Meridian Studio" hidden></section>
+      <section id="timeCenter" aria-label="Time" hidden></section>
 
       <!-- Popped View Notice Placeholder -->
       <div id="view-popped-notice" class="panel-popped-state">
@@ -610,5 +616,6 @@
   <script src="nav.js"></script>
   <script src="connect-shell.js"></script>
   <script src="messages-hub.js"></script>
+  <script src="time-page.js"></script>
 </body>
 </html>

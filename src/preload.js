@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('meridian', {
   // API Stub Methods
   api: {
     getMe: (username) => ipcRenderer.invoke('api:get-me', username),
+    time: (from, to) => ipcRenderer.invoke('api:time', { from, to }),   // TIME 2026-10-31: Jax's Time page
     ping: () => ipcRenderer.invoke('api:ping'),
     changePassword: (current, next) => ipcRenderer.invoke('api:change-password', { current, next }),
     ws: (method, endpoint, body) => ipcRenderer.invoke('ws:request', { method, endpoint, body }),

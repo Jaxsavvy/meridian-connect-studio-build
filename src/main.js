@@ -747,6 +747,7 @@ if (!gotTheLock) {
 
     // API IPC Stub Handlers
     ipcMain.handle('api:get-me', (e, user) => api.getMe(user));
+    ipcMain.handle('api:time', (e, req) => api.timeReport(req && req.from, req && req.to));   // TIME 2026-10-31: Jax's Time page
     ipcMain.handle('api:ping', () => api.ping());   // home-base status banner (2026-10-08)
     ipcMain.handle('api:change-password', (e, { current, next }) => api.changePassword(current, next));
     // Project workspace (2026-10-06)

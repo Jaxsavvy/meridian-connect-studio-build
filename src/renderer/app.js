@@ -17,7 +17,8 @@ const viewHeadings = {
   'messages': { eyebrow: 'WORKSPACE // MESSAGES', title: 'Team Messages with <em>Jax.</em>' },
   'send': { eyebrow: 'WORKSPACE // INBOX', title: 'Send to <em>Meridian.</em>' },
   'tools': { eyebrow: 'MERIDIAN HOST // DOORWAY', title: 'Tools & <em>Services.</em>' },
-  'chat': { eyebrow: 'WORKSPACE // PROJECT AI', title: 'Meridian AI <em>Chat.</em>' }
+  'chat': { eyebrow: 'WORKSPACE // PROJECT AI', title: 'Meridian AI <em>Chat.</em>' },
+  'time': { eyebrow: 'OWNER // TIME', title: 'Time' }   // TIME 2026-10-31: Jax only
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -139,6 +140,7 @@ function showLogin() {
   if (idleTimer) clearInterval(idleTimer);
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('login-password').value = '';
+  closeTimePage();   // TIME 2026-10-31
 }
 
 async function enterApp(user) {
@@ -173,6 +175,8 @@ async function enterApp(user) {
   if (window.MeridianStudioUI && window.MeridianStudioUI.useServer) window.MeridianStudioUI.useServer(true);
 
   currentMe = Object.assign({}, user, meRes.data, { displayName: meRes.data.name || user.displayName });
+  const timeNav = document.getElementById('nav-time-link');   // TIME 2026-10-31: the Time page is Jax's only (Team Hub refuses others too)
+  if (timeNav) timeNav.style.display = meRes.data.is_owner ? '' : 'none';
 
   // Update profile in sidebar & header
   const initial = currentMe.displayName ? currentMe.displayName.charAt(0).toUpperCase() : 'U';
@@ -314,12 +318,21 @@ function switchView(viewKey, options = {}) {
   if (toolsEl) toolsEl.style.display = (viewKey === 'tools') ? 'flex' : 'none';
   if (studioEl) studioEl.hidden = viewKey !== 'studio';
   if (window.MeridianStudioUI) window.MeridianStudioUI.setActive(viewKey === 'studio');
+  // TIME 2026-10-31: the owner's Time page (time-page.js) is built when opened and taken down when left
+  const timeEl = document.getElementById('timeCenter');
+  if (timeEl) timeEl.hidden = viewKey !== 'time';
+  if (viewKey === 'time' && currentMe && currentMe.is_owner && !closeTime && window.MeridianTimePage) {
+    closeTime = window.MeridianTimePage.mount(timeEl, { load: (from, to) => window.meridian.api.time(from, to) });
+  } else if (viewKey !== 'time') closeTimePage();
 
   if (currentMe && viewKey === 'send') loadSendQueue();
   if (currentMe && viewKey === 'tools') loadTools();
 
   updatePoppedState();
 }
+
+let closeTime = null;   // TIME 2026-10-31
+function closeTimePage() { if (closeTime) { closeTime(); closeTime = null; } }
 
 function updatePoppedState() {
   const isPopped = poppedViews.has(activeView);
