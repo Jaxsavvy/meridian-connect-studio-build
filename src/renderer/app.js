@@ -5,7 +5,6 @@ let currentMe = null;
 let currentProject = null;
 let projects = [];
 let clientSettings = null;
-let idleTimer = null;
 let activeView = 'overview';
 const poppedViews = new Set();
 
@@ -136,7 +135,7 @@ function showLogin() {
   window.meridianStudioContext.reset();
   if (window.meridianWorkspace) window.meridianWorkspace.clear();
   clearProjectCards('Sign in to load projects.');
-  if (idleTimer) clearInterval(idleTimer);
+  if (window.MeridianActivity) window.MeridianActivity.stop();   // TIME 2026-10-31
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('login-password').value = '';
 }
@@ -162,7 +161,7 @@ async function enterApp(user) {
     await window.meridian.logout();
     showLogin();
     const errorEl = document.getElementById('login-error');
-    if (errorEl) { errorEl.textContent = (meRes && meRes.offline) ? 'Cannot reach home base. Check that Meridian is running, then sign in.' : 'Please sign in.'; errorEl.style.display = 'block'; }
+    if (errorEl) { errorEl.textContent = (meRes && meRes.offline) ? 'Cannot reach home base. Check that Meridian is running, then sign in.' : (meRes && meRes.status === 401 && meRes.error) || 'Please sign in.'; errorEl.style.display = 'block'; }   // TIME: 401 = 15 quiet minutes
     return;
   }
   if (meRes.data.must_change) {   // temporary password: choose a new one before using Connect
@@ -214,8 +213,23 @@ async function enterApp(user) {
 
   setupQuickSearch();
   setupSettingsUI();
-  setupIdleWatcher();
   setupPopoutListeners();
+  // TIME 2026-10-31: time tracking and the 15-minute sign-out (activity.js; Team Hub decides whether the rule is on)
+  if (window.MeridianActivity) window.MeridianActivity.start({ getPlace: activityPlace, signedOut: showSignedOut });
+}
+
+/** TIME 2026-10-31: where this person is, for Jax's Time page: the page, the project open in it, and in Studio the
+ *  Space (a client project), Job, stage and tool. Ids only; Team Hub drops a project the person isn't on. */
+function activityPlace() {
+  const place = { area: activeView, projectId: ['projects', 'chat'].includes(activeView) && currentProject ? String(currentProject.id || '') : '' };
+  if (activeView === 'studio' && window.MeridianActivity) Object.assign(place, window.MeridianActivity.studioPlace(window.MeridianStudio));
+  return place;
+}
+
+function showSignedOut(message) {   // TIME 2026-10-31: after 15 minutes without activity
+  showLogin();
+  const errorEl = document.getElementById('login-error');
+  if (errorEl) { errorEl.textContent = message; errorEl.style.display = 'block'; }
 }
 
 /* ==========================================================================
@@ -1030,21 +1044,6 @@ function setupPopoutListeners() {
   window.meridian.onDataSync(() => {
     loadAllPanelData();
   });
-}
-
-function setupIdleWatcher() {
-  let lastActive = Date.now();
-  window.addEventListener('mousemove', () => { lastActive = Date.now(); });
-  window.addEventListener('keydown', () => { lastActive = Date.now(); });
-
-  idleTimer = setInterval(() => {
-    const idleHours = (Date.now() - lastActive) / (1000 * 60 * 60);
-    const limit = (clientSettings && clientSettings.idleTimeoutHours) ? clientSettings.idleTimeoutHours : 8;
-    if (idleHours >= limit && currentUser) {
-      window.meridian.logout();
-      showLogin();
-    }
-  }, 60000);
 }
 
 function escapeHtml(str) {

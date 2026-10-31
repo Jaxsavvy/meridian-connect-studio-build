@@ -175,6 +175,11 @@ const api = {
     return res;
   },
 
+  /** TIME 2026-10-31: the once-a-minute check-in (Team Hub time_tracking.py). A 401 here means 15 quiet minutes. */
+  async activity(body) {
+    return apiRequest('/api/activity', { method: 'POST', body: JSON.stringify(body || {}), timeoutMs: 8000 });
+  },
+
   /**
    * Project workspace (2026-10-06): one guarded request helper for /api/projects/* and /api/tasks*
    */

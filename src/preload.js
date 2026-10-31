@@ -15,6 +15,27 @@ contextBridge.exposeInMainWorld('meridian', {
   login: (username, password, remember) => ipcRenderer.invoke('auth:login', { username, password, remember }),
   logout: () => ipcRenderer.invoke('auth:logout'),
 
+  // TIME 2026-10-31: time tracking and the 15-minute sign-out (renderer/activity.js)
+  activityStart: () => ipcRenderer.invoke('activity:start'),
+  activityStop: () => ipcRenderer.invoke('activity:stop'),
+  activityHere: () => ipcRenderer.invoke('activity:here'),
+  activityPlace: (place) => ipcRenderer.send('activity:place', place),
+  onActivityWarn: (callback) => {
+    const handler = (event, secondsLeft) => callback(secondsLeft);
+    ipcRenderer.on('activity:warn', handler);
+    return () => ipcRenderer.removeListener('activity:warn', handler);
+  },
+  onActivityClear: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('activity:clear', handler);
+    return () => ipcRenderer.removeListener('activity:clear', handler);
+  },
+  onActivitySignedOut: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('activity:signed-out', handler);
+    return () => ipcRenderer.removeListener('activity:signed-out', handler);
+  },
+
   // Settings & System
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (newSettings) => ipcRenderer.invoke('settings:save', newSettings),
