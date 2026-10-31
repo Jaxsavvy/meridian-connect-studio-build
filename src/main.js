@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog, protocol, net, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, shell, dialog, protocol, net, session, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -17,6 +17,7 @@ const api = require('./api');
 const { isSafeExternalUrl, isAllowedServerUrl } = require('./safe-url');
 const boardCheck = require('./board-check');
 const previewCheck = require('./preview-check');
+const { createActivityWatch } = require('./activity-watch');   // TIME 2026-10-31: time tracking + the 15-minute sign-out
 
 /** Opens a link in the person's browser or mail app, but only if it's a normal web or email link. */
 function openSafeExternal(url) {
@@ -65,7 +66,7 @@ function handleMediaRequest(request) {
 
 /** Saves settings from the Settings screen. Only known, harmless keys are accepted. Changing the
  *  server address needs a native confirmation the page can't fake, and signs the person out. */
-const PAGE_SETTINGS = ['apiTimeoutMs', 'notificationsEnabled', 'speakReplies', 'idleTimeoutHours', 'reconnectIntervalMs'];
+const PAGE_SETTINGS = ['apiTimeoutMs', 'notificationsEnabled', 'speakReplies', 'reconnectIntervalMs'];   // TIME: idle sign-out is Team Hub's rule now
 
 async function saveSettingsFromPage(event, incoming) {
   const input = incoming && typeof incoming === 'object' ? incoming : {};
@@ -111,6 +112,7 @@ const isTestMode = process.argv.includes('--test-automation');
 let authManager = null;
 let layoutStore = null;
 let mainWindow = null;
+let activityWatch = null;   // TIME 2026-10-31
 let tray = null;
 const popoutWindows = new Map();
 
@@ -135,7 +137,6 @@ function getSettings() {
     serverUrl: 'https://meridian-command.your-team.cloudflareaccess.com',
     apiTimeoutMs: 10000,
     reconnectIntervalMs: 5000,
-    idleTimeoutHours: 8,
     notificationsEnabled: true,
     appName: 'Meridian Connect'
   };
@@ -708,12 +709,33 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle('auth:logout', async () => {
+      activityWatch.stop();   // TIME 2026-10-31: Team Hub clocks out on the sign-out itself
       for (const [panelId, win] of popoutWindows.entries()) {
         if (win && !win.isDestroyed()) win.close();
       }
       popoutWindows.clear();
       return authManager.logout();
     });
+
+    // TIME 2026-10-31: time tracking (src/activity-watch.js, renderer/activity.js; Team Hub time_tracking.py)
+    const toWindows = (channel, value) => BrowserWindow.getAllWindows().forEach((w) => { try { w.webContents.send(channel, value); } catch (e) {} });
+    activityWatch = createActivityWatch({
+      idleSeconds: () => powerMonitor.getSystemIdleTime(),
+      focused: () => BrowserWindow.getAllWindows().some(w => !w.isDestroyed() && w.isFocused()),
+      send: body => api.activity(body),
+      onWarn: secondsLeft => toWindows('activity:warn', secondsLeft),
+      onClear: () => toWindows('activity:clear'),
+      onSignOut: async () => {
+        for (const [, win] of popoutWindows.entries()) if (win && !win.isDestroyed()) win.close();
+        popoutWindows.clear();
+        await authManager.logout();
+        toWindows('activity:signed-out');
+      },
+    });
+    ipcMain.handle('activity:start', () => { const u = authManager.getCurrentUser(); if (u && !u.sample) activityWatch.start(); return activityWatch.running; });
+    ipcMain.handle('activity:stop', () => { activityWatch.stop(); return true; });
+    ipcMain.handle('activity:here', () => { activityWatch.watch(); return true; });
+    ipcMain.on('activity:place', (e, place) => activityWatch.setPlace(place));
 
     ipcMain.handle('settings:get', () => getSettings());
     ipcMain.handle('settings:save', saveSettingsFromPage);
@@ -999,4 +1021,12 @@ if (!gotTheLock) {
     }
   });
   app.on('will-quit', () => { if (layoutStore) layoutStore.flush(); });   // save the last window position (writes are batched)
+  // TIME 2026-10-31: quitting clocks out at the last activity (give Team Hub up to 2 seconds; its sweep catches a miss)
+  let clockedOut = false;
+  app.on('before-quit', (event) => {
+    if (clockedOut || !activityWatch || !activityWatch.running) return;
+    event.preventDefault();
+    clockedOut = true;
+    Promise.race([activityWatch.closing(), new Promise(r => setTimeout(r, 2000))]).finally(() => app.quit());
+  });
 }
