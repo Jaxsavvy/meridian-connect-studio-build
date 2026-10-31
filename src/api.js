@@ -596,6 +596,13 @@ const api = {
   /**
    * Get team messages from Jax & team
    */
+  /** TIME 2026-10-31: the owner's Time page for local days from..to (YYYY-MM-DD). Team Hub answers 403 to anyone but Jax. */
+  async timeReport(from, to) {
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    if (!day.test(String(from)) || !day.test(String(to))) return { success: false, error: 'Use dates like 2026-10-26.' };
+    return apiRequest(`/api/time?from=${from}&to=${to}`, { timeoutMs: 15000 });
+  },
+
   async getMessages() {
     const res = await apiRequest('/api/messages');
     if (res.success && res.messages) {
