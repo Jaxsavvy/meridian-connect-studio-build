@@ -4,7 +4,7 @@
  * (GET /connect/api/time, time_tracking.py). Organised by how often each question comes up:
  *   Live (always on top)  who's in, where, for how long, hours today
  *   Timesheet             the week person by person: hours, first in / last out, idle sign-outs; then what stands out
- *   A day (drill-in)      each clock-in and how it ended, then the day block by block
+ *   A day (drill-in)      each clock-in and how it ended, the day block by block, then what they did
  *   Where time went       each person's week by area, by client, and inside Studio by stage
  * Pay is per project, not hourly: this is for seeing how time is spent, so hours are exact, never rounded.
  * Usage: const close = MeridianTimePage.mount(el, { load: (from, to) => Promise<report>, now: () => Date.now() }).
@@ -57,7 +57,9 @@
       const last = mine.length ? mine[mine.length - 1] : null;
       return { start: d, ms: mine.reduce((n, s) => n + s.end - s.start, 0), sessions: mine, idle,
         first: mine.length ? mine[0].start : 0, last: last ? (last.open && last.end === now ? null : last.end) : 0,
-        blocks: clipped(blocks.filter(b => b.userId === uid), d, end) };
+        blocks: clipped(blocks.filter(b => b.userId === uid), d, end),
+        did: (report.did || []).filter(e => e.userId === uid && e.at * 1000 >= d && e.at * 1000 < end).map(e => ({ ...e, atMs: e.at * 1000 })),
+        messages: ((report.messageCounts || {})[uid] || {})[iso(d)] || 0 };
     };
     const people = (report.people || []).map((p, i) => {
       const week7 = days.map(d => day(p.id, d));
@@ -236,10 +238,20 @@
       const list = node('div', '', 'tp-blocks');
       for (const b of d.blocks) { const r = node('div', '', 'tp-block'), a = node('span', '', 'tp-block-area'); a.append(swatch(b.area), AREAS[group(b.area)][0]);
         r.append(node('span', `${clock(b.start)} – ${clock(b.end)}`, 'tp-quiet'), a, node('span', placeName(b).split(' › ').slice(1).join(' › ') || '—'), node('span', dur(b.end - b.start), 'tp-strong tp-right')); list.appendChild(r); }
+      const count = kinds => d.did.filter(e => kinds.includes(e.kind)).reduce((n, e) => n + (e.count || 1), 0);
+      const did = node('div', '', 'tp-facts');
+      for (const [label, value] of [['Tasks finished', count(['task'])], ['Files added', count(['file'])], ['Notes and links', count(['note', 'link', 'deliverable'])],
+        ['Sent to Jax', count(['sent'])], ['Images made', count(['studio'])], ['Messages sent', d.messages]]) {
+        const f = node('div', '', 'tp-fact'); f.append(node('p', label, 'tp-quiet'), node('p', String(value), 'tp-fact-value')); did.appendChild(f);
+      }
+      const done = node('div', '', 'tp-panel');
+      if (!d.did.length) done.appendChild(node('p', 'Nothing recorded for this day yet.', 'tp-quiet'));
+      for (const e of d.did) { const r = node('div', '', 'tp-did'); r.append(node('span', clock(e.atMs), 'tp-amber-text'), node('span', e.text), node('span', e.projectName || '', 'tp-quiet')); done.appendChild(r); }
       const card = node('div', '', 'tp-panel');
       card.append(strip(d.blocks, d.start, m.now, 'tp-strip tp-strip-lg', `${p.first}, ${longDay(d.start)}: ` + d.blocks.map(b => `${AREAS[group(b.area)][0]} ${dur(b.end - b.start)}`).join(', ')), ticks(), legend(), list);
       out.append(facts, band('01', 'CLOCK IN AND OUT', 'Each session, and how it ended', 'Signing in clocks in. Signing out, 15 idle minutes, or closing Connect clocks out, at the last moment they were active.'), table,
-        band('02', 'WHERE THEY WERE', 'The day, block by block', 'Page, client project, and in Studio the Job and stage. Time in other apps shows as Outside Connect, without the app\'s name.'), card);
+        band('02', 'WHERE THEY WERE', 'The day, block by block', 'Page, client project, and in Studio the Job and stage. Time in other apps shows as Outside Connect, without the app\'s name.'), card,
+        band('03', 'WHAT THEY DID', 'Work that moved', 'Tasks finished, files and notes added, work sent to you, and Studio images. Messages are counted, never read.'), did, done);
       return out;
     }
 

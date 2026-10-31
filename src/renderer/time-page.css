@@ -98,6 +98,8 @@
 .tp-legend > span, .tp-block-area { display: inline-flex; align-items: center; gap: 8px; }
 .tp-swatch { flex: none; display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
 .tp-block { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(120px, 1fr) minmax(0, 2fr) minmax(56px, 0.5fr); gap: 6px 16px; align-items: center; padding: 10px 0; border-top: 1px solid #18283D; font-size: 13px; }
+.tp-did { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline; padding: 10px 0; border-top: 1px solid #18283D; }
+.tp-did:first-child { border-top: 0; }
 .tp-empty { padding: 40px 24px; border: 1px dashed #243A57; border-radius: 14px; text-align: center; font: 400 22px "Source Serif 4", Georgia, serif; }
 
 /* where time went */
@@ -112,6 +114,8 @@
 @media (max-width: 640px) {
   .tp { padding: 18px 16px 40px; }
   .tp-block { grid-template-columns: 1fr auto; }
+  .tp-did { grid-template-columns: 64px 1fr; }
+  .tp-did > :last-child { grid-column: 2; }
   .tp-bar-row { grid-template-columns: 1fr 64px; }
   .tp-bar-row > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
 }

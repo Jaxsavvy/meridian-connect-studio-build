@@ -27,7 +27,13 @@ function report() {
       b(JORDAN, at(0, 10), at(0, 11), 'messages'), b(JORDAN, at(2, 22), at(3, 1), 'outside')],
     live: [{ userId: AVERY, clockedIn: true, since: at(4, 9), lastActive: at(4, 15, 30), hereSince: at(4, 9),
       place: { area: 'studio', projectId: 'p2', projectName: 'Build Co', jobId: 'j', stageId: 'build', tool: 'website', label: '' } },
-      { userId: JORDAN, clockedIn: false, lastActive: at(3, 1), endReason: 'closed' }, { userId: JAX, clockedIn: false, lastActive: 0, endReason: '' }]
+      { userId: JORDAN, clockedIn: false, lastActive: at(3, 1), endReason: 'closed' }, { userId: JAX, clockedIn: false, lastActive: 0, endReason: '' }],
+    did: [{ userId: AVERY, at: at(0, 9, 40), kind: 'studio', text: 'Made 3 images with Image gen', count: 3, projectId: 'p1', projectName: 'Roof Co' },
+      { userId: AVERY, at: at(0, 11, 5), kind: 'file', text: 'Added a file: TEST plan.pdf', count: 1, projectId: 'p1', projectName: 'Roof Co' },
+      { userId: AVERY, at: at(0, 13, 30), kind: 'task', text: 'Finished a task: TEST Send hero photos', count: 1, projectId: 'p1', projectName: 'Roof Co' },
+      { userId: AVERY, at: at(4, 10), kind: 'sent', text: 'Sent to Jax: https://example.test/pr/3', count: 1, projectId: '', projectName: '' },
+      { userId: JORDAN, at: at(0, 10, 30), kind: 'note', text: 'Added a note: TEST call notes', count: 1, projectId: 'p2', projectName: 'Build Co' }],
+    messageCounts: { [AVERY]: { '2026-10-26': 4 } }
   };
 }
 
@@ -43,6 +49,8 @@ test('the week: days split at local midnight, open sessions run to now, idle sig
   assert.equal(m.personDays, 5);
   assert.equal(m.idle, 1);
   assert.equal(Math.round(m.outsideShare * 100), 27);
+  assert.deepEqual(avery.days[0].did.map(e => e.kind), ['studio', 'file', 'task'], 'what they did, by day');
+  assert.deepEqual([avery.days[0].messages, avery.days[4].did.length, jordan.days[0].did.length], [4, 1, 1]);
 });
 
 test('what stands out: longest day, most time outside Connect, one card per person for missed days, never the owner', () => {
@@ -109,6 +117,8 @@ test('the page: live cards, the timesheet, a day opened from a cell, and where t
   assert.match(day, /Timesheet›Avery Brooks›Monday, Oct 26/);
   assert.match(day, /Clocked4h 00mSessions2First in9:00 amLast out2:00 pmIdle sign-outs1/);
   assert.match(day, /9:00 am12:00 pm3h 00mSigned out1:00 pm2:00 pm1h 00m15 idle minutes/);
+  assert.match(day, /03 · WHAT THEY DIDWork that moved.*Tasks finished1Files added1Notes and links0Sent to Jax0Images made3Messages sent4/);
+  assert.match(day, /9:40 amMade 3 images with Image genRoof Co11:05 amAdded a file: TEST plan\.pdfRoof Co1:30 pmFinished a task: TEST Send hero photosRoof Co/);
   assert.equal(btn(el, 'Previous day').disabled, true, 'Monday is the first day of the week');
   btn(el, 'Next day').click();
   assert.match(text(el), /Avery didn't clock in on Tuesday, Oct 27\./);
